@@ -1,0 +1,11 @@
+[package]
+name = "otter-launcher"
+version = "0.2.0"
+
+[dependencies]
+fuzzy-matcher = "0.3.7"
+inquire = { path = "./inquire/inquire" }
+regex = "1.11.1"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.5"
+urlencoding = "2.1.3"

@@ -1,0 +1,389 @@
+extern crate serde;
+extern crate urlencoding;
+extern crate inquire;
+extern crate toml;
+extern crate fuzzy_matcher;
+extern crate regex;
+
+/* Note for Modified Crate
+The inquire crate was modified with three files for better ui:
+    1. src/ui/api/render_config.rs: list_prefix was added as a pub, following some defs
+    2. src/ui/backend: [] was removed from fn render_help_message; list_prefix was added to fn print_option_prefix
+    3. src/input/action.rs was modified in fn from_key for ctrl+k & ctrl+u keybinds
+*/
+
+use std::{fs, env, path::Path, error::Error, process, process::Command};
+use inquire::{autocompletion::{Autocomplete, Replacement}, CustomUserError, Text, ui::{RenderConfig, Styled, StyleSheet, Attributes, IndexPrefix}};
+use serde::Deserialize;
+use toml::from_str;
+use urlencoding::encode;
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use regex::Regex;
+
+// Define config structure
+#[derive(Deserialize)]
+struct Config {
+    general: General,
+    interface: Interface,
+    modules: Vec<Module>,
+}
+
+#[derive(Deserialize)]
+struct General {
+    default_module: String,
+    empty_module: String,
+    exec_cmd: String,
+    show_suggestion: bool,
+}
+
+#[derive(Deserialize)]
+struct Interface {
+    header: String,
+    header_cmd: String,
+    header_cmd_trimmed_lines: usize,
+    prompt_prefix: String,
+    list_prefix: String,
+    highlighted_prefix: String,
+    scroll_up_prefix: String,
+    scroll_down_prefix: String,
+    help_message: String,
+    suggestion_lines: usize,
+    place_holder: String,
+}
+
+#[derive(Deserialize)]
+struct Module {
+    description: String,
+    prefix: String,
+    cmd: String,
+    with_argument: bool,
+    url_encode: bool,
+}
+
+// Define hint autocompleter
+#[derive(Clone, Default)]
+pub struct HintCompleter {
+    input: String,
+    hints: Vec<String>,
+}
+
+impl HintCompleter {
+    fn update_input(&mut self, input: &str) -> Result<(), CustomUserError> {
+        if input == self.input && !self.hints.is_empty() {
+            return Ok(());
+        }
+        self.input = input.to_owned();
+        self.hints.clear();
+
+        let config = read_config();
+        let mut input_hint: Vec<String> = config
+            .unwrap()
+            .modules
+            .iter()
+            .map(|module| module.prefix.clone() + " " + &module.description
+            )
+            .collect();
+        input_hint.sort();
+
+
+        for entry in input_hint {
+            let hint = entry;
+            let hint_str = hint;
+
+            self.hints.push(hint_str);
+        }
+        Ok(())
+    }
+
+    fn fuzzy_sort(&self, input: &str) -> Vec<(String, i64)> {
+        let mut matches: Vec<(String, i64)> = self
+            .hints
+            .iter()
+            .filter_map(|hint| {
+                SkimMatcherV2::default()
+                    .smart_case()
+                    .fuzzy_match( &remove_ascii(hint), input)
+                    //match prefix only: .fuzzy_match( &remove_ascii(hint).split_whitespace().next()?, input)
+                    .map(|score| (hint.clone(), score))
+            })
+            .collect();
+
+        matches.sort_by(|a, b| b.1.cmp(&a.1));
+        matches
+    }
+}
+
+impl Autocomplete for HintCompleter {
+    fn get_suggestions(&mut self, input: &str) -> Result<Vec<String>, CustomUserError> {
+        self.update_input(input)?;
+
+        let matches = self.fuzzy_sort(input);
+        Ok(matches.into_iter().take(15).map(|(hint, _)| hint).collect())
+    }
+
+    fn get_completion(
+        &mut self,
+        input: &str,
+        highlighted_suggestion: Option<String>,
+    ) -> Result<Replacement, CustomUserError> {
+        self.update_input(input)?;
+
+        Ok(if let Some(suggestion) = highlighted_suggestion {
+            Replacement::Some(suggestion)
+        } else {
+            let matches = self.fuzzy_sort(input);
+                matches
+                    .first()
+                    .map(|(hint, _)| Replacement::Some(
+                        remove_ascii(hint)
+                            .split_whitespace()
+                            .next()
+                            .expect("Failed to extract the text to be auto completed...")
+                            .to_string()))
+                    .unwrap_or(Replacement::None)
+        })
+    }
+}
+
+// Read from TOML Config
+fn read_config() -> Result<Config, Box<dyn Error>> {
+    let home_dir = env::var("HOME").unwrap_or_else(|_| String::from("/"));
+    let xdg_config_path = format!("{}/.config/otter-launcher/config.toml", home_dir);
+
+    // fallback from xdg_config_path to /etc
+    let config_file: &str;
+    if Path::new(&xdg_config_path).exists() {
+        config_file = &xdg_config_path;
+    } else {
+        config_file = "/etc/otter-launcher/config.toml";
+    }
+
+    let contents = fs::read_to_string(config_file)?;
+    let config: Config = from_str(&contents)?;
+    Ok(config)
+}
+
+// remove ascii color code
+fn remove_ascii(input: &str) -> String {
+    let re = Regex::new(r"\x1b\[[0-9;]*m")
+        .unwrap();
+    re.replace_all(input, "").into()
+}
+
+// main function
+fn main() {
+    // comparing prompt with loaded configs
+    match read_config() {
+        Ok(config) => {
+            // let header be either from runing a "header_cmd" or from the text specified in "header"
+            let prompt_header = config.interface.header;
+            let header_cmd = config.interface.header_cmd;
+            if !header_cmd.is_empty() {
+                let output = Command::new("sh")
+                    .arg("-c")
+                    .arg(header_cmd)
+                    .output()
+                    .expect("Failed to launch header command...");
+                if output.status.success() {
+                    let prompt_header = std::str::from_utf8(&output.stdout).unwrap();
+                    let lines: Vec<&str> = prompt_header.lines().collect();
+                    let remove_lines_count = config.interface.header_cmd_trimmed_lines;
+                    if lines.len() > remove_lines_count {
+                        let remaining_lines = &lines[..lines.len() - remove_lines_count];
+                        for line in remaining_lines {
+                        println!("{}", line);
+                        }
+                    } else {
+                        println!("{}", prompt_header.trim_end());
+                    }
+
+
+                } else {
+                    eprintln!("Header command failed with status: {}", output.status);
+                }
+
+            }
+            // reading header and prompt style from toml config
+            let prompt_prefix = config.interface.prompt_prefix;
+            let help_message = config.interface.help_message;
+            let suggestion_lines = config.interface.suggestion_lines;
+            let list_prefix = config.interface.list_prefix;
+            let highlighted_prefix = config.interface.highlighted_prefix;
+            let scroll_up_prefix = config.interface.scroll_up_prefix;
+            let scroll_down_prefix = config.interface.scroll_down_prefix;
+            let placeholder = config.interface.place_holder;
+            let render_config = RenderConfig {
+                prompt_prefix: Styled::new(&prompt_header),
+                selected_option: Some(StyleSheet::new().with_attr(Attributes::BOLD)),
+                option_index_prefix: IndexPrefix::SpacePadded,
+                highlighted_option_prefix: Styled::new(&highlighted_prefix),
+                scroll_down_prefix: Styled::new(&scroll_down_prefix),
+                scroll_up_prefix: Styled::new(&scroll_up_prefix),
+                list_prefix: Styled::new(&list_prefix),
+                ..Default::default()
+            };
+
+            // getting prompt from user input, and input interface setup
+            let prompt = Text {
+                message: &prompt_prefix,
+                initial_value: None,
+                default: None,
+                autocompleter: if config.general.show_suggestion == true {
+                    Some(Box::new(HintCompleter::default()))
+                } else {
+                    None
+                },
+                placeholder: Some(&placeholder),
+                formatter: Text::DEFAULT_FORMATTER,
+                validators: Vec::new(),
+                page_size: suggestion_lines,
+                render_config: render_config,
+                help_message: Some(&help_message),
+            }.prompt()
+                .unwrap_or_else(|_err|{
+                    String::from("otter_magic_canceled_and_quit")
+                }).to_string();
+            
+            let prompt = remove_ascii(&prompt);
+
+            // matching the prompted text with module prefixes to decide whtat to do
+            let keyword = prompt
+                .split_whitespace()
+                .next()
+                .unwrap_or("");
+            let module_opt = config
+                .modules
+                .iter()
+                .find(|module| remove_ascii( &module.prefix ) == keyword);
+
+            let exec_cmd = config.general.exec_cmd;
+            let mut cmd_parts = exec_cmd.split_whitespace();
+            let exec_cmd_whole = cmd_parts.next().expect("No command found");
+            let exec_cmd_args: Vec<&str> = cmd_parts.collect();
+            let mut cmd_process = Command::new(exec_cmd_whole);
+
+            for arg in exec_cmd_args {
+                cmd_process.arg(arg);
+            }
+
+            match module_opt {
+                // if the input starts with some module prefixes
+                Some(module) => {
+                    let argument = if module.url_encode == true {
+                        encode(prompt
+                        .trim_start_matches(&keyword)
+                        .trim_start_matches(" ")
+                        ).into()
+                    } else {
+                        prompt
+                        .trim_start_matches(&keyword)
+                        .trim_start_matches(" ")
+                        .to_string()
+                    };
+                    // Condition 1: when the selected module runs with arguement
+                    if module.with_argument == true {
+                        let _ = cmd_process.arg(format!("{}", module.cmd.replace("{}", &argument)))
+                            .output()
+                            .expect("Failed to launch the command...");
+                    // Condition 2: when user input is exactly the same as the no-arg module
+                    } else if remove_ascii( &module.prefix ) == prompt {
+                        let _ = cmd_process.arg(&module.cmd)
+                            .output()
+                            .expect("Failed to launch the command...");
+                    // Condition 3: when the selected module is selected by suggestion (prompt=prefix+desc)
+                    } else if remove_ascii( &module.prefix ) + " " + &module.description == prompt {
+                        let _ = cmd_process.arg(&module.cmd)
+                            .output()
+                            .expect("Failed to launch the command...");
+                    // Condition 4: when no-arg modules is running with arguement
+                    } else {
+                        let defaultmodule = config.general.default_module;
+                        if defaultmodule.is_empty() {
+                            let _ = cmd_process
+                                .arg(format!("{}", "xdg-open https://www.google.com/search?q='{}'"
+                                        .replace("{}", &prompt))
+                                ).output()
+                                .expect("Failed to launch the command...");
+                        } else {
+                            let default_module = config
+                                .modules
+                                .iter()
+                                .find(|module| 
+                                    remove_ascii( &module.prefix ) == defaultmodule);
+                            let prompt_wo_prefix = if default_module
+                                .unwrap()
+                                .url_encode == true {
+                                    encode(&prompt).into()
+                            } else {
+                                prompt.to_string()
+                            };
+                            let _ = cmd_process
+                                .arg(format!("{}", &default_module
+                                        .unwrap()
+                                        .cmd
+                                        .replace("{}", &prompt_wo_prefix))
+                                ).output()
+                                .expect("Failed to launch the command...");
+                        }
+                    }
+                },
+                // if the input doesn't start with some module prefixes
+                None => {
+                    // Condition 1: when user input is empty (and no module selected), run the empty module
+                    if prompt.is_empty() {
+                        let emptymodule = config.general.empty_module;
+                        if emptymodule.is_empty() {
+                            process::exit(0);
+                        } else {
+                            let empty_module = config
+                                .modules
+                                .iter()
+                                .find(|module| remove_ascii( &module.prefix ) == emptymodule);
+                            let _ = cmd_process
+                                .arg(format!("{}", &empty_module
+                                        .unwrap()
+                                        .cmd.replace("{}", ""))
+                                ).output()
+                                .expect("Failed to launch the command...");
+                        }
+                    // Condition 2: when canceled with esc (thus no module selected), exit
+                    } else if prompt == "otter_magic_canceled_and_quit" {
+                        process::exit(0);
+                    // Condition 3: when no module is matched, run the default module
+                    } else {
+                        let defaultmodule = config.general.default_module;
+                        if defaultmodule.is_empty() {
+                            let _ = cmd_process
+                                .arg(format!("{}", "xdg-open https://www.google.com/search?q='{}'"
+                                        .replace("{}", &prompt))
+                                ).output()
+                                .expect("Failed to launch the command...");
+                        } else {
+                            let default_module = config
+                                .modules
+                                .iter()
+                                .find(|module| 
+                                    remove_ascii( &module.prefix ) == defaultmodule);
+                            let prompt_wo_prefix = if default_module
+                                .unwrap()
+                                .url_encode == true {
+                                    encode(&prompt).into()
+                            } else {
+                                prompt.to_string()
+                            };
+                            let _ = cmd_process
+                                .arg(format!("{}", &default_module
+                                        .unwrap()
+                                        .cmd
+                                        .replace("{}", &prompt_wo_prefix))
+                                ).output()
+                                .expect("Failed to launch the command...");
+                        }
+                    }
+                }
+            }
+        },
+        // if there's something wrong with the config
+        Err(e) => println!("Error reading config.toml: {}", e),
+    }
+}
