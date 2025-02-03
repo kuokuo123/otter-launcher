@@ -1,6 +1,6 @@
 # Otter Launcher
 
-Otter-launcher is a highly extendable cli program that can launch shell scripts or arbitrary commands by a few key strokes. It is customizable with ascii colorcode, sixel or kitty image protocol, and hence a good companion to keyboard-centric window manager users.
+Otter-launcher is a highly extendable cli program that can launch shell scripts or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on your emulator), and hence a good companion to keyboard-centric window manager users.
 
 The concept is making behaviours like the below possible:
 
@@ -10,7 +10,7 @@ The concept is making behaviours like the below possible:
 - type "app" to launch sway-launcher-desktop
 - etc.
 
-Use your wm's window rules to control otter-launcher's window size. It is recommended to use otter-launcher with sway-launcher-desktop, making it an application launcher.
+It is recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop), making it an application launcher.Use your wm's window rules to control its window size. 
 
 ![Demo Gif](./assets/demo.gif)
 
