@@ -10,7 +10,9 @@ The concept is making behaviours like the below possible:
 - type "app" to launch sway-launcher-desktop
 - etc.
 
-It is recommended to use otter-launcher with sway-launcher-desktop, making it an application launcher.
+Use your wm's window rules to control otter-launcher's window size. It is recommended to use otter-launcher with sway-launcher-desktop, making it an application launcher.
+
+![Demo Video](./assets/demo.mp4)
 
 # Features
 
@@ -159,9 +161,7 @@ suggestion_lines = 1
 [interface]
 header_cmd = "fastfetch --structure break:colors:break:os:wm:kernel:uptime:packages:memory:datetime:break --key-type icon --logo-type data --logo \"$(krabby name quilava --no-title)\""
 header_cmd_trimmed_lines = 1
-header = """
-               \u001B[30m———\u001B[0m\u001B[31m———\u001B[0m\u001B[32m———\u001B[0m\u001B[33m———\u001B[0m\u001B[34m———\u001B[0m\u001B[35m———\u001B[0m\u001B[36m———\u001B[0m\u001B[37m———\u001B[0m
-"""
+header = ""
 prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
 list_prefix = "  \u001B[34m  \u001B[0m"
 highlighted_prefix = "  \u001B[34m  \u001B[0m"
