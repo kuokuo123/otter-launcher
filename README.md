@@ -12,7 +12,7 @@ The concept is making behaviours like the below possible:
 
 Use your wm's window rules to control otter-launcher's window size. It is recommended to use otter-launcher with sway-launcher-desktop, making it an application launcher.
 
-![Demo Video](./assets/demo.mp4)
+![Demo Gif](./assets/demo.gif)
 
 # Features
 
