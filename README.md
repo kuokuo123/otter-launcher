@@ -23,7 +23,7 @@ It is recommended to use otter-launcher with [sway-launcher-desktop](https://git
 - modularized prefixes to run different commands (via configuration)
 - fuzzy search and tab completion for configured modules
 - url encoding for web searching use
-- decorated with ascii color codes, chafa, neofetch, etc.
+- cutomizable with ascii color codes, chafa, neofetch, etc.
 - minimalist, keyboard-centric design
 
 # Installation
