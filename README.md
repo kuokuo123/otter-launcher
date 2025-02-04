@@ -16,6 +16,8 @@ It is recommended to use otter-launcher with [sway-launcher-desktop](https://git
 
 ![Demo Gif](./assets/demo.gif)
 
+![Demo-2 Gif](./assets/demo-2.gif)
+
 # Features
 
 - modularized prefixes to run different commands (via configuration)
