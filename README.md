@@ -1,6 +1,6 @@
 # Otter Launcher
 
-![Kitty Gif](./assets/kitty.gif)
+![Kitty Config](./assets/kitty.png)
 
 Otter-launcher is a highly extendable cli program that can launch shell scripts or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on your emulator), and hence a good companion to keyboard-centric window manager users.
 
@@ -176,7 +176,7 @@ suggestion_lines = 1
 
 ## Kitty + Uwufetch
 
-![Kitty Gif](./assets/kitty.gif)
+![Kitty Config](./assets/kitty.png)
 
 ```
 [interface]
