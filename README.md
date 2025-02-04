@@ -12,7 +12,7 @@ The concept is making behaviours like the below possible:
 - type "app" to launch sway-launcher-desktop
 - etc.
 
-It is recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop), making it an application launcher.Use your wm's window rules to control its window size. 
+It is recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop), making it an application launcher. Use your wm's window rules to control its window size. 
 
 ![Demo Gif](./assets/demo.gif)
 
@@ -127,10 +127,10 @@ header_cmd = ""
 header_cmd_trimmed_lines = 0
 header = ""
 prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
-list_prefix = "  \u001B[34m  \u001B[0m"
-highlighted_prefix = "  \u001B[34m  \u001B[0m"
-scroll_up_prefix = "  \u001B[34m  \u001B[0m"
-scroll_down_prefix = "  \u001B[34m  \u001B[0m"
+list_prefix = "    "
+highlighted_prefix = "    "
+scroll_up_prefix = "    "
+scroll_down_prefix = "    "
 help_message = ""
 place_holder = "type and search..."
 suggestion_lines = 1
@@ -148,10 +148,10 @@ header = """
                \u001B[30m———\u001B[0m\u001B[31m———\u001B[0m\u001B[32m———\u001B[0m\u001B[33m———\u001B[0m\u001B[34m———\u001B[0m\u001B[35m———\u001B[0m\u001B[36m———\u001B[0m\u001B[37m———\u001B[0m
 """
 prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
-list_prefix = "  \u001B[34m  \u001B[0m"
-highlighted_prefix = "  \u001B[34m  \u001B[0m"
-scroll_up_prefix = "  \u001B[34m  \u001B[0m"
-scroll_down_prefix = "  \u001B[34m  \u001B[0m"
+list_prefix = "    "
+highlighted_prefix = "    "
+scroll_up_prefix = "    "
+scroll_down_prefix = "    "
 help_message = ""
 place_holder = "type and search..."
 suggestion_lines = 1
@@ -167,10 +167,10 @@ header_cmd = "fastfetch --structure break:colors:break:os:wm:kernel:uptime:packa
 header_cmd_trimmed_lines = 1
 header = ""
 prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
-list_prefix = "  \u001B[34m  \u001B[0m"
-highlighted_prefix = "  \u001B[34m  \u001B[0m"
-scroll_up_prefix = "  \u001B[34m  \u001B[0m"
-scroll_down_prefix = "  \u001B[34m  \u001B[0m"
+list_prefix = "    "
+highlighted_prefix = "    "
+scroll_up_prefix = "    "
+scroll_down_prefix = "    "
 help_message = ""
 place_holder = "type and search..."
 suggestion_lines = 1
@@ -188,10 +188,10 @@ header = """
                \u001B[30m———\u001B[0m\u001B[31m———\u001B[0m\u001B[32m———\u001B[0m\u001B[33m———\u001B[0m\u001B[34m———\u001B[0m\u001B[35m———\u001B[0m\u001B[36m———\u001B[0m\u001B[37m———\u001B[0m
 """
 prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
-list_prefix = "  \u001B[34m  \u001B[0m"
-highlighted_prefix = "  \u001B[34m  \u001B[0m"
-scroll_up_prefix = "  \u001B[34m  \u001B[0m"
-scroll_down_prefix = "  \u001B[34m  \u001B[0m"
+list_prefix = "    "
+highlighted_prefix = "    "
+scroll_up_prefix = "    "
+scroll_down_prefix = "    "
 help_message = ""
 place_holder = "type and search..."
 suggestion_lines = 1
