@@ -23,7 +23,7 @@
 [general]
 default_module = "gg" # The module to run when no prefix is matched; leaving the option empty defaults to googling
 empty_module = "" # The module to run with an empty prompt
-exec_cmd = "swaymsg exec" # The exec command of your window manager; change it to "hyprctl exec" if you use hyprland
+exec_cmd = "swaymsg exec" # The exec command of your window manager; change it to "hyprctl dispatch exec" if you use hyprland
 show_suggestion = true # Fuzzy search for prefixes; autocompletion with TAB
 
 

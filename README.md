@@ -1,5 +1,7 @@
 # Otter Launcher
 
+![Kitty Gif](./assets/kitty.gif)
+
 Otter-launcher is a highly extendable cli program that can launch shell scripts or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on your emulator), and hence a good companion to keyboard-centric window manager users.
 
 The concept is making behaviours like the below possible:
@@ -41,7 +43,7 @@ Otter-launcher read a config file from $HOME/.config/otter-launcher/config.toml.
 [general]
 default_module = "gg" # The module to run when no prefix is matched; leaving the option empty defaults to googling
 empty_module = "" # The module to run with an empty prompt
-exec_cmd = "swaymsg exec" # The exec command of your window manager; change it to "hyprctl exec" if you use hyprland
+exec_cmd = "swaymsg exec" # The exec command of your window manager; change it to "hyprctl dispatch exec" if you use hyprland
 show_suggestion = true # Fuzzy search for prefixes; autocompletion with TAB
 
 
@@ -162,6 +164,27 @@ suggestion_lines = 1
 header_cmd = "fastfetch --structure break:colors:break:os:wm:kernel:uptime:packages:memory:datetime:break --key-type icon --logo-type data --logo \"$(krabby name quilava --no-title)\""
 header_cmd_trimmed_lines = 1
 header = ""
+prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
+list_prefix = "  \u001B[34m  \u001B[0m"
+highlighted_prefix = "  \u001B[34m  \u001B[0m"
+scroll_up_prefix = "  \u001B[34m  \u001B[0m"
+scroll_down_prefix = "  \u001B[34m  \u001B[0m"
+help_message = ""
+place_holder = "type and search..."
+suggestion_lines = 1
+```
+
+## Kitty + Uwufetch
+
+![Kitty Gif](./assets/kitty.gif)
+
+```
+[interface]
+header_cmd = "uwufetch -i otter.png"
+header_cmd_trimmed_lines = 3
+header = """
+               \u001B[30m———\u001B[0m\u001B[31m———\u001B[0m\u001B[32m———\u001B[0m\u001B[33m———\u001B[0m\u001B[34m———\u001B[0m\u001B[35m———\u001B[0m\u001B[36m———\u001B[0m\u001B[37m———\u001B[0m
+"""
 prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
 list_prefix = "  \u001B[34m  \u001B[0m"
 highlighted_prefix = "  \u001B[34m  \u001B[0m"
