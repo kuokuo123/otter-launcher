@@ -71,7 +71,7 @@ place_holder = "type and search..."
 suggestion_lines = 1
 
 
-# Modules are defined as followed
+# Modules are defined as followed. Desc, prefix, and cmd are the essential part that must be specified when configuring modules; other options can be skipped.
 [[modules]]
 description = "search with google"
 prefix = "\u001B[32mgg\u001B[0m"
