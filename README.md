@@ -2,7 +2,7 @@
 
 ![Default Config](./assets/default.png)
 
-Otter-launcher is a highly extendable cli program that can launch shell scripts or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on your emulator), and hence a good companion to keyboard-centric window manager users.
+Otter-launcher is a highly extendable commandline program that can launch shell scripts, applications, or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on the emulator in use), and hence a good companion to keyboard-centric window manager users.
 
 The concept is making behaviours like the below possible:
 
@@ -49,7 +49,7 @@ Otter-launcher read a config file from $HOME/.config/otter-launcher/config.toml.
 default_module = "gg"
 # The module to run with an empty prompt
 empty_module = ""
-# The exec command of your shell or window manager, default to bash
+# Your shell or window manager, default to sh
 # for example: "swaymsg exec" for swaywm; "hyprctl dispatch exec" for hyprland; "zsh -c" for zsh
 exec_cmd = "sh -c"
 # Fuzzy search for prefixes; autocompletion with TAB
@@ -57,9 +57,9 @@ show_suggestion = true
 
 
 [interface]
-# ASCII color codes are allowed with these options. However, \x1b[ should be replaced with \u001B[ (unicode escape) because the rust toml crate cannot read \x as an escaped character...
-header_cmd = "" # Run a shell command and make the stdout printed above the header
-header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
+# Ascii color codes are allowed. However, \x1b[ should be replaced with \u001B[ (unicode escape) because the rust toml crate cannot read \x as an escaped character...
+header_cmd = "" # Run a shell command with its output printed as the header
+header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of excessive empty lines printed at the end
 header = ""
 prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>>\u001B[0m"
 list_prefix = "  \u001B[34m>>\u001B[0m"
@@ -71,7 +71,7 @@ place_holder = "type and search..."
 suggestion_lines = 1
 
 
-# Modules are defined as followed. Desc, prefix, and cmd are the essential part that must be specified when configuring modules; other options can be skipped.
+# Modules are defined as below. Desc, prefix, and cmd are essential and must be specified; others are optional.
 [[modules]]
 description = "search with google"
 prefix = "\u001B[32mgg\u001B[0m"
@@ -109,15 +109,14 @@ url_encode = true
 ![Default Config](./assets/default.png)
 
 ```
-[interface]
 header_cmd = ""
 header_cmd_trimmed_lines = 0
 header = ""
-prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
-list_prefix = "    "
-highlighted_prefix = "    "
-scroll_up_prefix = "    "
-scroll_down_prefix = "    "
+prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>>\u001B[0m"
+list_prefix = "  \u001B[34m>>\u001B[0m"
+highlighted_prefix = "  \u001B[34m#>\u001B[0m"
+scroll_up_prefix = "  \u001B[34m#!\u001B[0m"
+scroll_down_prefix = "  \u001B[34m#!\u001B[0m"
 help_message = ""
 place_holder = "type and search..."
 suggestion_lines = 1
