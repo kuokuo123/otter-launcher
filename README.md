@@ -1,6 +1,6 @@
 # Otter Launcher
 
-![Kitty Config](./assets/kitty.png)
+![Default Config](./assets/default.png)
 
 Otter-launcher is a highly extendable cli program that can launch shell scripts or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on your emulator), and hence a good companion to keyboard-centric window manager users.
 
@@ -22,8 +22,10 @@ It is recommended to use otter-launcher with [sway-launcher-desktop](https://git
 
 - modularized prefixes to run different commands (via configuration)
 - fuzzy search and tab completion for configured modules
-- url encoding for web searching use
-- cutomizable with ascii color codes, chafa, neofetch, etc.
+- module-specific prehooks
+- customizable shell or wm by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
+- url encoding for web searching
+- decorated by ascii color codes, chafa, neofetch, etc.
 - minimalist, keyboard-centric design
 
 # Installation
@@ -43,10 +45,15 @@ Otter-launcher read a config file from $HOME/.config/otter-launcher/config.toml.
 
 ``` toml
 [general]
-default_module = "gg" # The module to run when no prefix is matched; leaving the option empty defaults to googling
-empty_module = "" # The module to run with an empty prompt
-exec_cmd = "swaymsg exec" # The exec command of your window manager; change it to "hyprctl dispatch exec" if you use hyprland
-show_suggestion = true # Fuzzy search for prefixes; autocompletion with TAB
+# The module to run when no prefix is matched; leaving the option empty defaults to googling
+default_module = "gg"
+# The module to run with an empty prompt
+empty_module = ""
+# The exec command of your shell or window manager, default to bash
+# for example: "swaymsg exec" for swaywm; "hyprctl dispatch exec" for hyprland; "zsh -c" for zsh
+exec_cmd = "sh -c"
+# Fuzzy search for prefixes; autocompletion with TAB
+show_suggestion = true
 
 
 [interface]
@@ -66,32 +73,26 @@ suggestion_lines = 1
 
 # Modules are defined as followed
 [[modules]]
-description = "search for arch packages"
-prefix = "\u001B[32mpac\u001B[0m"
-cmd = "xdg-open https://archlinux.org/packages/?q='{}'"
-with_argument = true # If "with_argument" is true, the {} in the cmd value will be replaced with user input. For example, entering "sh yazi ~/downloads" will open yazi and enter the download folder when "with_argument" is true; but will not enter ~/downloads when "with_arguement" is false.
-url_encode = true # The url_encode option should be set true when the module is set to call for webpages, as it will make sure special characters in the url being readable to web browsers. It will better be false when the module calls a shell script.
-
-[[modules]]
-description = "search archwiki"
-prefix = "\u001B[32maw\u001B[0m"
-cmd = "xdg-open https://wiki.archlinux.org/index.php?search='{}'"
-with_argument = true
-url_encode = true
-
-[[modules]]
 description = "search with google"
 prefix = "\u001B[32mgg\u001B[0m"
 cmd = "xdg-open 'https://www.google.com/search?q={}'"
+# If "with_argument" is true, the {} in the cmd value will be replaced with user input. If the field is not explicitly set, will be taken as false.
 with_argument = true
+# "url_encode" should be true if the module is set to call webpages, as this ensures special characters in url being readable to browsers. It'd better be false with shell scripts. If the field is not explicitly set, will be taken as false.
 url_encode = true
 
 [[modules]]
-description = "search youtube"
-prefix = "\u001B[32myt\u001B[0m"
-cmd = "xdg-open 'https://www.youtube.com/results?search_query={}'"
-with_argument = true
-url_encode = true
+description = "open files with fzf"
+prefix = "\u001B[32mfo\u001B[0m"
+cmd = "$TERM -e sh -c 'fd --type f | fzf | xargs xdg-open'"
+# if set, the prehook command will run before the main cmd. 
+prehook = "swaymsg [app_id=yazi] resize set width 600 px height 300 px"
+
+[[modules]]
+description = "search for directories with yazi"
+prefix = "\u001B[32myz\u001B[0m"
+cmd = "$TERM --class yazi -e sh -c 'fd --type d | fzf | xargs $TERM -e yazi'"
+prehook = "swaymsg [app_id=yazi] resize set width 600 px height 300 px"
 
 [[modules]]
 description = "cambridge dictionary online"
@@ -99,20 +100,6 @@ prefix = "\u001B[32mdc\u001B[0m"
 cmd = "xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
 with_argument = true
 url_encode = true
-
-[[modules]]
-description = "open files with fzf"
-prefix = "\u001B[32mfo\u001B[0m"
-cmd = "$TERM -e sh -c 'fd --type f | fzf -0 -1 --padding 1,3 | xargs setsid -f xdg-open'"
-with_argument = false
-url_encode = false
-
-[[modules]]
-description = "search for directories with yazi"
-prefix = "\u001B[32myz\u001B[0m"
-cmd = "$TERM -e sh -c 'fd --type d $FD_OPTIONS | fzf -0 -1 --padding 1,3 | xargs setsid -f $TERM -e yazi'"
-with_argument = false
-url_encode = false
 ```
 
 # Examples for Styling

@@ -56,8 +56,19 @@ struct Module {
     description: String,
     prefix: String,
     cmd: String,
+    #[serde(default = "default_with_argument")]
     with_argument: bool,
+    #[serde(default = "default_url_encode")]
     url_encode: bool,
+    prehook: Option<String>,
+}
+
+// Set default value for optional fields of Module
+fn default_with_argument() -> bool {
+   false
+}
+fn default_url_encode() -> bool {
+   false
 }
 
 // Define hint autocompleter
@@ -84,7 +95,6 @@ impl HintCompleter {
             )
             .collect();
         input_hint.sort();
-
 
         for entry in input_hint {
             let hint = entry;
@@ -196,12 +206,9 @@ fn main() {
                     } else {
                         println!("{}", prompt_header.trim_end());
                     }
-
-
                 } else {
                     eprintln!("Header command failed with status: {}", output.status);
                 }
-
             }
             // reading header and prompt style from toml config
             let prompt_prefix = config.interface.prompt_prefix;
@@ -246,7 +253,7 @@ fn main() {
             
             let prompt = remove_ascii(&prompt);
 
-            // matching the prompted text with module prefixes to decide whtat to do
+            // matching the prompted text with module prefixes to decide what to do
             let keyword = prompt
                 .split_whitespace()
                 .next()
@@ -256,19 +263,20 @@ fn main() {
                 .iter()
                 .find(|module| remove_ascii( &module.prefix ) == keyword);
 
+            // format the command to be launced: combining general.exec_cmd & module.cmd
             let exec_cmd = config.general.exec_cmd;
             let mut cmd_parts = exec_cmd.split_whitespace();
-            let exec_cmd_whole = cmd_parts.next().expect("No command found");
+            let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
             let exec_cmd_args: Vec<&str> = cmd_parts.collect();
-            let mut cmd_process = Command::new(exec_cmd_whole);
-
-            for arg in exec_cmd_args {
+            let mut cmd_process = Command::new(exec_cmd_base);
+            for arg in &exec_cmd_args {
                 cmd_process.arg(arg);
             }
 
             match module_opt {
                 // if the input starts with some module prefixes
                 Some(module) => {
+                    // determine whether the prompt should be urlencoded
                     let argument = if module.url_encode == true {
                         encode(prompt
                         .trim_start_matches(&keyword)
@@ -282,28 +290,64 @@ fn main() {
                     };
                     // Condition 1: when the selected module runs with arguement
                     if module.with_argument == true {
-                        let _ = cmd_process.arg(format!("{}", module.cmd.replace("{}", &argument)))
-                            .output()
+                        // launch prehook if it exists
+                        if module.prehook.is_some() {
+                            let mut prehook_process = Command::new(exec_cmd_base);
+                            for arg in exec_cmd_args {
+                                prehook_process.arg(arg);
+                            }
+                            let mut prehook = prehook_process.arg(module.prehook.clone().unwrap())
+                                .spawn()
+                                .expect("Failed to launch prehook...");
+                            let _ = prehook.wait().expect("Callback process wasn't running");
+                        }
+                        let mut child = cmd_process.arg(format!("{}", module.cmd.replace("{}", &argument)))
+                            .spawn()
                             .expect("Failed to launch the command...");
+                        let _ = child.wait().expect("Process wasn't running");
                     // Condition 2: when user input is exactly the same as the no-arg module
                     } else if remove_ascii( &module.prefix ) == prompt {
-                        let _ = cmd_process.arg(&module.cmd)
-                            .output()
+                        // launch prehook if it exists
+                        if module.prehook.is_some() {
+                            let mut prehook_process = Command::new(exec_cmd_base);
+                            for arg in exec_cmd_args {
+                                prehook_process.arg(arg);
+                            }
+                            let mut prehook = prehook_process.arg(module.prehook.clone().unwrap())
+                                .spawn()
+                                .expect("Failed to launch prehook...");
+                            let _ = prehook.wait().expect("Callback process wasn't running");
+                        }
+                        let mut child = cmd_process.arg(&module.cmd)
+                            .spawn()
                             .expect("Failed to launch the command...");
+                        let _ = child.wait().expect("Process wasn't running");
                     // Condition 3: when the selected module is selected by suggestion (prompt=prefix+desc)
                     } else if remove_ascii( &module.prefix ) + " " + &module.description == prompt {
-                        let _ = cmd_process.arg(&module.cmd)
-                            .output()
+                        // launch prehook if it exists
+                        if module.prehook.is_some() {
+                            let mut prehook_process = Command::new(exec_cmd_base);
+                            for arg in exec_cmd_args {
+                                prehook_process.arg(arg);
+                            }
+                            let mut prehook = prehook_process.arg(module.prehook.clone().unwrap())
+                                .spawn()
+                                .expect("Failed to launch prehook...");
+                            let _ = prehook.wait().expect("Callback process wasn't running");
+                        }
+                        let mut child = cmd_process.arg(&module.cmd)
+                            .spawn()
                             .expect("Failed to launch the command...");
+                        let _ = child.wait().expect("Process wasn't running");
                     // Condition 4: when no-arg modules is running with arguement
                     } else {
                         let defaultmodule = config.general.default_module;
                         if defaultmodule.is_empty() {
-                            let _ = cmd_process
-                                .arg(format!("{}", "xdg-open https://www.google.com/search?q='{}'"
-                                        .replace("{}", &prompt))
-                                ).output()
+                            let mut child = cmd_process
+                                .arg(format!("xdg-open https://www.google.com/search?q='{}'", prompt))
+                                .spawn()
                                 .expect("Failed to launch the command...");
+                            let _ = child.wait().expect("Process wasn't running");
                         } else {
                             let default_module = config
                                 .modules
@@ -317,13 +361,14 @@ fn main() {
                             } else {
                                 prompt.to_string()
                             };
-                            let _ = cmd_process
+                            let mut child = cmd_process
                                 .arg(format!("{}", &default_module
                                         .unwrap()
                                         .cmd
                                         .replace("{}", &prompt_wo_prefix))
-                                ).output()
+                                ).spawn()
                                 .expect("Failed to launch the command...");
+                            let _ = child.wait().expect("Process wasn't running");
                         }
                     }
                 },
@@ -339,12 +384,24 @@ fn main() {
                                 .modules
                                 .iter()
                                 .find(|module| remove_ascii( &module.prefix ) == emptymodule);
-                            let _ = cmd_process
+                            // launch prehook if it exists
+                            if empty_module.unwrap().prehook.is_some() {
+                                let mut prehook_process = Command::new(exec_cmd_base);
+                                for arg in exec_cmd_args {
+                                    prehook_process.arg(arg);
+                                }
+                                let mut prehook = prehook_process.arg(empty_module.unwrap().prehook.clone().unwrap())
+                                    .spawn()
+                                    .expect("Failed to launch prehook...");
+                                let _ = prehook.wait().expect("Callback process wasn't running");
+                            }
+                            let mut child = cmd_process
                                 .arg(format!("{}", &empty_module
                                         .unwrap()
                                         .cmd.replace("{}", ""))
-                                ).output()
+                                ).spawn()
                                 .expect("Failed to launch the command...");
+                            let _ = child.wait().expect("Process wasn't running");
                         }
                     // Condition 2: when canceled with esc (thus no module selected), exit
                     } else if prompt == "otter_magic_canceled_and_quit" {
@@ -353,11 +410,11 @@ fn main() {
                     } else {
                         let defaultmodule = config.general.default_module;
                         if defaultmodule.is_empty() {
-                            let _ = cmd_process
-                                .arg(format!("{}", "xdg-open https://www.google.com/search?q='{}'"
-                                        .replace("{}", &prompt))
-                                ).output()
+                            let mut child = cmd_process
+                                .arg(format!("xdg-open https://www.google.com/search?q='{}'", prompt))
+                                .spawn()
                                 .expect("Failed to launch the command...");
+                            let _ = child.wait().expect("Process wasn't running");
                         } else {
                             let default_module = config
                                 .modules
@@ -371,13 +428,25 @@ fn main() {
                             } else {
                                 prompt.to_string()
                             };
-                            let _ = cmd_process
+                            // launch prehook if it exists
+                            if default_module.unwrap().prehook.is_some() {
+                                let mut prehook_process = Command::new(exec_cmd_base);
+                                for arg in exec_cmd_args {
+                                    prehook_process.arg(arg);
+                                }
+                                let mut prehook = prehook_process.arg(default_module.unwrap().prehook.clone().unwrap())
+                                    .spawn()
+                                    .expect("Failed to launch prehook...");
+                                let _ = prehook.wait().expect("Callback process wasn't running");
+                            }
+                            let mut child = cmd_process
                                 .arg(format!("{}", &default_module
                                         .unwrap()
                                         .cmd
                                         .replace("{}", &prompt_wo_prefix))
-                                ).output()
+                                ).spawn()
                                 .expect("Failed to launch the command...");
+                            let _ = child.wait().expect("Process wasn't running");
                         }
                     }
                 }
