@@ -25,7 +25,7 @@ It is recommended to use otter-launcher with [sway-launcher-desktop](https://git
 - module-specific prehooks
 - customizable shell or wm by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
-- decorated by ascii color codes, chafa, neofetch, etc.
+- customizable with ascii color codes, chafa, neofetch, etc.
 - minimalist, keyboard-centric design
 
 # Installation

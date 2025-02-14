@@ -76,4 +76,3 @@ prefix = "\u001B[32mdc\u001B[0m"
 cmd = "xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
 with_argument = true
 url_encode = true
-```
