@@ -7,7 +7,7 @@ extern crate regex;
 
 /* Note for Modified Crate
 The inquire crate was modified with three files for better ui:
-    1. src/ui/api/render_config.rs: list_prefix was added as a pub, following some defs
+    1. src/ui/api/render_config.rs: list_prefix was added into struct RenderConfig, following some definitions in several blocks
     2. src/ui/backend: [] was removed from fn render_help_message; list_prefix was added to fn print_option_prefix
     3. src/input/action.rs was modified in fn from_key for ctrl+k & ctrl+u keybinds
 */
@@ -67,7 +67,7 @@ struct Module {
 
 // Define hint autocompleter
 #[derive(Clone, Default)]
-pub struct SuggestionCompleter {
+struct SuggestionCompleter {
     input: String,
     hints: Vec<String>,
 }
@@ -298,15 +298,17 @@ fn main() {
 
             // callback function, which will run before or after module.cmd if available
             let callback = |callback_cmd: &Option<String> | {
-                if let Some(cmd) = callback_cmd {
-                    let mut callback_process = Command::new(exec_cmd_base);
-                    for arg in &exec_cmd_args {
-                        callback_process.arg(arg);
+                if callback_cmd.is_some() {
+                    if let Some(cmd) = callback_cmd {
+                        let mut callback_process = Command::new(exec_cmd_base);
+                        for arg in &exec_cmd_args {
+                            callback_process.arg(arg);
+                        }
+                        let mut callback = callback_process.arg(cmd)
+                            .spawn()
+                            .expect("Failed to launch callback...");
+                        let _ = callback.wait().expect("Callback process wasn't running");
                     }
-                    let mut callback = callback_process.arg(cmd)
-                        .spawn()
-                        .expect("Failed to launch callback...");
-                    let _ = callback.wait().expect("Callback process wasn't running");
                 }
             };
 
