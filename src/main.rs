@@ -62,16 +62,17 @@ struct Module {
     with_argument: Option<bool>,
     url_encode: Option<bool>,
     prehook: Option<String>,
+    callback: Option<String>,
 }
 
 // Define hint autocompleter
 #[derive(Clone, Default)]
-pub struct HintCompleter {
+pub struct SuggestionCompleter {
     input: String,
     hints: Vec<String>,
 }
 
-impl HintCompleter {
+impl SuggestionCompleter {
     fn update_input(&mut self, input: &str) -> Result<(), CustomUserError> {
         if input == self.input && !self.hints.is_empty() {
             return Ok(());
@@ -116,12 +117,15 @@ impl HintCompleter {
     }
 }
 
-impl Autocomplete for HintCompleter {
+impl Autocomplete for SuggestionCompleter {
     fn get_suggestions(&mut self, input: &str) -> Result<Vec<String>, CustomUserError> {
         self.update_input(input)?;
 
         let matches = self.fuzzy_sort(input);
-        Ok(matches.into_iter().take(15).map(|(hint, _)| hint).collect())
+        Ok(matches.into_iter()
+            .take(15)
+            .map(|(hint, _)| hint)
+            .collect())
     }
 
     fn get_completion(
@@ -161,12 +165,13 @@ fn read_config() -> Result<Config, Box<dyn Error>> {
         config_file = "/etc/otter-launcher/config.toml";
     }
 
-    let contents = fs::read_to_string(config_file).unwrap_or_else(|_| "".to_string());
+    let contents = fs::read_to_string(config_file)
+        .unwrap_or_else(|_| "".to_string());
     let config: Config = from_str(&contents)?;
     Ok(config)
 }
 
-// remove ascii color code
+// function to remove ascii color code
 fn remove_ascii(input: &str) -> String {
     let re = Regex::new(r"\x1b\[[0-9;]*m")
         .unwrap();
@@ -179,8 +184,12 @@ fn main() {
     match read_config() {
         Ok(config) => {
             // let header be either from runing a "header_cmd" or from the text specified in "header"
-            let prompt_header = config.interface.header.unwrap_or("".to_string());
-            let header_cmd = config.interface.header_cmd.unwrap_or("".to_string());
+            let prompt_header = config
+                .interface.header
+                .unwrap_or("".to_string());
+            let header_cmd = config
+                .interface.header_cmd
+                .unwrap_or("".to_string());
             if !header_cmd.is_empty() {
                 let output = Command::new("sh")
                     .arg("-c")
@@ -190,7 +199,9 @@ fn main() {
                 if output.status.success() {
                     let prompt_header = std::str::from_utf8(&output.stdout).unwrap();
                     let lines: Vec<&str> = prompt_header.lines().collect();
-                    let remove_lines_count = config.interface.header_cmd_trimmed_lines.unwrap_or(0);
+                    let remove_lines_count = config
+                        .interface.header_cmd_trimmed_lines
+                        .unwrap_or(0);
                     if lines.len() > remove_lines_count {
                         let remaining_lines = &lines[..lines.len() - remove_lines_count];
                         for line in remaining_lines {
@@ -204,21 +215,29 @@ fn main() {
                 }
             }
             // reading header and prompt style from toml config
-            let prompt_prefix = config.interface.prompt_prefix
+            let prompt_prefix = config
+                .interface.prompt_prefix
                 .unwrap_or(" \x1b[34m \x1b[0m otter-launcher \x1b[34m>\x1b[0m".to_string());
-            let help_message = config.interface.help_message
+            let help_message = config
+                .interface.help_message
                 .unwrap_or("".to_string());
-            let suggestion_lines = config.interface.suggestion_lines
+            let suggestion_lines = config
+                .interface.suggestion_lines
                 .unwrap_or(1);
-            let list_prefix = config.interface.list_prefix
+            let list_prefix = config
+                .interface.list_prefix
                 .unwrap_or("    ".to_string());
-            let highlighted_prefix = config.interface.highlighted_prefix
+            let highlighted_prefix = config
+                .interface.highlighted_prefix
                 .unwrap_or("  \x1b[31m >\x1b[0m".to_string());
-            let scroll_up_prefix = config.interface.scroll_up_prefix
+            let scroll_up_prefix = config
+                .interface.scroll_up_prefix
                 .unwrap_or("  \x1b[31m #\x1b[0m".to_string());
-            let scroll_down_prefix = config.interface.scroll_down_prefix
+            let scroll_down_prefix = config
+                .interface.scroll_down_prefix
                 .unwrap_or("  \x1b[31m #\x1b[0m".to_string());
-            let placeholder = config.interface.place_holder
+            let placeholder = config
+                .interface.place_holder
                 .unwrap_or("type and search...".to_string());
             let render_config = RenderConfig {
                 prompt_prefix: Styled::new(&prompt_header),
@@ -236,8 +255,10 @@ fn main() {
                 message: &prompt_prefix,
                 initial_value: None,
                 default: None,
-                autocompleter: if config.general.show_suggestion.unwrap_or(false) == true {
-                    Some(Box::new(HintCompleter::default()))
+                autocompleter: if config
+                    .general.show_suggestion
+                    .unwrap_or(false) == true {
+                    Some(Box::new(SuggestionCompleter::default()))
                 } else {
                     None
                 },
@@ -264,8 +285,9 @@ fn main() {
                 .iter()
                 .find(|module| remove_ascii( &module.prefix ) == keyword);
 
-            // format the command to be launced: combining general.exec_cmd & module.cmd
-            let exec_cmd = config.general.exec_cmd.unwrap_or("sh -c".to_string());
+            // format the shell by which module commands are launched
+            let exec_cmd = config
+                .general.exec_cmd.unwrap_or("sh -c".to_string());
             let mut cmd_parts = exec_cmd.split_whitespace();
             let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
             let exec_cmd_args: Vec<&str> = cmd_parts.collect();
@@ -274,78 +296,72 @@ fn main() {
                 cmd_process.arg(arg);
             }
 
+            // callback function, which will run before or after module.cmd if available
+            let callback = |callback_cmd: &Option<String> | {
+                if let Some(cmd) = callback_cmd {
+                    let mut callback_process = Command::new(exec_cmd_base);
+                    for arg in &exec_cmd_args {
+                        callback_process.arg(arg);
+                    }
+                    let mut callback = callback_process.arg(cmd)
+                        .spawn()
+                        .expect("Failed to launch callback...");
+                    let _ = callback.wait().expect("Callback process wasn't running");
+                }
+            };
+
             match module_opt {
-                // if the input starts with some module prefixes
+                // if user input starts with some module prefixes
                 Some(module) => {
                     // determine whether the prompt should be urlencoded
-                    let argument = if module.url_encode.unwrap_or(false) == true {
-                        encode(prompt
-                        .trim_start_matches(&keyword)
-                        .trim_start_matches(" ")
-                        ).into()
-                    } else {
-                        prompt
-                        .trim_start_matches(&keyword)
-                        .trim_start_matches(" ")
-                        .to_string()
-                    };
+                    let argument = if module.url_encode
+                        .unwrap_or(false) == true {
+                            encode(prompt
+                            .trim_start_matches(&keyword)
+                            .trim_start_matches(" ")
+                            ).into()
+                        } else {
+                            prompt
+                            .trim_start_matches(&keyword)
+                            .trim_start_matches(" ")
+                            .to_string()
+                        };
+
                     // Condition 1: when the selected module runs with arguement
                     if module.with_argument.unwrap_or(false) == true {
-                        // launch prehook if it exists
-                        if module.prehook.is_some() {
-                            let mut prehook_process = Command::new(exec_cmd_base);
-                            for arg in exec_cmd_args {
-                                prehook_process.arg(arg);
-                            }
-                            let mut prehook = prehook_process.arg(module.prehook.clone().unwrap())
-                                .spawn()
-                                .expect("Failed to launch prehook...");
-                            let _ = prehook.wait().expect("Callback process wasn't running");
-                        }
-                        let mut child = cmd_process.arg(format!("{}", module.cmd.replace("{}", &argument)))
+                        callback(&module.prehook);
+                        let mut child = cmd_process
+                            .arg(format!("{}", module.cmd.replace("{}", &argument)))
                             .spawn()
                             .expect("Failed to launch the command...");
                         let _ = child.wait().expect("Process wasn't running");
+                        callback(&module.callback);
                     // Condition 2: when user input is exactly the same as the no-arg module
                     } else if remove_ascii( &module.prefix ) == prompt {
-                        // launch prehook if it exists
-                        if module.prehook.is_some() {
-                            let mut prehook_process = Command::new(exec_cmd_base);
-                            for arg in exec_cmd_args {
-                                prehook_process.arg(arg);
-                            }
-                            let mut prehook = prehook_process.arg(module.prehook.clone().unwrap())
-                                .spawn()
-                                .expect("Failed to launch prehook...");
-                            let _ = prehook.wait().expect("Callback process wasn't running");
-                        }
-                        let mut child = cmd_process.arg(&module.cmd)
+                        callback(&module.prehook);
+                        let mut child = cmd_process
+                            .arg(&module.cmd)
                             .spawn()
                             .expect("Failed to launch the command...");
                         let _ = child.wait().expect("Process wasn't running");
+                        callback(&module.callback);
                     // Condition 3: when the selected module is selected by suggestion (prompt=prefix+desc)
                     } else if remove_ascii( &module.prefix ) + " " + &module.description == prompt {
-                        // launch prehook if it exists
-                        if module.prehook.is_some() {
-                            let mut prehook_process = Command::new(exec_cmd_base);
-                            for arg in exec_cmd_args {
-                                prehook_process.arg(arg);
-                            }
-                            let mut prehook = prehook_process.arg(module.prehook.clone().unwrap())
-                                .spawn()
-                                .expect("Failed to launch prehook...");
-                            let _ = prehook.wait().expect("Callback process wasn't running");
-                        }
-                        let mut child = cmd_process.arg(&module.cmd)
+                        callback(&module.prehook);
+                        let mut child = cmd_process
+                            .arg(&module.cmd)
                             .spawn()
                             .expect("Failed to launch the command...");
                         let _ = child.wait().expect("Process wasn't running");
+                        callback(&module.callback);
                     // Condition 4: when no-arg modules is running with arguement
                     } else {
-                        let defaultmodule = config.general.default_module.unwrap_or("".to_string());
+                        let defaultmodule = config
+                            .general.default_module
+                            .unwrap_or("".to_string());
                         if defaultmodule.is_empty() {
                             let mut child = cmd_process
-                                .arg(format!("xdg-open https://www.google.com/search?q='{}'", prompt))
+                                .arg(format!("setsid -f xdg-open https://www.google.com/search?q='{}'", prompt))
                                 .spawn()
                                 .expect("Failed to launch the command...");
                             let _ = child.wait().expect("Process wasn't running");
@@ -373,11 +389,13 @@ fn main() {
                         }
                     }
                 },
-                // if the input doesn't start with some module prefixes
+                // if user input doesn't start with some module prefixes
                 None => {
                     // Condition 1: when user input is empty (and no module selected), run the empty module
                     if prompt.is_empty() {
-                        let emptymodule = config.general.empty_module.unwrap_or("".to_string());
+                        let emptymodule = config
+                            .general.empty_module
+                            .unwrap_or("".to_string());
                         if emptymodule.is_empty() {
                             process::exit(0);
                         } else {
@@ -385,17 +403,7 @@ fn main() {
                                 .modules
                                 .iter()
                                 .find(|module| remove_ascii( &module.prefix ) == emptymodule);
-                            // launch prehook if it exists
-                            if empty_module.unwrap().prehook.is_some() {
-                                let mut prehook_process = Command::new(exec_cmd_base);
-                                for arg in exec_cmd_args {
-                                    prehook_process.arg(arg);
-                                }
-                                let mut prehook = prehook_process.arg(empty_module.unwrap().prehook.clone().unwrap())
-                                    .spawn()
-                                    .expect("Failed to launch prehook...");
-                                let _ = prehook.wait().expect("Callback process wasn't running");
-                            }
+                            callback(&empty_module.unwrap().prehook);
                             let mut child = cmd_process
                                 .arg(format!("{}", &empty_module
                                         .unwrap()
@@ -403,16 +411,19 @@ fn main() {
                                 ).spawn()
                                 .expect("Failed to launch the command...");
                             let _ = child.wait().expect("Process wasn't running");
+                            callback(&empty_module.unwrap().callback);
                         }
                     // Condition 2: when canceled with esc (thus no module selected), exit
                     } else if prompt == "otter_magic_canceled_and_quit" {
                         process::exit(0);
                     // Condition 3: when no module is matched, run the default module
                     } else {
-                        let defaultmodule = config.general.default_module.unwrap_or("".to_string());
+                        let defaultmodule = config
+                            .general.default_module
+                            .unwrap_or("".to_string());
                         if defaultmodule.is_empty() {
                             let mut child = cmd_process
-                                .arg(format!("xdg-open https://www.google.com/search?q='{}'", prompt))
+                                .arg(format!("setsid -f xdg-open https://www.google.com/search?q='{}'", prompt))
                                 .spawn()
                                 .expect("Failed to launch the command...");
                             let _ = child.wait().expect("Process wasn't running");
@@ -429,17 +440,7 @@ fn main() {
                             } else {
                                 prompt.to_string()
                             };
-                            // launch prehook if it exists
-                            if default_module.unwrap().prehook.is_some() {
-                                let mut prehook_process = Command::new(exec_cmd_base);
-                                for arg in exec_cmd_args {
-                                    prehook_process.arg(arg);
-                                }
-                                let mut prehook = prehook_process.arg(default_module.unwrap().prehook.clone().unwrap())
-                                    .spawn()
-                                    .expect("Failed to launch prehook...");
-                                let _ = prehook.wait().expect("Callback process wasn't running");
-                            }
+                            callback(&default_module.unwrap().prehook);
                             let mut child = cmd_process
                                 .arg(format!("{}", &default_module
                                         .unwrap()
@@ -448,6 +449,7 @@ fn main() {
                                 ).spawn()
                                 .expect("Failed to launch the command...");
                             let _ = child.wait().expect("Process wasn't running");
+                            callback(&default_module.unwrap().callback);
                         }
                     }
                 }

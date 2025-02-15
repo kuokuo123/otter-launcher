@@ -22,7 +22,7 @@ It is recommended to use otter-launcher with [sway-launcher-desktop](https://git
 
 - modularized prefixes to run different commands (via configuration)
 - fuzzy search and tab completion for configured modules
-- module-specific prehooks
+- module-specific prehook and callback commands
 - customizable shell or wm by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
 - customizable with ascii color codes, chafa, neofetch, etc.
@@ -84,15 +84,16 @@ url_encode = true
 [[modules]]
 description = "open files with fzf"
 prefix = "\u001B[32mfo\u001B[0m"
-cmd = "$TERM -e sh -c 'fd --type f | fzf | xargs xdg-open'"
-# if set, the prehook command will run before the main cmd. 
-prehook = "swaymsg [app_id=yazi] resize set width 600 px height 300 px"
+cmd = "$TERM --class fzf -e sh -c 'fd --type f | fzf | xargs xdg-open'"
+# if set, the prehook command will run before the main cmd starts. 
+prehook = "swaymsg '[app_id=fzf] floating on; [app_id=fzf] resize set width 600 px height 300 px'"
+# if set, the callback command will run after the main cmd has finished. 
+callback = ""
 
 [[modules]]
 description = "search for directories with yazi"
 prefix = "\u001B[32myz\u001B[0m"
 cmd = "$TERM --class yazi -e sh -c 'fd --type d | fzf | xargs $TERM -e yazi'"
-prehook = "swaymsg [app_id=yazi] resize set width 600 px height 300 px"
 
 [[modules]]
 description = "cambridge dictionary online"
