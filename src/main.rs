@@ -12,7 +12,7 @@ The inquire crate was modified with three files for better ui:
     3. src/input/action.rs was modified in fn from_key for ctrl+k & ctrl+u keybinds
 */
 
-use std::{fs, env, path::Path, error::Error, process, process::Command};
+use std::{str::from_utf8, fs, env, path::Path, error::Error, process, process::Command};
 use inquire::{autocompletion::{Autocomplete, Replacement}, CustomUserError, Text, ui::{RenderConfig, Styled, StyleSheet, Attributes, IndexPrefix}};
 use serde::Deserialize;
 use toml::from_str;
@@ -65,7 +65,7 @@ struct Module {
     callback: Option<String>,
 }
 
-// Define hint autocompleter
+// Define suggestion autocompleter
 #[derive(Clone, Default)]
 struct SuggestionCompleter {
     input: String,
@@ -144,15 +144,14 @@ impl Autocomplete for SuggestionCompleter {
                     .map(|(hint, _)| Replacement::Some(
                         remove_ascii(hint)
                             .split_whitespace()
-                            .next()
-                            .expect("Failed to extract the text to be auto completed...")
+                            .next()?
                             .to_string()))
                     .unwrap_or(Replacement::None)
         })
     }
 }
 
-// Read from TOML Config
+// function to read from TOML Config
 fn read_config() -> Result<Config, Box<dyn Error>> {
     let home_dir = env::var("HOME").unwrap_or_else(|_| String::from("/"));
     let xdg_config_path = format!("{}/.config/otter-launcher/config.toml", home_dir);
@@ -171,11 +170,32 @@ fn read_config() -> Result<Config, Box<dyn Error>> {
     Ok(config)
 }
 
-// function to remove ascii color code
+// function to remove ascii color code from &str
 fn remove_ascii(input: &str) -> String {
-    let re = Regex::new(r"\x1b\[[0-9;]*m")
-        .unwrap();
-    re.replace_all(input, "").into()
+    let re = Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+    re.replace_all(input, "").to_string()
+}
+
+// function to run module.cmd
+fn run_module_command(mod_cmd_arg: &str, mut cmd_process: Command) {
+    let mut run_module_cmd = cmd_process.arg(mod_cmd_arg)
+        .spawn()
+        .expect("Failed to launch callback...");
+    let _ = run_module_cmd.wait().expect("Callback process wasn't running");
+}
+
+// function to run callback
+fn callback(cb_cmd_arg: &Option<String>, cmd_base: &str, cmd_args: &Vec<&str>) {
+    if cb_cmd_arg.is_some() {
+        let mut callback_process = Command::new(cmd_base);
+        for arg in cmd_args {
+            callback_process.arg(arg);
+        }
+        let mut callback = callback_process.arg(cb_cmd_arg.clone().unwrap())
+            .spawn()
+            .expect("Failed to launch callback cmd...");
+        let _ = callback.wait().expect("Callback cmd wasn't running");
+    }
 }
 
 // main function
@@ -183,7 +203,7 @@ fn main() {
     // comparing prompt with loaded configs
     match read_config() {
         Ok(config) => {
-            // let header be either from runing a "header_cmd" or from the text specified in "header"
+            // load header and header_cmd from config file
             let prompt_header = config
                 .interface.header
                 .unwrap_or("".to_string());
@@ -197,7 +217,7 @@ fn main() {
                     .output()
                     .expect("Failed to launch header command...");
                 if output.status.success() {
-                    let prompt_header = std::str::from_utf8(&output.stdout).unwrap();
+                    let prompt_header = from_utf8(&output.stdout).unwrap();
                     let lines: Vec<&str> = prompt_header.lines().collect();
                     let remove_lines_count = config
                         .interface.header_cmd_trimmed_lines
@@ -214,45 +234,12 @@ fn main() {
                     eprintln!("Header command failed with status: {}", output.status);
                 }
             }
-            // reading header and prompt style from toml config
-            let prompt_prefix = config
-                .interface.prompt_prefix
-                .unwrap_or(" \x1b[34m \x1b[0m otter-launcher \x1b[34m>\x1b[0m".to_string());
-            let help_message = config
-                .interface.help_message
-                .unwrap_or("".to_string());
-            let suggestion_lines = config
-                .interface.suggestion_lines
-                .unwrap_or(1);
-            let list_prefix = config
-                .interface.list_prefix
-                .unwrap_or("    ".to_string());
-            let highlighted_prefix = config
-                .interface.highlighted_prefix
-                .unwrap_or("  \x1b[31m >\x1b[0m".to_string());
-            let scroll_up_prefix = config
-                .interface.scroll_up_prefix
-                .unwrap_or("  \x1b[31m #\x1b[0m".to_string());
-            let scroll_down_prefix = config
-                .interface.scroll_down_prefix
-                .unwrap_or("  \x1b[31m #\x1b[0m".to_string());
-            let placeholder = config
-                .interface.place_holder
-                .unwrap_or("type and search...".to_string());
-            let render_config = RenderConfig {
-                prompt_prefix: Styled::new(&prompt_header),
-                selected_option: Some(StyleSheet::new().with_attr(Attributes::BOLD)),
-                option_index_prefix: IndexPrefix::SpacePadded,
-                highlighted_option_prefix: Styled::new(&highlighted_prefix),
-                scroll_down_prefix: Styled::new(&scroll_down_prefix),
-                scroll_up_prefix: Styled::new(&scroll_up_prefix),
-                list_prefix: Styled::new(&list_prefix),
-                ..Default::default()
-            };
 
-            // getting prompt from user input, and input interface setup
+            // getting prompt from user input, and set up input interface as per the config file
             let prompt = Text {
-                message: &prompt_prefix,
+                message: &config
+                    .interface.prompt_prefix
+                    .unwrap_or(" \x1b[34m \x1b[0m otter-launcher \x1b[34m>\x1b[0m".to_string()),
                 initial_value: None,
                 default: None,
                 autocompleter: if config
@@ -262,12 +249,45 @@ fn main() {
                 } else {
                     None
                 },
-                placeholder: Some(&placeholder),
+                placeholder: Some(
+                    &config
+                    .interface.place_holder
+                    .unwrap_or("type and search..."
+                        .to_string())
+                ),
                 formatter: Text::DEFAULT_FORMATTER,
                 validators: Vec::new(),
-                page_size: suggestion_lines,
-                render_config: render_config,
-                help_message: Some(&help_message),
+                page_size: config
+                        .interface.suggestion_lines
+                        .unwrap_or(1),
+                render_config:
+                    RenderConfig {
+                        prompt_prefix: Styled::new(&prompt_header),
+                        selected_option: Some(StyleSheet::new().with_attr(Attributes::BOLD)),
+                        option_index_prefix: IndexPrefix::SpacePadded,
+                        highlighted_option_prefix: Styled::new(
+                                &config
+                                .interface.highlighted_prefix
+                                .unwrap_or("  \x1b[31m >\x1b[0m".to_string())),
+                        scroll_down_prefix: Styled::new(
+                                &config
+                                .interface.scroll_down_prefix
+                                .unwrap_or("  \x1b[31m #\x1b[0m".to_string())),
+                        scroll_up_prefix: Styled::new(
+                                &config
+                                .interface.scroll_up_prefix
+                                .unwrap_or("  \x1b[31m #\x1b[0m".to_string())),
+                        list_prefix: Styled::new(
+                                &config
+                                .interface.list_prefix
+                                .unwrap_or("    ".to_string())),
+                        ..Default::default()
+                    },
+                help_message: Some(
+                    &config
+                    .interface.help_message
+                    .unwrap_or("".to_string())
+                ),
             }.prompt()
                 .unwrap_or_else(|_err|{
                     String::from("otter_magic_canceled_and_quit")
@@ -275,17 +295,7 @@ fn main() {
             
             let prompt = remove_ascii(&prompt);
 
-            // matching the prompted text with module prefixes to decide what to do
-            let keyword = prompt
-                .split_whitespace()
-                .next()
-                .unwrap_or("");
-            let module_opt = config
-                .modules
-                .iter()
-                .find(|module| remove_ascii( &module.prefix ) == keyword);
-
-            // format the shell by which module commands are launched
+            // format the shell command by which module.cmd are launched
             let exec_cmd = config
                 .general.exec_cmd.unwrap_or("sh -c".to_string());
             let mut cmd_parts = exec_cmd.split_whitespace();
@@ -296,77 +306,60 @@ fn main() {
                 cmd_process.arg(arg);
             }
 
-            // callback function, which will run before or after module.cmd if available
-            let callback = |callback_cmd: &Option<String> | {
-                if callback_cmd.is_some() {
-                    if let Some(cmd) = callback_cmd {
-                        let mut callback_process = Command::new(exec_cmd_base);
-                        for arg in &exec_cmd_args {
-                            callback_process.arg(arg);
-                        }
-                        let mut callback = callback_process.arg(cmd)
-                            .spawn()
-                            .expect("Failed to launch callback...");
-                        let _ = callback.wait().expect("Callback process wasn't running");
-                    }
-                }
-            };
+            // matching the prompted prefix with module prefixes to decide what to do
+            let prompted_prfx = prompt
+                .split_whitespace()
+                .next()
+                .unwrap_or("");
+            let module_prfx = config
+                .modules
+                .iter()
+                .find(|module| remove_ascii( &module.prefix ) == prompted_prfx);
 
-            match module_opt {
+            match module_prfx {
                 // if user input starts with some module prefixes
                 Some(module) => {
                     // determine whether the prompt should be urlencoded
                     let argument = if module.url_encode
                         .unwrap_or(false) == true {
                             encode(prompt
-                            .trim_start_matches(&keyword)
-                            .trim_start_matches(" ")
-                            ).into()
+                                .trim_start_matches(prompted_prfx)
+                                .trim_start_matches(" ")
+                            ).to_string()
                         } else {
                             prompt
-                            .trim_start_matches(&keyword)
+                            .trim_start_matches(prompted_prfx)
                             .trim_start_matches(" ")
                             .to_string()
                         };
 
                     // Condition 1: when the selected module runs with arguement
                     if module.with_argument.unwrap_or(false) == true {
-                        callback(&module.prehook);
-                        let mut child = cmd_process
-                            .arg(format!("{}", module.cmd.replace("{}", &argument)))
-                            .spawn()
-                            .expect("Failed to launch the command...");
-                        let _ = child.wait().expect("Process wasn't running");
-                        callback(&module.callback);
+                        callback(&module.prehook, &exec_cmd_base, &exec_cmd_args);
+                        run_module_command(
+                            &format!("{}", module.cmd.replace("{}", &argument)),
+                            cmd_process);
                     // Condition 2: when user input is exactly the same as the no-arg module
                     } else if remove_ascii( &module.prefix ) == prompt {
-                        callback(&module.prehook);
-                        let mut child = cmd_process
-                            .arg(&module.cmd)
-                            .spawn()
-                            .expect("Failed to launch the command...");
-                        let _ = child.wait().expect("Process wasn't running");
-                        callback(&module.callback);
+                        callback(&module.prehook, &exec_cmd_base, &exec_cmd_args);
+                        run_module_command(&module.cmd, cmd_process);
+                        callback(&module.callback, &exec_cmd_base, &exec_cmd_args);
                     // Condition 3: when the selected module is selected by suggestion (prompt=prefix+desc)
                     } else if remove_ascii( &module.prefix ) + " " + &module.description == prompt {
-                        callback(&module.prehook);
-                        let mut child = cmd_process
-                            .arg(&module.cmd)
-                            .spawn()
-                            .expect("Failed to launch the command...");
-                        let _ = child.wait().expect("Process wasn't running");
-                        callback(&module.callback);
+                        callback(&module.prehook, &exec_cmd_base, &exec_cmd_args);
+                        run_module_command(&module.cmd, cmd_process);
+                        callback(&module.callback, &exec_cmd_base, &exec_cmd_args);
                     // Condition 4: when no-arg modules is running with arguement
                     } else {
                         let defaultmodule = config
                             .general.default_module
                             .unwrap_or("".to_string());
+                        // Test if default module is set
                         if defaultmodule.is_empty() {
-                            let mut child = cmd_process
-                                .arg(format!("setsid -f xdg-open https://www.google.com/search?q='{}'", prompt))
-                                .spawn()
-                                .expect("Failed to launch the command...");
-                            let _ = child.wait().expect("Process wasn't running");
+                            run_module_command(
+                                &format!(
+                                    "setsid -f xdg-open https://www.google.com/search?q='{}'", prompt),
+                                cmd_process);
                         } else {
                             let default_module = config
                                 .modules
@@ -376,18 +369,16 @@ fn main() {
                             let prompt_wo_prefix = if default_module
                                 .unwrap()
                                 .url_encode.unwrap_or(false) == true {
-                                    encode(&prompt).into()
+                                    encode(&prompt).to_string()
                             } else {
-                                prompt.to_string()
+                                prompt
                             };
-                            let mut child = cmd_process
-                                .arg(format!("{}", &default_module
-                                        .unwrap()
-                                        .cmd
-                                        .replace("{}", &prompt_wo_prefix))
-                                ).spawn()
-                                .expect("Failed to launch the command...");
-                            let _ = child.wait().expect("Process wasn't running");
+                            run_module_command(
+                                &format!("{}", &default_module
+                                    .unwrap()
+                                    .cmd
+                                    .replace("{}", &prompt_wo_prefix)),
+                                cmd_process);
                         }
                     }
                 },
@@ -405,15 +396,12 @@ fn main() {
                                 .modules
                                 .iter()
                                 .find(|module| remove_ascii( &module.prefix ) == emptymodule);
-                            callback(&empty_module.unwrap().prehook);
-                            let mut child = cmd_process
-                                .arg(format!("{}", &empty_module
-                                        .unwrap()
-                                        .cmd.replace("{}", ""))
-                                ).spawn()
-                                .expect("Failed to launch the command...");
-                            let _ = child.wait().expect("Process wasn't running");
-                            callback(&empty_module.unwrap().callback);
+                            callback(&empty_module.unwrap().prehook, &exec_cmd_base, &exec_cmd_args);
+                            run_module_command(
+                                &format!("{}", &empty_module
+                                    .unwrap()
+                                    .cmd.replace("{}", "")),
+                                cmd_process);
                         }
                     // Condition 2: when canceled with esc (thus no module selected), exit
                     } else if prompt == "otter_magic_canceled_and_quit" {
@@ -423,12 +411,12 @@ fn main() {
                         let defaultmodule = config
                             .general.default_module
                             .unwrap_or("".to_string());
+                        // test if default module is set
                         if defaultmodule.is_empty() {
-                            let mut child = cmd_process
-                                .arg(format!("setsid -f xdg-open https://www.google.com/search?q='{}'", prompt))
-                                .spawn()
-                                .expect("Failed to launch the command...");
-                            let _ = child.wait().expect("Process wasn't running");
+                            run_module_command(
+                                &format!(
+                                    "setsid -f xdg-open https://www.google.com/search?q='{}'", prompt),
+                                cmd_process);
                         } else {
                             let default_module = config
                                 .modules
@@ -438,20 +426,18 @@ fn main() {
                             let prompt_wo_prefix = if default_module
                                 .unwrap()
                                 .url_encode.unwrap_or(false) == true {
-                                    encode(&prompt).into()
+                                    encode(&prompt).to_string()
                             } else {
-                                prompt.to_string()
+                                prompt
                             };
-                            callback(&default_module.unwrap().prehook);
-                            let mut child = cmd_process
-                                .arg(format!("{}", &default_module
-                                        .unwrap()
-                                        .cmd
-                                        .replace("{}", &prompt_wo_prefix))
-                                ).spawn()
-                                .expect("Failed to launch the command...");
-                            let _ = child.wait().expect("Process wasn't running");
-                            callback(&default_module.unwrap().callback);
+                            callback(&default_module.unwrap().prehook, &exec_cmd_base, &exec_cmd_args);
+                            run_module_command(
+                                &format!("{}", &default_module
+                                    .unwrap()
+                                    .cmd
+                                    .replace("{}", &prompt_wo_prefix)),
+                                cmd_process);
+                            callback(&default_module.unwrap().callback, &exec_cmd_base, &exec_cmd_args);
                         }
                     }
                 }
