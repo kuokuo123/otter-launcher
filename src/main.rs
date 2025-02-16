@@ -177,21 +177,17 @@ fn remove_ascii(input: &str) -> String {
 }
 
 // function to run module.cmd
-fn run_module_command(mod_cmd_arg: &str, mut cmd_process: Command) {
-    let mut run_module_cmd = cmd_process.arg(mod_cmd_arg)
+fn run_module_command(mod_cmd_arg: &str, mut shell_cmd: Command) {
+    let mut run_module_cmd = shell_cmd.arg(mod_cmd_arg)
         .spawn()
         .expect("Failed to launch callback...");
     let _ = run_module_cmd.wait().expect("Callback process wasn't running");
 }
 
-// function to run callback
-fn callback(cb_cmd_arg: &Option<String>, cmd_base: &str, cmd_args: &Vec<&str>) {
+// function to run callback and prehook
+fn callback(cb_cmd_arg: &Option<String>, mut shell_cmd: Command) {
     if cb_cmd_arg.is_some() {
-        let mut callback_process = Command::new(cmd_base);
-        for arg in cmd_args {
-            callback_process.arg(arg);
-        }
-        let mut callback = callback_process.arg(cb_cmd_arg.clone().unwrap())
+        let mut callback = shell_cmd.arg(cb_cmd_arg.clone().unwrap())
             .spawn()
             .expect("Failed to launch callback cmd...");
         let _ = callback.wait().expect("Callback cmd wasn't running");
@@ -301,9 +297,13 @@ fn main() {
             let mut cmd_parts = exec_cmd.split_whitespace();
             let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
             let exec_cmd_args: Vec<&str> = cmd_parts.collect();
-            let mut cmd_process = Command::new(exec_cmd_base);
+            let mut shell_cmd = Command::new(exec_cmd_base);
+            let mut shell_prehook = Command::new(exec_cmd_base);
+            let mut shell_callback = Command::new(exec_cmd_base);
             for arg in &exec_cmd_args {
-                cmd_process.arg(arg);
+                shell_cmd.arg(arg);
+                shell_prehook.arg(arg);
+                shell_callback.arg(arg);
             }
 
             // matching the prompted prefix with module prefixes to decide what to do
@@ -335,20 +335,21 @@ fn main() {
 
                     // Condition 1: when the selected module runs with arguement
                     if module.with_argument.unwrap_or(false) == true {
-                        callback(&module.prehook, &exec_cmd_base, &exec_cmd_args);
+                        callback(&module.prehook, shell_prehook);
                         run_module_command(
                             &format!("{}", module.cmd.replace("{}", &argument)),
-                            cmd_process);
+                            shell_cmd);
+                        callback(&module.callback, shell_callback);
                     // Condition 2: when user input is exactly the same as the no-arg module
                     } else if remove_ascii( &module.prefix ) == prompt {
-                        callback(&module.prehook, &exec_cmd_base, &exec_cmd_args);
-                        run_module_command(&module.cmd, cmd_process);
-                        callback(&module.callback, &exec_cmd_base, &exec_cmd_args);
+                        callback(&module.prehook, shell_prehook);
+                        run_module_command(&module.cmd, shell_cmd);
+                        callback(&module.callback, shell_callback);
                     // Condition 3: when the selected module is selected by suggestion (prompt=prefix+desc)
                     } else if remove_ascii( &module.prefix ) + " " + &module.description == prompt {
-                        callback(&module.prehook, &exec_cmd_base, &exec_cmd_args);
-                        run_module_command(&module.cmd, cmd_process);
-                        callback(&module.callback, &exec_cmd_base, &exec_cmd_args);
+                        callback(&module.prehook, shell_prehook);
+                        run_module_command(&module.cmd, shell_cmd);
+                        callback(&module.callback, shell_callback);
                     // Condition 4: when no-arg modules is running with arguement
                     } else {
                         let defaultmodule = config
@@ -359,7 +360,7 @@ fn main() {
                             run_module_command(
                                 &format!(
                                     "setsid -f xdg-open https://www.google.com/search?q='{}'", prompt),
-                                cmd_process);
+                                shell_cmd);
                         } else {
                             let default_module = config
                                 .modules
@@ -378,7 +379,7 @@ fn main() {
                                     .unwrap()
                                     .cmd
                                     .replace("{}", &prompt_wo_prefix)),
-                                cmd_process);
+                                shell_cmd);
                         }
                     }
                 },
@@ -396,12 +397,13 @@ fn main() {
                                 .modules
                                 .iter()
                                 .find(|module| remove_ascii( &module.prefix ) == emptymodule);
-                            callback(&empty_module.unwrap().prehook, &exec_cmd_base, &exec_cmd_args);
+                            callback(&empty_module.unwrap().prehook, shell_prehook);
                             run_module_command(
                                 &format!("{}", &empty_module
                                     .unwrap()
                                     .cmd.replace("{}", "")),
-                                cmd_process);
+                                shell_cmd);
+                            callback(&empty_module.unwrap().callback, shell_callback);
                         }
                     // Condition 2: when canceled with esc (thus no module selected), exit
                     } else if prompt == "otter_magic_canceled_and_quit" {
@@ -416,7 +418,7 @@ fn main() {
                             run_module_command(
                                 &format!(
                                     "setsid -f xdg-open https://www.google.com/search?q='{}'", prompt),
-                                cmd_process);
+                                shell_cmd);
                         } else {
                             let default_module = config
                                 .modules
@@ -430,14 +432,14 @@ fn main() {
                             } else {
                                 prompt
                             };
-                            callback(&default_module.unwrap().prehook, &exec_cmd_base, &exec_cmd_args);
+                            callback(&default_module.unwrap().prehook, shell_prehook);
                             run_module_command(
                                 &format!("{}", &default_module
                                     .unwrap()
                                     .cmd
                                     .replace("{}", &prompt_wo_prefix)),
-                                cmd_process);
-                            callback(&default_module.unwrap().callback, &exec_cmd_base, &exec_cmd_args);
+                                shell_cmd);
+                            callback(&default_module.unwrap().callback, shell_callback);
                         }
                     }
                 }
