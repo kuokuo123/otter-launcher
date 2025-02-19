@@ -357,10 +357,7 @@ fn main() {
                             .unwrap_or("".to_string());
                         // Test if default module is set
                         if defaultmodule.is_empty() {
-                            run_module_command(
-                                &format!(
-                                    "setsid -f xdg-open https://www.google.com/search?q='{}'", prompt),
-                                shell_cmd);
+                            process::exit(0);
                         } else {
                             let default_module = config
                                 .modules
@@ -415,10 +412,7 @@ fn main() {
                             .unwrap_or("".to_string());
                         // test if default module is set
                         if defaultmodule.is_empty() {
-                            run_module_command(
-                                &format!(
-                                    "setsid -f xdg-open https://www.google.com/search?q='{}'", prompt),
-                                shell_cmd);
+                            process::exit(0);
                         } else {
                             let default_module = config
                                 .modules

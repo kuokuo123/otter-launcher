@@ -45,7 +45,7 @@ Otter-launcher read a config file from $HOME/.config/otter-launcher/config.toml.
 
 ``` toml
 [general]
-# The module to run when no prefix is matched; leaving the option empty defaults to googling
+# The module to run when no prefix is matched
 default_module = "gg"
 # The module to run with an empty prompt
 empty_module = ""
