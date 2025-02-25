@@ -84,7 +84,7 @@ url_encode = true
 [[modules]]
 description = "open files with fzf"
 prefix = "\u001B[32mfo\u001B[0m"
-cmd = "$TERM --class fzf -e sh -c 'fd --type f | fzf | xargs xdg-open'"
+cmd = "$TERM --class fzf -e sh -c 'fd --type f | fzf | xargs -r xdg-open'"
 # if set, the prehook command will run before the main cmd starts. 
 prehook = "swaymsg '[app_id=fzf] floating on; [app_id=fzf] resize set width 600 px height 300 px'"
 # if set, the callback command will run after the main cmd has finished. 
@@ -93,7 +93,7 @@ callback = ""
 [[modules]]
 description = "search for directories with yazi"
 prefix = "\u001B[32myz\u001B[0m"
-cmd = "$TERM --class yazi -e sh -c 'fd --type d | fzf | xargs $TERM -e yazi'"
+cmd = "$TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r $TERM -e yazi'"
 
 [[modules]]
 description = "cambridge dictionary online"
