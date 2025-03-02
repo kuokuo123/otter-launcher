@@ -176,7 +176,7 @@ fn remove_ascii(input: &str) -> String {
 
 // function to run module.cmd
 fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, module: &Module) {
-    // format the shell command by which commands are launched
+    // format the shell command by which the module commands are launched
     let mut cmd_parts = exec_cmd.split_whitespace();
     let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
     let exec_cmd_args: Vec<&str> = cmd_parts.collect();
@@ -218,7 +218,7 @@ fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, module: &Module) {
 
 // function to run empty & default modules
 fn run_designated_module(prompt: String, prfx: String, exec_cmd: String, modules: Vec<Module>) {
-    // test if default module is set
+    // test if the designated module is set
     if prfx.is_empty() {
         println!("{}", prompt)
     } else {
