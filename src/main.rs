@@ -175,19 +175,18 @@ fn remove_ascii(input: &str) -> String {
 }
 
 // function to run module.cmd (with prehook and callback)
-fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, ph_cmd_arg: &Option<String>, cb_cmd_arg: &Option<String>) {
-
+fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, module: &Module) {
     // format the shell command by which commands are launched
     let mut cmd_parts = exec_cmd.split_whitespace();
     let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
     let exec_cmd_args: Vec<&str> = cmd_parts.collect();
 
-    if ph_cmd_arg.is_some() {
+    if module.prehook.is_some() {
         let mut ph_cmd = Command::new(exec_cmd_base);
         for arg in &exec_cmd_args {
             ph_cmd.arg(arg);
         }
-        let mut prehook = ph_cmd.arg(ph_cmd_arg.as_ref().unwrap())
+        let mut prehook = ph_cmd.arg(module.prehook.as_ref().unwrap())
             .spawn()
             .expect("Failed to launch prehook cmd...");
         let _ = prehook.wait().expect("Prehook cmd wasn't running");
@@ -202,20 +201,49 @@ fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, ph_cmd_arg: &Option<S
         .expect("Failed to launch callback...");
     let _ = run_module_cmd.wait().expect("Module.cmd process wasn't running");
 
-    if cb_cmd_arg.is_some() {
+    if module.callback.is_some() {
         let mut cb_cmd = Command::new(exec_cmd_base);
         for arg in &exec_cmd_args {
             cb_cmd.arg(arg);
         }
-        let mut callback = cb_cmd.arg(cb_cmd_arg.as_ref().unwrap())
+        let mut callback = cb_cmd.arg(module.callback.as_ref().unwrap())
             .spawn()
             .expect("Failed to launch callback cmd...");
         let _ = callback.wait().expect("Callback cmd wasn't running");
     }
 }
 
+// function to run empty & default modules
+fn func_modules(prfx: String, exec_cmd: String, modules: Vec<Module>, prompt: String) {
+    // test if default module is set
+    if prfx.is_empty() {
+        println!("{}", prompt)
+    } else {
+    // if set
+        let target_module = modules
+            .iter()
+            .find(|module| 
+                remove_ascii( &module.prefix ) == prfx);
+        let prompt_wo_prefix = if target_module
+            .unwrap()
+            .url_encode.unwrap_or(false) == true {
+                encode(&prompt).to_string()
+        } else {
+            prompt
+        };
+        run_module_command(
+            &format!("{}", target_module
+                .unwrap()
+                .cmd
+                .replace("{}", &prompt_wo_prefix)),
+            exec_cmd,
+            target_module.unwrap());
+    }
+}
+
 // main function
 fn main() {
+
     // comparing prompt with loaded configs
     match read_config() {
         Ok(config) => {
@@ -346,101 +374,45 @@ fn main() {
                         run_module_command(
                             &format!("{}", module.cmd.replace("{}", &argument)),
                             exec_cmd,
-                            &module.prehook,
-                            &module.callback);
+                            module);
                     // Condition 2: when user input is exactly the same as the no-arg module
                     } else if remove_ascii( &module.prefix ) == prompt {
-                        run_module_command(&module.cmd, exec_cmd, &module.prehook, &module.callback);
+                        run_module_command(&module.cmd,
+                            exec_cmd,
+                            module);
                     // Condition 3: when the selected module is selected by suggestion (prompt=prefix+desc)
                     } else if remove_ascii( &module.prefix ) + " " + &module.description == prompt {
-                        run_module_command(&module.cmd, exec_cmd, &module.prehook, &module.callback);
+                        run_module_command(&module.cmd,
+                            exec_cmd,
+                            module);
                     // Condition 4: when no-arg modules is running with arguement
                     } else {
-                        let defaultmodule = config
-                            .general.default_module
-                            .unwrap_or("".to_string());
-                        // Test if default module is set
-                        if defaultmodule.is_empty() {
-                            println!("{}", prompt)
-                        } else {
-                            let default_module = config
-                                .modules
-                                .iter()
-                                .find(|module| 
-                                    remove_ascii( &module.prefix ) == defaultmodule);
-                            let prompt_wo_prefix = if default_module
-                                .unwrap()
-                                .url_encode.unwrap_or(false) == true {
-                                    encode(&prompt).to_string()
-                            } else {
-                                prompt
-                            };
-                            run_module_command(
-                                &format!("{}", &default_module
-                                    .unwrap()
-                                    .cmd
-                                    .replace("{}", &prompt_wo_prefix)),
-                                exec_cmd,
-                                &module.prehook,
-                                &module.callback);
-                        }
+                        func_modules(
+                            config.general.default_module.unwrap(),
+                            exec_cmd,
+                            config.modules,
+                            prompt)
                     }
                 },
                 // if user input doesn't start with some module prefixes
                 None => {
-                    // Condition 1: when user input is empty (and no module selected), run the empty module
+                    // Condition 1: when user input is empty, run the empty module
                     if prompt.is_empty() {
-                        let emptymodule = config
-                            .general.empty_module
-                            .unwrap_or("".to_string());
-                        if emptymodule.is_empty() {
-                            process::exit(0);
-                        } else {
-                            let empty_module = config
-                                .modules
-                                .iter()
-                                .find(|module| remove_ascii( &module.prefix ) == emptymodule);
-                            run_module_command(
-                                &format!("{}", &empty_module
-                                    .unwrap()
-                                    .cmd.replace("{}", "")),
-                                exec_cmd,
-                                &empty_module.unwrap().prehook,
-                                &empty_module.unwrap().callback);
-                        }
+                        func_modules(
+                            config.general.empty_module.unwrap(),
+                            exec_cmd,
+                            config.modules,
+                            prompt)
                     // Condition 2: when canceled with esc (thus no module selected), exit
                     } else if prompt == "otter_magic_canceled_and_quit" {
                         process::exit(0);
                     // Condition 3: when no module is matched, run the default module
                     } else {
-                        let defaultmodule = config
-                            .general.default_module
-                            .unwrap_or("".to_string());
-                        // test if default module is set
-                        if defaultmodule.is_empty() {
-                            println!("{}", prompt)
-                        } else {
-                            let default_module = config
-                                .modules
-                                .iter()
-                                .find(|module| 
-                                    remove_ascii( &module.prefix ) == defaultmodule);
-                            let prompt_wo_prefix = if default_module
-                                .unwrap()
-                                .url_encode.unwrap_or(false) == true {
-                                    encode(&prompt).to_string()
-                            } else {
-                                prompt
-                            };
-                            run_module_command(
-                                &format!("{}", &default_module
-                                    .unwrap()
-                                    .cmd
-                                    .replace("{}", &prompt_wo_prefix)),
-                                exec_cmd,
-                                &default_module.unwrap().prehook,
-                                &default_module.unwrap().callback);
-                        }
+                        func_modules(
+                            config.general.default_module.unwrap(),
+                            exec_cmd,
+                            config.modules,
+                            prompt)
                     }
                 }
             }
