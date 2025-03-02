@@ -43,6 +43,8 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 Otter-launcher read a config file from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml
 
+An example of the file is at config_example/config.toml. Copy it to one of the above paths.
+
 ``` toml
 [general]
 # The module to run when no prefix is matched
