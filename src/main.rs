@@ -174,13 +174,14 @@ fn remove_ascii(input: &str) -> String {
     re.replace_all(input, "").to_string()
 }
 
-// function to run module.cmd (with prehook and callback)
+// function to run module.cmd
 fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, module: &Module) {
     // format the shell command by which commands are launched
     let mut cmd_parts = exec_cmd.split_whitespace();
     let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
     let exec_cmd_args: Vec<&str> = cmd_parts.collect();
 
+    // run prehook is there is one
     if module.prehook.is_some() {
         let mut ph_cmd = Command::new(exec_cmd_base);
         for arg in &exec_cmd_args {
@@ -192,6 +193,7 @@ fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, module: &Module) {
         let _ = prehook.wait().expect("Prehook cmd wasn't running");
     }
 
+    // run the module cmd
     let mut shell_cmd = Command::new(exec_cmd_base);
     for arg in &exec_cmd_args {
         shell_cmd.arg(arg);
@@ -201,6 +203,7 @@ fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, module: &Module) {
         .expect("Failed to launch callback...");
     let _ = run_module_cmd.wait().expect("Module.cmd process wasn't running");
 
+    // run callback if there is one
     if module.callback.is_some() {
         let mut cb_cmd = Command::new(exec_cmd_base);
         for arg in &exec_cmd_args {
@@ -214,16 +217,18 @@ fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, module: &Module) {
 }
 
 // function to run empty & default modules
-fn func_modules(prfx: String, exec_cmd: String, modules: Vec<Module>, prompt: String) {
+fn run_designated_module(prompt: String, prfx: String, exec_cmd: String, modules: Vec<Module>) {
     // test if default module is set
     if prfx.is_empty() {
         println!("{}", prompt)
     } else {
     // if set
+        // find the designated module
         let target_module = modules
             .iter()
             .find(|module| 
                 remove_ascii( &module.prefix ) == prfx);
+        // whether to use url encoding
         let prompt_wo_prefix = if target_module
             .unwrap()
             .url_encode.unwrap_or(false) == true {
@@ -231,6 +236,7 @@ fn func_modules(prfx: String, exec_cmd: String, modules: Vec<Module>, prompt: St
         } else {
             prompt
         };
+        // run the module's command
         run_module_command(
             &format!("{}", target_module
                 .unwrap()
@@ -243,7 +249,6 @@ fn func_modules(prfx: String, exec_cmd: String, modules: Vec<Module>, prompt: St
 
 // main function
 fn main() {
-
     // comparing prompt with loaded configs
     match read_config() {
         Ok(config) => {
@@ -347,6 +352,7 @@ fn main() {
                 .split_whitespace()
                 .next()
                 .unwrap_or("");
+
             let module_prfx = config
                 .modules
                 .iter()
@@ -387,32 +393,32 @@ fn main() {
                             module);
                     // Condition 4: when no-arg modules is running with arguement
                     } else {
-                        func_modules(
+                        run_designated_module(
+                            prompt,
                             config.general.default_module.unwrap(),
                             exec_cmd,
-                            config.modules,
-                            prompt)
+                            config.modules)
                     }
                 },
                 // if user input doesn't start with some module prefixes
                 None => {
                     // Condition 1: when user input is empty, run the empty module
                     if prompt.is_empty() {
-                        func_modules(
+                        run_designated_module(
+                            prompt,
                             config.general.empty_module.unwrap(),
                             exec_cmd,
-                            config.modules,
-                            prompt)
+                            config.modules)
                     // Condition 2: when canceled with esc (thus no module selected), exit
                     } else if prompt == "otter_magic_canceled_and_quit" {
                         process::exit(0);
                     // Condition 3: when no module is matched, run the default module
                     } else {
-                        func_modules(
+                        run_designated_module(
+                            prompt,
                             config.general.default_module.unwrap(),
                             exec_cmd,
-                            config.modules,
-                            prompt)
+                            config.modules)
                     }
                 }
             }
