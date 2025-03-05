@@ -47,6 +47,8 @@ Otter-launcher read a config file from $HOME/.config/otter-launcher/config.toml.
 
 An example of the file is at config_example/config.toml in this repo. Copy it to one of the above paths.
 
+Also, check the wiki page for examples for [module configs](https://github.com/kuokuo123/otter-launcher/wiki).
+
 ``` toml
 [general]
 default_module = "gg" # The module to run when no prefix is matched
@@ -129,7 +131,6 @@ url_encode = true
 ![Default Config](./assets/default.png)
 
 ```
-[interface]
 [interface]
 header = """
 \u001B[32m
