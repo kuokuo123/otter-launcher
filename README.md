@@ -210,6 +210,8 @@ suggestion_lines = 1
 
 ![Kitty Config](./assets/kitty.png)
 
+[Image Source: Kat Corrigan & MWMO Stormwater Park, support them plz](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
+
 ```
 [interface]
 header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/ascii/waterways_and_otterways.jpg"
