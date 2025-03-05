@@ -128,7 +128,7 @@ url_encode = true
 
 ## Default
 
-![Default Config](./assets/one-liner.png)
+![Default Config](./assets/default.png)
 
 ```
 [interface]
