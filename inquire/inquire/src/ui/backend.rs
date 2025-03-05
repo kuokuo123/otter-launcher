@@ -171,7 +171,7 @@ where
     fn print_prompt_with_prefix(&mut self, prefix: Styled<&str>, prompt: &str) -> Result<()> {
         self.frame_renderer.write_styled(prefix)?;
 
-        self.frame_renderer.write(" ")?;
+        self.frame_renderer.write("")?;
 
         self.frame_renderer
             .write_styled(Styled::new(prompt).with_style_sheet(self.render_config.prompt))?;
@@ -184,7 +184,7 @@ where
     }
 
     fn print_input(&mut self, input: &Input) -> Result<()> {
-        self.frame_renderer.write(" ")?;
+        self.frame_renderer.write("")?;
 
         // The cursor is at the beginning of the input line.
         // From here it's easier to mark the wanted cursor position
@@ -225,7 +225,7 @@ where
         self.print_prompt(prompt)?;
 
         if let Some(default) = default {
-            self.frame_renderer.write(" ")?;
+            self.frame_renderer.write("")?;
             self.print_default_value(default)?;
         }
 
@@ -258,7 +258,7 @@ where
     fn render_canceled_prompt(&mut self, prompt: &str) -> Result<()> {
         self.print_prompt(prompt)?;
 
-        self.frame_renderer.write(" ")?;
+        self.frame_renderer.write("")?;
 
         self.frame_renderer
             .write_styled(self.render_config.canceled_prompt_indicator)?;
@@ -271,7 +271,7 @@ where
     fn render_prompt_with_answer(&mut self, prompt: &str, answer: &str) -> Result<()> {
         self.print_prompt_with_prefix(self.render_config.answered_prompt_prefix, prompt)?;
 
-        self.frame_renderer.write(" ")?;
+        self.frame_renderer.write("")?;
 
         let token = Styled::new(answer).with_style_sheet(self.render_config.answer);
         self.frame_renderer.write_styled(token)?;
@@ -331,7 +331,7 @@ where
         for (idx, option) in page.content.iter().enumerate() {
             self.print_option_prefix(idx, &page)?;
 
-            self.frame_renderer.write(" ")?;
+            self.frame_renderer.write("")?;
             self.print_option_value(idx, option, &page)?;
 
             self.new_line()?;
@@ -350,7 +350,7 @@ where
     fn render_prompt(&mut self, prompt: &str, editor_command: &str) -> Result<()> {
         self.print_prompt(prompt)?;
 
-        self.frame_renderer.write(" ")?;
+        self.frame_renderer.write("")?;
 
         let message = format!("[(e) to open {}, (enter) to submit]", editor_command);
         let token = Styled::new(message).with_style_sheet(self.render_config.editor_prompt);
@@ -379,11 +379,11 @@ where
         for (idx, option) in page.content.iter().enumerate() {
             self.print_option_prefix(idx, &page)?;
 
-            self.frame_renderer.write(" ")?;
+            self.frame_renderer.write("")?;
 
             if let Some(res) = self.print_option_index_prefix(option.index, page.total) {
                 res?;
-                self.frame_renderer.write(" ")?;
+                self.frame_renderer.write("")?;
             }
 
             self.print_option_value(idx, option, &page)?;
@@ -416,11 +416,11 @@ where
         for (idx, option) in page.content.iter().enumerate() {
             self.print_option_prefix(idx, &page)?;
 
-            self.frame_renderer.write(" ")?;
+            self.frame_renderer.write("")?;
 
             if let Some(res) = self.print_option_index_prefix(option.index, page.total) {
                 res?;
-                self.frame_renderer.write(" ")?;
+                self.frame_renderer.write("")?;
             }
 
             let mut checkbox = match checked.contains(&option.index) {
@@ -435,7 +435,7 @@ where
 
             self.frame_renderer.write_styled(checkbox)?;
 
-            self.frame_renderer.write(" ")?;
+            self.frame_renderer.write("")?;
 
             self.print_option_value(idx, option, &page)?;
 
@@ -501,7 +501,7 @@ pub mod date {
                 () => {{
                     self.frame_renderer
                         .write_styled(self.render_config.calendar.prefix)?;
-                    self.frame_renderer.write(" ")
+                    self.frame_renderer.write("")
                 }};
             }
 
@@ -557,7 +557,7 @@ pub mod date {
 
                 for i in 0..7 {
                     if i > 0 {
-                        self.frame_renderer.write(" ")?;
+                        self.frame_renderer.write("")?;
                     }
 
                     let date = format!("{:2}", date_it.day());

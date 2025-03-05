@@ -8,7 +8,7 @@ extern crate regex;
 /* Note for Modified Crate
 The inquire crate was modified with three files for better ui:
     1. src/ui/api/render_config.rs: list_prefix was added into struct RenderConfig, following some definitions in several blocks
-    2. src/ui/backend: [] was removed from fn render_help_message; list_prefix was added to fn print_option_prefix
+    2. src/ui/backend.rs: [] was removed from fn render_help_message; list_prefix was added to fn print_option_prefix; change self.frame_renderer.write("") from " " to ""
     3. src/input/action.rs was modified in fn from_key for ctrl+k & ctrl+u keybinds
 */
 
@@ -255,7 +255,7 @@ fn main() {
             // load exec_cmd, header and header_cmd from config file
             let exec_cmd = config
                 .general.exec_cmd.unwrap_or("sh -c".to_string());
-            let prompt_header = config
+            let prompt_prefix = config
                 .interface.header
                 .unwrap_or("".to_string());
             let header_cmd = config
@@ -268,8 +268,8 @@ fn main() {
                     .output()
                     .expect("Failed to launch header command...");
                 if output.status.success() {
-                    let prompt_header = from_utf8(&output.stdout).unwrap();
-                    let lines: Vec<&str> = prompt_header.lines().collect();
+                    let prompt_prefix = from_utf8(&output.stdout).unwrap();
+                    let lines: Vec<&str> = prompt_prefix.lines().collect();
                     let remove_lines_count = config
                         .interface.header_cmd_trimmed_lines
                         .unwrap_or(0);
@@ -279,7 +279,7 @@ fn main() {
                         println!("{}", line);
                         }
                     } else {
-                        println!("{}", prompt_header.trim_end());
+                        println!("{}", prompt_prefix.trim_end());
                     }
                 } else {
                     eprintln!("Header command failed with status: {}", output.status);
@@ -313,7 +313,8 @@ fn main() {
                         .unwrap_or(1),
                 render_config:
                     RenderConfig {
-                        prompt_prefix: Styled::new(&prompt_header),
+                        prompt_prefix: Styled::new(&prompt_prefix),
+                        answered_prompt_prefix: Styled::new(&prompt_prefix),
                         selected_option: Some(StyleSheet::new().with_attr(Attributes::BOLD)),
                         option_index_prefix: IndexPrefix::SpacePadded,
                         highlighted_option_prefix: Styled::new(

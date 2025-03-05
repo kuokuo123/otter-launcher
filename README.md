@@ -1,6 +1,6 @@
 # Otter Launcher
 
-![Default Config](./assets/default.png)
+![Kitty Config](./assets/kitty.png)
 
 Otter-launcher is a highly extendable commandline program that can launch shell scripts, applications, or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on the emulator in use), and hence a good companion to keyboard-centric window manager users.
 
@@ -47,53 +47,72 @@ An example of the file is at config_example/config.toml in this repo. Copy it to
 
 ``` toml
 [general]
-# The module to run when no prefix is matched
-default_module = "gg"
-# The module to run with an empty prompt
-empty_module = ""
-# Your shell or window manager, default to sh
+default_module = "gg" # The module to run when no prefix is matched
+empty_module = "app" # The module to run with an empty prompt
+exec_cmd = "sh -c" # The exec command of your shell or window manager, default to bash
 # for example: "swaymsg exec" for swaywm; "hyprctl dispatch exec" for hyprland; "zsh -c" for zsh
-exec_cmd = "sh -c"
-# Fuzzy search for prefixes; autocompletion with TAB
-show_suggestion = true
+show_suggestion = true # Fuzzy search for prefixes; autocompletion with TAB
 
 
 [interface]
-# Ascii color codes are allowed. However, \x1b[ should be replaced with \u001B[ (unicode escape) because the rust toml crate cannot read \x as an escaped character...
-header_cmd = "" # Run a shell command with its output printed as the header
-header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of excessive empty lines printed at the end
-header = "  \u001B[34m \u001B[0m Search"
-prompt_prefix = "\u001B[34m>\u001B[0m"
+# ASCII color codes are allowed with these options. However, \x1b[ should be replaced with \u001B[ (unicode escape) because the rust toml crate cannot read \x as an escaped character...
+header_cmd = "" # Run a shell command and make the stdout printed above the header
+header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
+# use three quotes to write longer commands
+header = """
+\u001B[32m
+░█▀█░▀█▀░▀█▀░█▀▀░█▀█░░░░░█░░░█▀█░█░█░█▀█░█▀▀░█░█
+░█░█░░█░░░█░░█▀▀░█▀▄░▀▀▀░█░░░█▀█░█░█░█░█░█░░░█▀█
+░▀▀▀░░▀░░░▀░░▀▀▀░▀░▀░░░░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀
+            ————————————————————————\u001B[0m
+"""
+prompt_prefix = "\u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
 list_prefix = "    "
-highlighted_prefix = "  \u001B[34m >\u001B[0m"
-scroll_up_prefix = "  \u001B[34m ^\u001B[0m"
-scroll_down_prefix = "  \u001B[34m v\u001B[0m"
+highlighted_prefix = " \u001B[31m > \u001B[0m"
+scroll_up_prefix = " \u001B[31m ^ \u001B[0m"
+scroll_down_prefix = " \u001B[31m v \u001B[0m"
 help_message = ""
 place_holder = "type and search..."
-suggestion_lines = 1
+suggestion_lines = 3
 
 
-# Modules are defined as below. Desc, prefix, and cmd are essential and must be specified; others are optional.
+# Modules are defined as followed
 [[modules]]
 description = "search with google"
 prefix = "\u001B[32mgg\u001B[0m"
 cmd = "xdg-open 'https://www.google.com/search?q={}'"
-# If "with_argument" is true, the {} in the cmd value will be replaced with user input. If the field is not explicitly set, will be taken as false.
-with_argument = true
-# "url_encode" should be true if the module is set to call webpages, as this ensures special characters in url being readable to browsers. It'd better be false with shell scripts. If the field is not explicitly set, will be taken as false.
-url_encode = true
+with_argument = true # If "with_argument" is true, the {} in the cmd value will be replaced with user input. If the field is not explicitly set, will be taken as false.
+url_encode = true # "url_encode" should be true if the module is set to call webpages, as this ensures special characters in url being readable to browsers. It'd better be false with shell scripts. If the field is not explicitly set, will be taken as false.
+
+[[modules]]
+description = "launch desktop applications with fzf"
+prefix = "\u001B[33mapp\u001B[0m"
+prehook = "swaymsg [app_id=otter-launcher] resize set width 650 px height 300 px" # if set, the prehook command will run before the main cmd starts. 
+callback = "" # if set, the callback command will run after the main cmd has finished. 
+cmd = """
+
+desktop_file() {
+find /usr/share/applications -name "*.desktop" 2>/dev/null
+find /usr/local/share/applications -name "*.desktop" 2>/dev/null
+find "$HOME/.local/share/applications" -name "*.desktop" 2>/dev/null
+find /var/lib/flatpak/exports/share/applications -name "*.desktop" 2>/dev/null
+find "$HOME/.local/share/flatpak/exports/share/applications" -name "*.desktop" 2>/dev/null
+}
+
+selected="$(desktop_file | sed 's/.desktop$//g' | sort | fzf -m -d / --with-nth -1 --reverse --padding 1,3 --prompt 'Launch Apps: ')"
+
+[ -z "$selected" ] && exit
+echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $line)"; done
+
+"""
 
 [[modules]]
 description = "open files with fzf"
 prefix = "\u001B[32mfo\u001B[0m"
 cmd = "$TERM --class fzf -e sh -c 'fd --type f | fzf | xargs -r xdg-open'"
-# if set, the prehook command will run before the main cmd starts. 
-prehook = "swaymsg '[app_id=fzf] floating on; [app_id=fzf] resize set width 600 px height 300 px'"
-# if set, the callback command will run after the main cmd has finished. 
-callback = ""
 
 [[modules]]
-description = "search for directories with yazi"
+description = "open folders with fzf and yazi"
 prefix = "\u001B[32myz\u001B[0m"
 cmd = "$TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r $TERM -e yazi'"
 
@@ -109,19 +128,41 @@ url_encode = true
 
 ## Default
 
-![Default Config](./assets/default.png)
+![Default Config](./assets/one-liner.png)
 
 ```
-header_cmd = ""
-header_cmd_trimmed_lines = 0
-header = "  \u001B[34m \u001B[0m Search"
-prompt_prefix = "\u001B[34m>\u001B[0m"
+[interface]
+[interface]
+header = """
+\u001B[32m
+░█▀█░▀█▀░▀█▀░█▀▀░█▀█░░░░░█░░░█▀█░█░█░█▀█░█▀▀░█░█
+░█░█░░█░░░█░░█▀▀░█▀▄░▀▀▀░█░░░█▀█░█░█░█░█░█░░░█▀█
+░▀▀▀░░▀░░░▀░░▀▀▀░▀░▀░░░░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀
+            ————————————————————————\u001B[0m
+"""
+prompt_prefix = "\u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
 list_prefix = "    "
-highlighted_prefix = "  \u001B[34m >\u001B[0m"
-scroll_up_prefix = "  \u001B[34m ^\u001B[0m"
-scroll_down_prefix = "  \u001B[34m v\u001B[0m"
+highlighted_prefix = " \u001B[31m > \u001B[0m"
+scroll_up_prefix = " \u001B[31m ^ \u001B[0m"
+scroll_down_prefix = " \u001B[31m v \u001B[0m"
 help_message = ""
 place_holder = "type and search..."
+suggestion_lines = 3
+```
+
+## One Liner
+
+![One-liner Config](./assets/one-liner.png)
+
+```
+[interface]
+prompt_prefix = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m> \u001B[0m"
+list_prefix = "     "
+highlighted_prefix = "  \u001B[31m > \u001B[0m"
+scroll_up_prefix = "  \u001B[31m # \u001B[0m"
+scroll_down_prefix = "  \u001B[31m # \u001B[0m"
+help_message = ""
+place_holder = "type and search"
 suggestion_lines = 1
 ```
 
@@ -165,23 +206,19 @@ place_holder = "type and search..."
 suggestion_lines = 1
 ```
 
-## Kitty + Uwufetch
+## Chafa & Kitty Integration
 
 ![Kitty Config](./assets/kitty.png)
 
 ```
 [interface]
-header_cmd = "uwufetch -i otter.png"
-header_cmd_trimmed_lines = 3
-header = """
-               \u001B[30m———\u001B[0m\u001B[31m———\u001B[0m\u001B[32m———\u001B[0m\u001B[33m———\u001B[0m\u001B[34m———\u001B[0m\u001B[35m———\u001B[0m\u001B[36m———\u001B[0m\u001B[37m———\u001B[0m
-"""
-prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
-list_prefix = "    "
-highlighted_prefix = "    "
-scroll_up_prefix = "    "
-scroll_down_prefix = "    "
+header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/ascii/waterways_and_otterways.jpg"
+prompt_prefix = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m> \u001B[0m"
+list_prefix = "     "
+highlighted_prefix = "  \u001B[31m > \u001B[0m"
+scroll_up_prefix = "  \u001B[31m ^ \u001B[0m"
+scroll_down_prefix = "  \u001B[31m v \u001B[0m"
 help_message = ""
-place_holder = "type and search..."
-suggestion_lines = 1
+place_holder = "type and search"
+suggestion_lines = 5
 ```
