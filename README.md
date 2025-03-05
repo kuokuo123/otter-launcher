@@ -47,7 +47,7 @@ Otter-launcher read a config file from $HOME/.config/otter-launcher/config.toml.
 
 An example of the file is at config_example/config.toml in this repo. Copy it to one of the above paths.
 
-Also, check the wiki page for examples for [module configs](https://github.com/kuokuo123/otter-launcher/wiki).
+Also, check the wiki page for examples for [advanced module config](https://github.com/kuokuo123/otter-launcher/wiki).
 
 ``` toml
 [general]
