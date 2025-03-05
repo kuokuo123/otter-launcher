@@ -2,7 +2,7 @@
 
 ![Kitty Config](./assets/kitty.png)
 
-A highly extendable commandline program to launch shell scripts, applications, or arbitrary commands by a few key strokes. Customizable with ascii color code, sixel or kitty image protocol, otter-launcher is a good companion to keyboard-centric window manager users.
+Otter-launcher is a highly extendable commandline program to launch shell scripts, applications, or arbitrary commands by a few key strokes, customizable with ascii color codes, sixel or kitty image protocols. It is a good companion to keyboard-centric window manager users.
 
 The concept is making the below behaviours possible:
 
