@@ -2,17 +2,17 @@
 
 ![Kitty Config](./assets/kitty.png)
 
-Otter-launcher is a highly extendable commandline program that can launch shell scripts, applications, or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on the emulator in use), and hence a good companion to keyboard-centric window manager users.
+A highly extendable commandline program to launch shell scripts, applications, or arbitrary commands by a few key strokes. Customizable with ascii color code, sixel or kitty image protocol, otter-launcher is a good companion to keyboard-centric window manager users.
 
-The concept is making behaviours like the below possible:
+The concept is making the below behaviours possible:
 
 - type "gg margaret thatcher" to google the lady
-- type "sh htop" to run htop in a terminal
-- type "dc linux" to search the word linux with an online dictionary
-- type "app" to launch sway-launcher-desktop
+- "sh htop" to run htop in a terminal
+- "dc linux" to search the word linux with an online dictionary
+- "app" to launch application menu
 - etc.
 
-It is recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop), making it an application launcher. Use your wm's window rules to control its window size. 
+It is recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop), making it a desktop application launcher. Use your wm's window rules to control its window size. 
 
 ![Demo Gif](./assets/demo.gif)
 
@@ -20,7 +20,7 @@ It is recommended to use otter-launcher with [sway-launcher-desktop](https://git
 
 # Features
 
-- modularized prefixes to run different commands (via configuration)
+- modularized to run different commands (via configuration)
 - fuzzy search and tab completion for configured modules
 - per-module prehook and callback commands
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
@@ -41,11 +41,11 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 # Configuration
 
-Otter-launcher read a config file from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml
+Otter-launcher reads a config file from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml
 
-An example of the file is at config_example/config.toml in this repo. Copy it to one of the above paths.
+An example config file is at config_example/config.toml in this repo. Copy it to one of the above locations.
 
-Also, check the wiki page for [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki).
+Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
 ``` toml
 [general]
