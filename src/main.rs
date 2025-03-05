@@ -290,7 +290,7 @@ fn main() {
             let prompt = Text {
                 message: &config
                     .interface.prompt_prefix
-                    .unwrap_or(" \x1b[34m \x1b[0m otter-launcher \x1b[34m>\x1b[0m".to_string()),
+                    .unwrap_or("\x1b[34m \x1b[0m otter-launcher \x1b[34m> \x1b[0m".to_string()),
                 initial_value: None,
                 default: None,
                 autocompleter: if config
@@ -320,15 +320,15 @@ fn main() {
                         highlighted_option_prefix: Styled::new(
                                 &config
                                 .interface.highlighted_prefix
-                                .unwrap_or("  \x1b[31m >\x1b[0m".to_string())),
+                                .unwrap_or(" \x1b[31m > \x1b[0m".to_string())),
                         scroll_down_prefix: Styled::new(
                                 &config
                                 .interface.scroll_down_prefix
-                                .unwrap_or("  \x1b[31m #\x1b[0m".to_string())),
+                                .unwrap_or(" \x1b[31m v \x1b[0m".to_string())),
                         scroll_up_prefix: Styled::new(
                                 &config
                                 .interface.scroll_up_prefix
-                                .unwrap_or("  \x1b[31m #\x1b[0m".to_string())),
+                                .unwrap_or(" \x1b[31m ^ \x1b[0m".to_string())),
                         list_prefix: Styled::new(
                                 &config
                                 .interface.list_prefix
@@ -396,7 +396,7 @@ fn main() {
                     } else {
                         run_designated_module(
                             prompt,
-                            config.general.default_module.unwrap(),
+                            config.general.default_module.unwrap_or("".to_string()),
                             exec_cmd,
                             config.modules)
                     }
@@ -407,7 +407,7 @@ fn main() {
                     if prompt.is_empty() {
                         run_designated_module(
                             prompt,
-                            config.general.empty_module.unwrap(),
+                            config.general.empty_module.unwrap_or("".to_string()),
                             exec_cmd,
                             config.modules)
                     // Condition 2: when canceled with esc (thus no module selected), exit
@@ -417,7 +417,7 @@ fn main() {
                     } else {
                         run_designated_module(
                             prompt,
-                            config.general.default_module.unwrap(),
+                            config.general.default_module.unwrap_or("".to_string()),
                             exec_cmd,
                             config.modules)
                     }

@@ -1,6 +1,8 @@
-# Otter Launcher
+# otter-launcher
 
 ![Kitty Config](./assets/kitty.png)
+
+[Background Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
 
 Otter-launcher is a highly extendable commandline program that can launch shell scripts, applications, or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on the emulator in use), and hence a good companion to keyboard-centric window manager users.
 
@@ -66,7 +68,7 @@ header = """
 ░▀▀▀░░▀░░░▀░░▀▀▀░▀░▀░░░░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀
             ————————————————————————\u001B[0m
 """
-prompt_prefix = "\u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
+prompt_prefix = "\u001B[34m \u001B[0m otter-launcher \u001B[34m> \u001B[0m"
 list_prefix = "    "
 highlighted_prefix = " \u001B[31m > \u001B[0m"
 scroll_up_prefix = " \u001B[31m ^ \u001B[0m"
@@ -88,9 +90,8 @@ url_encode = true # "url_encode" should be true if the module is set to call web
 description = "launch desktop applications with fzf"
 prefix = "\u001B[33mapp\u001B[0m"
 prehook = "swaymsg [app_id=otter-launcher] resize set width 650 px height 300 px" # if set, the prehook command will run before the main cmd starts. 
-callback = "" # if set, the callback command will run after the main cmd has finished. 
+#callback = "" # if set, the callback command will run after the main cmd has finished. 
 cmd = """
-
 desktop_file() {
 find /usr/share/applications -name "*.desktop" 2>/dev/null
 find /usr/local/share/applications -name "*.desktop" 2>/dev/null
@@ -98,12 +99,9 @@ find "$HOME/.local/share/applications" -name "*.desktop" 2>/dev/null
 find /var/lib/flatpak/exports/share/applications -name "*.desktop" 2>/dev/null
 find "$HOME/.local/share/flatpak/exports/share/applications" -name "*.desktop" 2>/dev/null
 }
-
 selected="$(desktop_file | sed 's/.desktop$//g' | sort | fzf -m -d / --with-nth -1 --reverse --padding 1,3 --prompt 'Launch Apps: ')"
-
 [ -z "$selected" ] && exit
 echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $line)"; done
-
 """
 
 [[modules]]
@@ -209,8 +207,6 @@ suggestion_lines = 1
 ## Chafa & Kitty Integration
 
 ![Kitty Config](./assets/kitty.png)
-
-[Image Source: Kat Corrigan & MWMO Stormwater Park, support them plz](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
 
 ```
 [interface]
