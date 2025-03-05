@@ -2,8 +2,6 @@
 
 ![Kitty Config](./assets/kitty.png)
 
-[Background Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
-
 Otter-launcher is a highly extendable commandline program that can launch shell scripts, applications, or arbitrary commands by a few key strokes. It is customizable with ascii color code, sixel or kitty image protocol (depending on the emulator in use), and hence a good companion to keyboard-centric window manager users.
 
 The concept is making behaviours like the below possible:
@@ -24,11 +22,11 @@ It is recommended to use otter-launcher with [sway-launcher-desktop](https://git
 
 - modularized prefixes to run different commands (via configuration)
 - fuzzy search and tab completion for configured modules
-- module-specific prehook and callback commands
-- customizable shell or wm by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
+- per-module prehook and callback commands
+- customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
-- customizable with ascii color codes, chafa, neofetch, etc.
-- minimalist, keyboard-centric design
+- customizable with ascii color codes, chafa, sixel or kitty image protocol, etc.
+- minimalist, keyboard-centric
 
 # Installation
 
@@ -47,7 +45,7 @@ Otter-launcher read a config file from $HOME/.config/otter-launcher/config.toml.
 
 An example of the file is at config_example/config.toml in this repo. Copy it to one of the above paths.
 
-Also, check the wiki page for examples for [advanced module config](https://github.com/kuokuo123/otter-launcher/wiki).
+Also, check the wiki page for [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki).
 
 ``` toml
 [general]
@@ -126,7 +124,7 @@ url_encode = true
 
 # Examples for Styling
 
-## Default
+## Default Config File
 
 ![Default Config](./assets/default.png)
 
@@ -149,7 +147,7 @@ place_holder = "type and search..."
 suggestion_lines = 3
 ```
 
-## One Liner
+## Two-liner
 
 ![One-liner Config](./assets/one-liner.png)
 
@@ -208,6 +206,8 @@ suggestion_lines = 1
 ## Chafa & Kitty Integration
 
 ![Kitty Config](./assets/kitty.png)
+
+[Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
 
 ```
 [interface]
