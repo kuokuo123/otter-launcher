@@ -37,7 +37,7 @@ esc_to_abort = false # allow to quit pressing esc; a useful option to vi mode us
 [interface]
 # ASCII color codes are allowed with these options, with 2 caveats:
     # 1. \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
-    # 2. prefix color is better defined in [interface].prefix_color, or the color code will mess up the searching and autocompletion function in some cases. Not going to be fixed for a while as a technical limitation to rustyline backend.
+    # 2. prefix colors are better defined in [interface].prefix_color, or the color code will compromise autocompletion function in the line suggestion mode. Not going to be fixed for a while.
 header_cmd = "" # Run a shell command and make the stdout printed above the header
 header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
 # use three quotes to write longer commands

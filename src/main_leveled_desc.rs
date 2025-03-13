@@ -191,13 +191,28 @@ impl Highlighter for SuggestionProvider {
                     } else if line.contains(&(place_holder_color() + &place_holder())) {
                         line.to_string()
                     } else {
+                        let lines: Vec<&str> = pre_colored_lines.lines().collect();
+                        let max_prefix_length = lines
+                            .iter()
+                            .map(|line| {
+                                line.trim_start_matches(&list_prefix())
+                                    .split_whitespace()
+                                    .next()
+                                    .map_or(0, |prefix| {
+                                        remove_ascii(prefix).len()
+                                })
+                            })
+                            .max()
+                            .unwrap_or(0);
                         let mut parts = line.trim_start_matches(&list_prefix()).split_whitespace();
                         let prefix = parts.next().unwrap_or(""); // Get the first word
                         let desc = parts.collect::<Vec<&str>>().join(" ");
+                        let padding = max_prefix_length - remove_ascii(prefix).len();
+                        let padded_prefix = format!("{}{}", prefix, " ".repeat(padding));
                         format!("{}{}{}{} {}{}{}",
                             list_prefix(),
                             prefix_color(),
-                            prefix,
+                            padded_prefix,
                             "\x1b[m",
                             description_color(),
                             desc,
