@@ -16,16 +16,35 @@ It is recommended to use otter-launcher with [sway-launcher-desktop](https://git
 
 ![Demo Gif](./assets/demo.gif)
 
+# Notes for Latest Updates 250314
+
+## New Features
+
+- vi and emacs input mode
+- rebased to the rustyline crate, which makes faster speed (0.001s to launch on my pc)
+- three suggestion modes: list, line, none
+- add an indicator to show whether the suggested module can run with arguments
+- add options to define colors of all prefixes or desc at once
+- esc keypress can now either quit the program or not, for vi mode implementation
+- customizable place holder color
+- add wiki for config examples, which is open for passerby to edit
+
+## Breaking Change
+
+- remove up/down selection operation in prefix list, as it's hard to implement with the new code base and not often be used by myself
+- as gone its related config options like scroll_up/down_prefixes, highlighted_prefix, etc.
+
+
 # Features
 
+- vi and emacs keybindings
 - modularized to run different commands (via configuration)
 - fuzzy search and tab completion for configured modules
-- vi and emacs keybindings
 - per-module prehook and callback commands
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
 - decorated with ascii color codes, chafa, sixel or kitty image protocol, etc.
-- minimalist, keyboard-centric
+- minimalist, keyboard-centric, very fast
 
 # Installation
 
@@ -81,7 +100,7 @@ indicator_with_arg_module = "> "
 indicator_no_arg_module = "< " # a sign of whether the suggested module should run with an argument
 # ASCII color codes are allowed with these options, with 2 caveats:
     # 1. \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
-    # 2. prefix colors are better defined in [interface].prefix_color, or the color code will compromise autocompletion function in the line suggestion mode. Not going to be fixed for a while.
+    # 2. prefix colors are better defined in [interface].prefix_color, because color codes are not searchable.
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
@@ -131,12 +150,12 @@ url_encode = true
 [[modules]]
 description = "open files with fzf"
 prefix = "fo"
-cmd = "$TERM --class fzf -e sh -c 'fd --type f | fzf | xargs -r xdg-open'"
+cmd = "setsid -f $TERM --class fzf -e sh -c 'fd --type f | fzf | xargs -r xdg-open'"
 
 [[modules]]
 description = "open folders with fzf and yazi"
 prefix = "yz"
-cmd = "$TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r $TERM -e yazi'"
+cmd = "setsid -f $TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r $TERM -e yazi'"
 ```
 
 # Examples for Styling
