@@ -158,6 +158,7 @@ prompt_prefix = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "      "
 place_holder = "type and search..."
+show_suggestion = "list"
 suggestion_lines = 3
 prefix_color = "\u001B[32m"
 description_color = "\u001B[38m"
@@ -230,11 +231,12 @@ place_holder_color = "\u001B[30m"
 ```
 [interface]
 header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/ascii/waterways_and_otterways.jpg"
+header_cmd_trimmed_lines = 1
 prompt_prefix = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m> \u001B[0m"
 list_prefix = "     "
 place_holder = "type and search"
 show_suggestion = "list"
-suggestion_lines = 5
+suggestion_lines = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
