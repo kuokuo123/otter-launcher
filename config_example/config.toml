@@ -104,9 +104,9 @@ url_encode = true
 [[modules]]
 description = "open files with fzf"
 prefix = "fo"
-cmd = "$TERM --class fzf -e sh -c 'fd --type f | fzf | xargs -r xdg-open'"
+cmd = "setsid -f $TERM --class fzf -e sh -c 'fd --type f | fzf | xargs -r xdg-open'"
 
 [[modules]]
 description = "open folders with fzf and yazi"
 prefix = "yz"
-cmd = "$TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r $TERM -e yazi'"
+cmd = "setsid -f $TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r $TERM -e yazi'"
