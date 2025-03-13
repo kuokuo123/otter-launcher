@@ -46,7 +46,6 @@ struct General {
     default_module: Option<String>,
     empty_module: Option<String>,
     exec_cmd: Option<String>,
-    show_suggestion: Option<String>,
     esc_to_abort: Option<bool>,
     vi_mode: Option<bool>,
 }
@@ -59,7 +58,8 @@ struct Interface {
     prompt_prefix: Option<String>,
     list_prefix: Option<String>,
     place_holder: Option<String>,
-    suggestion_line: Option<usize>,
+    show_suggestion: Option<String>,
+    suggestion_lines: Option<usize>,
     indicator_no_arg_module: Option<String>,
     indicator_with_arg_module: Option<String>,
     prefix_color: Option<String>,
@@ -122,8 +122,8 @@ fn list_prefix() -> String {
 fn place_holder() -> String {
     CONFIG.interface.place_holder.clone().unwrap_or("type and search...".to_string())
 }
-fn suggestion_line() -> usize {
-    CONFIG.interface.suggestion_line.unwrap_or(0)
+fn suggestion_lines() -> usize {
+    CONFIG.interface.suggestion_lines.unwrap_or(1)
 }
 fn indicator_no_arg_module() -> String {
     CONFIG.interface.indicator_no_arg_module.clone().unwrap_or("# ".to_string())
@@ -155,7 +155,7 @@ fn place_holder_color() -> String {
 // load and cache as statics
 static SHOW_SUGGESTION: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 fn init_show_suggestion() {
-    let suggestion = CONFIG.general.show_suggestion.clone().unwrap_or("line".to_string());
+    let suggestion = CONFIG.interface.show_suggestion.clone().unwrap_or("line".to_string());
     let mut show_suggestion = SHOW_SUGGESTION.lock().unwrap();
     *show_suggestion = Some(suggestion);
 }
@@ -248,7 +248,7 @@ impl Hinter for SuggestionProvider {
                 } else { None })
             .take(
                 if cached_show_suggestion() == "line".to_string() { 1
-                } else { suggestion_line() }
+                } else { suggestion_lines() }
             )
             .collect::<Vec<&str>>();
 
