@@ -1,23 +1,35 @@
+//
+//
+//   ██████╗ ████████╗████████╗███████╗██████╗                         
+//  ██╔═══██╗╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗                        
+//  ██║   ██║   ██║      ██║   █████╗  ██████╔╝█████╗                  
+//  ██║   ██║   ██║      ██║   ██╔══╝  ██╔══██╗╚════╝                  
+//  ╚██████╔╝   ██║      ██║   ███████╗██║  ██║                        
+//   ╚═════╝    ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝                        
+//  ██╗      █████╗ ██╗   ██╗███╗   ██╗ ██████╗██╗  ██╗███████╗██████╗ 
+//  ██║     ██╔══██╗██║   ██║████╗  ██║██╔════╝██║  ██║██╔════╝██╔══██╗
+//  ██║     ███████║██║   ██║██╔██╗ ██║██║     ███████║█████╗  ██████╔╝
+//  ██║     ██╔══██║██║   ██║██║╚██╗██║██║     ██╔══██║██╔══╝  ██╔══██╗
+//  ███████╗██║  ██║╚██████╔╝██║ ╚████║╚██████╗██║  ██║███████╗██║  ██║
+//  ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
+//
+// Terminal shell script launcher, written in rust
+// Source Code: https://github.com/kuokuo123/otter-launcher
+// GPL 3.0
+
 extern crate serde;
 extern crate urlencoding;
-extern crate inquire;
 extern crate toml;
-extern crate fuzzy_matcher;
+extern crate rustyline;
+extern crate rustyline_derive;
 extern crate regex;
 
-/* Note for Modified Crate
-The inquire crate was modified with three files for better ui:
-    1. src/ui/api/render_config.rs: list_prefix was added into struct RenderConfig, following some definitions in several blocks
-    2. src/ui/backend.rs: [] was removed from fn render_help_message; list_prefix was added to fn print_option_prefix; change self.frame_renderer.write("") from " " to ""
-    3. src/input/action.rs was modified in fn from_key for ctrl+k & ctrl+u keybinds
-*/
-
-use std::{str::from_utf8, fs, env, path::Path, error::Error, process, process::Command};
-use inquire::{autocompletion::{Autocomplete, Replacement}, CustomUserError, Text, ui::{RenderConfig, Styled, StyleSheet, Attributes, IndexPrefix}};
+use std::{str::from_utf8, env, path::Path, error::Error, process, process::Command, sync::Mutex, borrow::{Cow, Cow::Owned}};
 use serde::Deserialize;
-use toml::from_str;
+use once_cell::sync::Lazy;
 use urlencoding::encode;
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use rustyline::{EditMode, Context, Editor, KeyEvent, Modifiers, EventHandler, Cmd, history::DefaultHistory, hint::{Hint, Hinter}, config::Configurer, highlight::Highlighter};
+use rustyline_derive::{Helper, Completer, Validator};
 use regex::Regex;
 
 // Define config structure
@@ -34,7 +46,9 @@ struct General {
     default_module: Option<String>,
     empty_module: Option<String>,
     exec_cmd: Option<String>,
-    show_suggestion: Option<bool>,
+    show_suggestion: Option<String>,
+    esc_to_abort: Option<bool>,
+    vi_mode: Option<bool>,
 }
 
 #[derive(Deserialize, Default)]
@@ -44,15 +58,16 @@ struct Interface {
     header_cmd_trimmed_lines: Option<usize>,
     prompt_prefix: Option<String>,
     list_prefix: Option<String>,
-    highlighted_prefix: Option<String>,
-    scroll_up_prefix: Option<String>,
-    scroll_down_prefix: Option<String>,
-    help_message: Option<String>,
-    suggestion_lines: Option<usize>,
     place_holder: Option<String>,
+    suggestion_line: Option<usize>,
+    indicator_no_arg_module: Option<String>,
+    indicator_with_arg_module: Option<String>,
+    prefix_color: Option<String>,
+    description_color: Option<String>,
+    place_holder_color: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct Module {
     description: String,
     prefix: String,
@@ -63,94 +78,8 @@ struct Module {
     callback: Option<String>,
 }
 
-// Define suggestion autocompleter
-#[derive(Clone, Default)]
-struct SuggestionCompleter {
-    input: String,
-    hints: Vec<String>,
-}
-
-impl SuggestionCompleter {
-    fn update_input(&mut self, input: &str) -> Result<(), CustomUserError> {
-        if input == self.input && !self.hints.is_empty() {
-            return Ok(());
-        }
-        self.input = input.to_owned();
-        self.hints.clear();
-
-        let config = read_config();
-        let mut input_hint: Vec<String> = config
-            .unwrap()
-            .modules
-            .iter()
-            .map(|module| module.prefix.clone() + " " + &module.description
-            )
-            .collect();
-        input_hint.sort();
-
-        for entry in input_hint {
-            let hint = entry;
-            let hint_str = hint;
-
-            self.hints.push(hint_str);
-        }
-        Ok(())
-    }
-
-    fn fuzzy_sort(&self, input: &str) -> Vec<(String, i64)> {
-        let mut matches: Vec<(String, i64)> = self
-            .hints
-            .iter()
-            .filter_map(|hint| {
-                SkimMatcherV2::default()
-                    .smart_case()
-                    .fuzzy_match( &remove_ascii(hint), input)
-                    //match prefix only: .fuzzy_match( &remove_ascii(hint).split_whitespace().next()?, input)
-                    .map(|score| (hint.clone(), score))
-            })
-            .collect();
-
-        matches.sort_by(|a, b| b.1.cmp(&a.1));
-        matches
-    }
-}
-
-impl Autocomplete for SuggestionCompleter {
-    fn get_suggestions(&mut self, input: &str) -> Result<Vec<String>, CustomUserError> {
-        self.update_input(input)?;
-
-        let matches = self.fuzzy_sort(input);
-        Ok(matches.into_iter()
-            .take(15)
-            .map(|(hint, _)| hint)
-            .collect())
-    }
-
-    fn get_completion(
-        &mut self,
-        input: &str,
-        highlighted_suggestion: Option<String>,
-    ) -> Result<Replacement, CustomUserError> {
-        self.update_input(input)?;
-
-        Ok(if let Some(suggestion) = highlighted_suggestion {
-            Replacement::Some(suggestion)
-        } else {
-            let matches = self.fuzzy_sort(input);
-                matches
-                    .first()
-                    .map(|(hint, _)| Replacement::Some(
-                        remove_ascii(hint)
-                            .split_whitespace()
-                            .next()?
-                            .to_string()))
-                    .unwrap_or(Replacement::None)
-        })
-    }
-}
-
-// function to read from TOML Config
-fn read_config() -> Result<Config, Box<dyn Error>> {
+// Load toml config
+static CONFIG: Lazy<Config> = Lazy::new(|| {
     let home_dir = env::var("HOME").unwrap_or_else(|_| String::from("/"));
     let xdg_config_path = format!("{}/.config/otter-launcher/config.toml", home_dir);
 
@@ -161,22 +90,318 @@ fn read_config() -> Result<Config, Box<dyn Error>> {
     } else {
         config_file = "/etc/otter-launcher/config.toml";
     }
+    read_config(config_file).expect("")
+});
 
-    let contents = fs::read_to_string(config_file)
-        .unwrap_or_else(|_| "".to_string());
-    let config: Config = from_str(&contents)?;
+fn read_config(file_path: &str) -> Result<Config, Box<dyn std::error::Error>> {
+    let contents = std::fs::read_to_string(file_path)?;
+    let config: Config = toml::from_str(&contents)?;
     Ok(config)
 }
 
+// Functions to load config values
+// load at runtime
+fn default_module() -> String {
+    CONFIG.general.default_module.clone().unwrap_or("".to_string())
+}
+fn empty_module() -> String {
+    CONFIG.general.empty_module.clone().unwrap_or("".to_string())
+}
+fn exec_cmd() -> String {
+    CONFIG.general.exec_cmd.clone().unwrap_or("sh -c".to_string())
+}
+fn esc_to_abort() -> bool {
+    CONFIG.general.esc_to_abort.clone().unwrap_or(true)
+}
+fn vi_mode() -> bool {
+    CONFIG.general.vi_mode.clone().unwrap_or(false)
+}
+fn list_prefix() -> String {
+    CONFIG.interface.list_prefix.clone().unwrap_or("".to_string())
+}
+fn place_holder() -> String {
+    CONFIG.interface.place_holder.clone().unwrap_or("type and search...".to_string())
+}
+fn suggestion_line() -> usize {
+    CONFIG.interface.suggestion_line.unwrap_or(0)
+}
+fn indicator_no_arg_module() -> String {
+    CONFIG.interface.indicator_no_arg_module.clone().unwrap_or("< ".to_string())
+}
+fn indicator_with_arg_module() -> String {
+    CONFIG.interface.indicator_with_arg_module.clone().unwrap_or("> ".to_string())
+}
+fn header_cmd() -> String {
+    CONFIG.interface.header_cmd.clone().unwrap_or("".to_string())
+}
+fn header_cmd_trimmed_lines() -> usize {
+    CONFIG.interface.header_cmd_trimmed_lines.unwrap_or(0)
+}
+fn header() -> String {
+    CONFIG.interface.header.clone().unwrap_or("".to_string())
+}
+fn prompt_prefix() -> String {
+    CONFIG.interface.prompt_prefix.clone().unwrap_or("\x1b[34m \x1b[0m otter-launcher \x1b[34m>\x1b[0m ".to_string())
+}
+fn prefix_color() -> String {
+    CONFIG.interface.prefix_color.clone().unwrap_or("\x1b[90m".to_string())
+}
+fn description_color() -> String {
+    CONFIG.interface.description_color.clone().unwrap_or("\x1b[90m".to_string())
+}
+fn place_holder_color() -> String {
+    CONFIG.interface.place_holder_color.clone().unwrap_or("\x1b[90m".to_string())
+}
+// load and cache as statics
+static SHOW_SUGGESTION: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_show_suggestion() {
+    let suggestion = CONFIG.general.show_suggestion.clone().unwrap_or("line".to_string());
+    let mut show_suggestion = SHOW_SUGGESTION.lock().unwrap();
+    *show_suggestion = Some(suggestion);
+}
+fn cached_show_suggestion() -> String {
+    let show_suggestion = SHOW_SUGGESTION.lock().unwrap();
+        show_suggestion.clone().unwrap_or("line".to_string())
+}
+
+// Define Suggestion Provider
+#[derive(Completer, Helper, Validator)]
+struct SuggestionProvider {
+    hints: Vec<SuggestedModule>,
+}
+
+impl Highlighter for SuggestionProvider {
+    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
+        fn split_prfx(s: &str) -> (&str, &str) {
+                if let Some(pos) = s.find(char::is_whitespace) {
+                    let prfx = &s[..pos];
+                    let rest = s[pos..].trim_start_matches(" ");
+                    (prfx, rest)
+                } else {
+                    (s, "")
+                }
+        }
+
+        fn colored_list(pre_colored_lines: &str) -> String {
+            let lines = pre_colored_lines
+                .lines()
+                .map(|line| {
+                    if line.trim().is_empty() {
+                        line.to_string()
+                    } else if line.contains(&(place_holder_color() + &place_holder())) {
+                        line.to_string()
+                    } else {
+                        let lines: Vec<&str> = pre_colored_lines.lines().collect();
+                        let max_prefix_length = lines
+                            .iter()
+                            .map(|line| {
+                                line.trim_start_matches(&list_prefix())
+                                    .split_whitespace()
+                                    .next()
+                                    .map_or(0, |prefix| {
+                                        remove_ascii(prefix).len()
+                                })
+                            })
+                            .max()
+                            .unwrap_or(0);
+                        let mut parts = line.trim_start_matches(&list_prefix()).split_whitespace();
+                        let prefix = parts.next().unwrap_or(""); // Get the first word
+                        let desc = parts.collect::<Vec<&str>>().join(" ");
+                        let padding = max_prefix_length - remove_ascii(prefix).len();
+                        let padded_prefix = format!("{}{}", prefix, " ".repeat(padding));
+                        format!("{}{}{}{} {}{}{}",
+                            list_prefix(),
+                            prefix_color(),
+                            padded_prefix,
+                            "\x1b[m",
+                            description_color(),
+                            desc,
+                            "\x1b[m")
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+                .trim_start_matches(&list_prefix())
+                .to_string();
+
+            lines
+        }
+
+        if cached_show_suggestion() == "list".to_string() {
+            colored_list(hint).into()
+        } else if hint != place_holder() {
+            let (prfx, rest) = split_prfx(hint);
+            Owned(prefix_color() + prfx + "\x1b[m" + " " + &description_color() + rest + "\x1b[m")
+        } else {
+            Owned(place_holder_color() + hint + "\x1b[m")
+        }
+    }
+}
+
+impl Hinter for SuggestionProvider {
+    type Hint = SuggestedModule;
+    fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<SuggestedModule> {
+        if cached_show_suggestion() != "list".to_string() {
+            if line.is_empty() {
+                return Some(
+                    SuggestedModule{
+                        display: place_holder()
+                        .to_string(), complete_up_to: 0});
+            }
+        }
+
+        let prefixed_line = if cached_show_suggestion() == "line".to_string() {
+            line
+        } else {
+            &(list_prefix().to_owned() + line) };
+        
+        let aggregate_hints = self.hints
+            .iter()
+            .filter_map(|i| 
+                if remove_ascii(&i.display).starts_with(&prefixed_line) {
+                    Some(i.display.as_str())
+                } else { None })
+            .take(
+                if cached_show_suggestion() == "line".to_string() { 1
+                } else { suggestion_line() }
+            )
+            .collect::<Vec<&str>>();
+
+        if aggregate_hints.is_empty() {
+            Some( SuggestedModule {
+                    display: "".to_string(),
+                    complete_up_to: 0 }
+                .suffix(0)
+            )
+        } else {
+            Some(
+                if cached_show_suggestion() == "line" { 
+                    SuggestedModule { display: aggregate_hints.join(""),
+                        complete_up_to: pos }
+                    .suffix(pos)
+                } else if cached_show_suggestion() == "list" {
+                    if line.is_empty() {
+                        SuggestedModule { display: place_holder_color() + &place_holder() + "\x1b[m" + "\n" + &aggregate_hints.join("\n"),
+                            complete_up_to: pos }
+                        .suffix(pos)
+                    } else {
+                        SuggestedModule { display: "\n".to_owned() + &aggregate_hints.join("\n"),
+                            complete_up_to: pos }
+                        .suffix(pos)
+                    }
+                } else {
+                    SuggestedModule { display: "".to_string(),
+                        complete_up_to: 0 }
+                    .suffix(0)
+                }
+            )
+        }
+    }
+}
+
+#[derive(Hash, Debug, PartialEq, Eq)]
+struct SuggestedModule {
+    display: String,
+    complete_up_to: usize,
+}
+
+impl SuggestedModule {
+    fn new(text: &str, complete_up_to: &str) -> Self {
+        assert!(text.starts_with(complete_up_to));
+        Self {
+            display: text.into(),
+            complete_up_to: complete_up_to.len(),
+        }
+    }
+    fn suffix(&self, strip_chars: usize) -> Self {
+        if cached_show_suggestion() == "line".to_string() {
+            Self {
+                // key point
+                display: self.display.trim_start_matches(&list_prefix())[strip_chars..].to_owned(),
+                complete_up_to: strip_chars,
+            }
+        } else {
+            Self {
+                display: self.display.trim_start_matches(&list_prefix()).to_owned(),
+                complete_up_to: strip_chars,
+            }
+        }
+    }
+}
+
+impl Hint for SuggestedModule {
+    fn display(&self) -> &str {
+        &self.display
+    }
+    fn completion(&self) -> Option<&str> {
+        fn is_ansi_sequence(s: &str) -> bool {
+            let re = regex::Regex::new(r"^\x1b\[[0-9;]*m").unwrap();
+            re.is_match(s)
+        }
+
+        fn trim_ansi_prefix(s: &str) -> &str {
+            let mut result = s;
+            while is_ansi_sequence(result) {
+                let re = regex::Regex::new(r"^\x1b\[[0-9;]*m").unwrap();
+                if let Some(mat) = re.find(result) {
+                    result = result.trim_start_matches(mat.as_str());
+                }
+            }
+            result
+        }
+
+        if cached_show_suggestion() == "line".to_string() {
+            if self.complete_up_to > 0 &&
+            !self.display.starts_with(" ") {
+                Some(&trim_ansi_prefix(&self.display.split_whitespace().next().unwrap()))
+            } else { None }
+        } else {
+            if self.complete_up_to > 0 {
+                Some(&trim_ansi_prefix(&self.display.split_whitespace().next().unwrap())[self.complete_up_to..])
+            } else { None }
+        }
+    }
+}
+
+// function to format suggestion lines
+fn suggestion_func() -> Result<Vec<SuggestedModule>, Box<dyn Error>> {
+    let set = CONFIG
+        .modules
+        .iter()
+        .map(|module| {
+            let arg_indicator = 
+                if module.with_argument == Some(true) {
+                    indicator_with_arg_module()
+                } else {
+                    indicator_no_arg_module() };
+
+            let variable_list_prefix = if cached_show_suggestion() == "line".to_string() {
+                "".to_string()
+            } else {
+                list_prefix()
+            };
+
+            let hint_string = format!("{}{} {}{}",
+                &variable_list_prefix,
+                &module.prefix,
+                arg_indicator,
+                &module.description);
+            SuggestedModule:: new( &hint_string, &hint_string)
+        })
+        .collect::<Vec<_>>();
+    Ok(set)
+}
+
 // function to remove ascii color code from &str
-fn remove_ascii(input: &str) -> String {
+fn remove_ascii(text: &str) -> String {
     let re = Regex::new(r"\x1b\[[0-9;]*m").unwrap();
-    re.replace_all(input, "").to_string()
+    re.replace_all(text, "").to_string()
 }
 
 // function to run module.cmd
-fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, module: &Module) {
+fn run_module_command(mod_cmd_arg: &str, module: &Module) {
     // format the shell command by which the module commands are launched
+    let exec_cmd = exec_cmd();
     let mut cmd_parts = exec_cmd.split_whitespace();
     let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
     let exec_cmd_args: Vec<&str> = cmd_parts.collect();
@@ -217,20 +442,20 @@ fn run_module_command(mod_cmd_arg: &str, exec_cmd: String, module: &Module) {
 }
 
 // function to run empty & default modules
-fn run_designated_module(prompt: String, prfx: String, exec_cmd: String, modules: Vec<Module>) {
+fn run_designated_module(prompt: String, prfx: String) {
     // test if the designated module is set
     if prfx.is_empty() {
         println!("{}", prompt)
     } else {
     // if set
         // find the designated module
-        let target_module = modules
+        let target_module = CONFIG.modules
             .iter()
             .find(|module| 
-                remove_ascii( &module.prefix ) == prfx);
+                module.prefix == prfx);
+        let target_module = target_module.unwrap();
         // whether to use url encoding
         let prompt_wo_prefix = if target_module
-            .unwrap()
             .url_encode.unwrap_or(false) == true {
                 encode(&prompt).to_string()
         } else {
@@ -239,192 +464,125 @@ fn run_designated_module(prompt: String, prfx: String, exec_cmd: String, modules
         // run the module's command
         run_module_command(
             &format!("{}", target_module
-                .unwrap()
                 .cmd
                 .replace("{}", &prompt_wo_prefix)),
-            exec_cmd,
-            target_module.unwrap());
+            target_module);
     }
 }
 
 // main function
 fn main() {
-    // comparing prompt with loaded configs
-    match read_config() {
-        Ok(config) => {
-            // load exec_cmd, header and header_cmd from config file
-            let exec_cmd = config
-                .general.exec_cmd.unwrap_or("sh -c".to_string());
-            let prompt_prefix = config
-                .interface.header
-                .unwrap_or("".to_string());
-            let header_cmd = config
-                .interface.header_cmd
-                .unwrap_or("".to_string());
-            if !header_cmd.is_empty() {
-                let output = Command::new("sh")
-                    .arg("-c")
-                    .arg(header_cmd)
-                    .output()
-                    .expect("Failed to launch header command...");
-                if output.status.success() {
-                    let prompt_prefix = from_utf8(&output.stdout).unwrap();
-                    let lines: Vec<&str> = prompt_prefix.lines().collect();
-                    let remove_lines_count = config
-                        .interface.header_cmd_trimmed_lines
-                        .unwrap_or(0);
-                    if lines.len() > remove_lines_count {
-                        let remaining_lines = &lines[..lines.len() - remove_lines_count];
-                        for line in remaining_lines {
-                        println!("{}", line);
-                        }
-                    } else {
-                        println!("{}", prompt_prefix.trim_end());
-                    }
-                } else {
-                    eprintln!("Header command failed with status: {}", output.status);
+    // initialize static vars through lazy-static
+    init_show_suggestion();
+
+    // print headers
+    if !header_cmd().is_empty() {
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg(header_cmd())
+            .output()
+            .expect("Failed to launch header command...");
+
+        if output.status.success() {
+            let pprefix = from_utf8(&output.stdout).unwrap();
+            let lines: Vec<&str> = pprefix.lines().collect();
+            let remove_lines_count = header_cmd_trimmed_lines();
+
+            if lines.len() > remove_lines_count {
+                let remaining_lines = &lines[..lines.len() - remove_lines_count];
+                for line in remaining_lines {
+                    println!("{}\x1b[?25h", line);
                 }
+            } else {
+                println!("{}", pprefix.trim_end());
             }
+        } else {
+            eprintln!("Header_cmd failed with status: {}", output.status);
+        }
+    }
 
-            // getting prompt from user input, and set up input interface as per the config file
-            let prompt = Text {
-                message: &config
-                    .interface.prompt_prefix
-                    .unwrap_or("\x1b[34m \x1b[0m otter-launcher \x1b[34m> \x1b[0m".to_string()),
-                initial_value: None,
-                default: None,
-                autocompleter: if config
-                    .general.show_suggestion
-                    .unwrap_or(false) == true {
-                    Some(Box::new(SuggestionCompleter::default()))
+    // read prompt using rustyline interactive shell
+    let mut rl: Editor<SuggestionProvider, DefaultHistory> = Editor::new().unwrap();
+    rl.set_helper(
+        Some( SuggestionProvider {
+            hints: suggestion_func().expect("Failed to provide hints") }
+    ));
+    rl.bind_sequence(KeyEvent::new('\t', Modifiers::NONE),
+        EventHandler::Simple(Cmd::CompleteHint));
+    // check if vi_mode is on
+    if vi_mode() == true { rl.set_edit_mode(EditMode::Vi) };
+    // check if esc_to_abort is on
+    if esc_to_abort() == true {
+        rl.bind_sequence(KeyEvent::new('\x1b', Modifiers::NONE),
+            EventHandler::Simple(Cmd::Interrupt));
+    }
+    let prompt = rl.readline(&(header()+&prompt_prefix()));
+    match prompt {
+        Ok(_) => { },
+        Err(_) => {
+            //println!("{:?}", err);
+            process::exit(0);
+        }
+    }
+    let prompt = prompt.expect("");
+
+    // matching the prompted prefix with module prefixes to decide what to do
+    let prompted_prfx = prompt
+        .split_whitespace()
+        .next()
+        .unwrap_or("");
+    let module_prfx = CONFIG
+        .modules
+        .iter()
+        .find(|module| remove_ascii(&module.prefix) == prompted_prfx);
+
+    match module_prfx {
+        // if user input starts with some module prefixes
+        Some(module) => {
+            // determine whether the prompt should be urlencoded
+            let argument = if module.url_encode
+                .unwrap_or(false) == true {
+                    encode(prompt
+                        .trim_start_matches(prompted_prfx)
+                        .trim_start()
+                    ).to_string()
                 } else {
-                    None
-                },
-                placeholder: Some(
-                    &config
-                    .interface.place_holder
-                    .unwrap_or("type and search..."
-                        .to_string())
-                ),
-                formatter: Text::DEFAULT_FORMATTER,
-                validators: Vec::new(),
-                page_size: config
-                        .interface.suggestion_lines
-                        .unwrap_or(1),
-                render_config:
-                    RenderConfig {
-                        prompt_prefix: Styled::new(&prompt_prefix),
-                        answered_prompt_prefix: Styled::new(&prompt_prefix),
-                        selected_option: Some(StyleSheet::new().with_attr(Attributes::BOLD)),
-                        option_index_prefix: IndexPrefix::SpacePadded,
-                        highlighted_option_prefix: Styled::new(
-                                &config
-                                .interface.highlighted_prefix
-                                .unwrap_or(" \x1b[31m > \x1b[0m".to_string())),
-                        scroll_down_prefix: Styled::new(
-                                &config
-                                .interface.scroll_down_prefix
-                                .unwrap_or(" \x1b[31m v \x1b[0m".to_string())),
-                        scroll_up_prefix: Styled::new(
-                                &config
-                                .interface.scroll_up_prefix
-                                .unwrap_or(" \x1b[31m ^ \x1b[0m".to_string())),
-                        list_prefix: Styled::new(
-                                &config
-                                .interface.list_prefix
-                                .unwrap_or("    ".to_string())),
-                        ..Default::default()
-                    },
-                help_message: Some(
-                    &config
-                    .interface.help_message
-                    .unwrap_or("".to_string())
-                ),
-            }.prompt()
-                .unwrap_or_else(|_err|{
-                    String::from("otter_magic_canceled_and_quit")
-                }).to_string();
+                    prompt
+                    .trim_start_matches(prompted_prfx)
+                    .trim_start()
+                    .to_string()
+                };
 
-            // remove ascii from prompt to get the clean texts from user input
-            let prompt = remove_ascii(&prompt);
-
-            // matching the prompted prefix with module prefixes to decide what to do
-            let prompted_prfx = prompt
-                .split_whitespace()
-                .next()
-                .unwrap_or("");
-
-            let module_prfx = config
-                .modules
-                .iter()
-                .find(|module| remove_ascii( &module.prefix ) == prompted_prfx);
-
-            match module_prfx {
-                // if user input starts with some module prefixes
-                Some(module) => {
-                    // determine whether the prompt should be urlencoded
-                    let argument = if module.url_encode
-                        .unwrap_or(false) == true {
-                            encode(prompt
-                                .trim_start_matches(prompted_prfx)
-                                .trim_start()
-                            ).to_string()
-                        } else {
-                            prompt
-                            .trim_start_matches(prompted_prfx)
-                            .trim_start()
-                            .to_string()
-                        };
-
-                    // Condition 1: when the selected module runs with arguement
-                    if module.with_argument.unwrap_or(false) == true {
-                        run_module_command(
-                            &format!("{}", module.cmd.replace("{}", &argument)),
-                            exec_cmd,
-                            module);
-                    // Condition 2: when user input is exactly the same as the no-arg module
-                    } else if remove_ascii( &module.prefix ) == prompt {
-                        run_module_command(&module.cmd,
-                            exec_cmd,
-                            module);
-                    // Condition 3: when the selected module is selected by suggestion (prompt=prefix+desc)
-                    } else if remove_ascii( &module.prefix ) + " " + &module.description == prompt {
-                        run_module_command(&module.cmd,
-                            exec_cmd,
-                            module);
-                    // Condition 4: when no-arg modules is running with arguement
-                    } else {
-                        run_designated_module(
-                            prompt,
-                            config.general.default_module.unwrap_or("".to_string()),
-                            exec_cmd,
-                            config.modules)
-                    }
-                },
-                // if user input doesn't start with some module prefixes
-                None => {
-                    // Condition 1: when user input is empty, run the empty module
-                    if prompt.is_empty() {
-                        run_designated_module(
-                            prompt,
-                            config.general.empty_module.unwrap_or("".to_string()),
-                            exec_cmd,
-                            config.modules)
-                    // Condition 2: when canceled with esc (thus no module selected), exit
-                    } else if prompt == "otter_magic_canceled_and_quit" {
-                        process::exit(0);
-                    // Condition 3: when no module is matched, run the default module
-                    } else {
-                        run_designated_module(
-                            prompt,
-                            config.general.default_module.unwrap_or("".to_string()),
-                            exec_cmd,
-                            config.modules)
-                    }
-                }
+            // Condition 1: when the selected module runs with arguement
+            if module.with_argument.unwrap_or(false) == true {
+                run_module_command(
+                    &format!("{}", module.cmd.replace("{}", &argument)),
+                    module);
+            // Condition 2: when user input is exactly the same as the no-arg module
+            } else if module.prefix == prompt {
+                run_module_command(
+                    &module.cmd,
+                    module);
+            // Condition 3: when no-arg modules is running with arguement
+            } else {
+                run_designated_module(
+                    prompt,
+                    default_module())
             }
         },
-        // if there's something wrong with the config
-        Err(e) => println!("Error reading config.toml: {}", e),
+        // if user input doesn't start with some module prefixes
+        None => {
+            // Condition 1: when user input is empty, run the empty module
+            if prompt.is_empty() {
+                run_designated_module(
+                    prompt,
+                    empty_module())
+            // Condition 2: when no module is matched, run the default module
+            } else {
+                run_designated_module(
+                    prompt,
+                    default_module())
+            }
+        }
     }
 }
