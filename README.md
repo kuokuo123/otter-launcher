@@ -2,7 +2,7 @@
 
 ![Kitty Config](./assets/kitty.png)
 
-Otter-launcher is a highly extendable commandline program to launch shell scripts, applications, or arbitrary commands by a few key strokes, customizable with ascii color codes, sixel or kitty image protocols. It is a good companion to keyboard-centric window manager users.
+Otter-launcher is a highly extendable commandline program to launch shell scripts, applications by a few key strokes, customizable with ascii color codes, sixel or kitty image protocols. It's a good companion to keyboard-centric window manager users.
 
 The concept is making the below behaviours possible:
 
@@ -12,34 +12,16 @@ The concept is making the below behaviours possible:
 - "app" to launch application menu
 - etc.
 
-It is recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop), making it a desktop application launcher. Use your wm's window rules to control its window size. 
+It's recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop), making it a desktop application launcher. Use your wm's window rules to control its window size. 
 
 ![Demo Gif](./assets/demo.gif)
-
-# Notes for Latest Updates 250314
-
-## New Features
-
-- vi and emacs input mode
-- rebased to the rustyline crate, which makes faster speed (0.001s to launch on my pc)
-- three suggestion modes: list, line, none
-- add an indicator to show whether the suggested module can run with arguments
-- add options to define colors of all prefixes or desc at once
-- esc keypress can now either quit the program or not, for vi mode implementation
-- customizable place holder color
-- add wiki for config examples, which is open for passerby to edit
-
-## Breaking Change
-
-- remove up/down selection operation in prefix list, as it's hard to implement with the new code base and not often be used by myself
-- as gone its related config options like scroll_up/down_prefixes, highlighted_prefix, etc.
 
 
 # Features
 
 - vi and emacs keybindings
 - modularized to run different commands (via configuration)
-- fuzzy search and tab completion for configured modules
+- tab completion for configured modules
 - per-module prehook and callback commands
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
@@ -100,7 +82,7 @@ indicator_with_arg_module = "> "
 indicator_no_arg_module = "< " # a sign of whether the suggested module should run with an argument
 # ASCII color codes are allowed with these options, with 2 caveats:
     # 1. \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
-    # 2. prefix colors are better defined in [interface].prefix_color, because color codes are not searchable.
+    # 2. prefix colors should now be defined in [interface].prefix_color, as color codes are not searchable.
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
