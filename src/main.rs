@@ -230,8 +230,10 @@ impl Hinter for OtterHelper {
             if line.is_empty() {
                 return Some(
                     ModuleHint{
-                        display: place_holder()
-                        .to_string(), completion: 0});
+                        display: place_holder().to_string(),
+                        completion: 0,
+                        prfx_to_complete: "".to_string(),
+                    });
             }
         }
 
@@ -257,28 +259,38 @@ impl Hinter for OtterHelper {
         if aggregate_hints.is_empty() {
             Some( ModuleHint {
                     display: "".to_string(),
-                    completion: 0 }
+                    completion: 0,
+                    prfx_to_complete: "".to_string(),
+            }
                 .suffix(0)
             )
         } else {
             Some(
                 if cached_show_suggestion() == "line" { 
                     ModuleHint { display: aggregate_hints.join(""),
-                        completion: pos }
+                        completion: pos,
+                        prfx_to_complete: "".to_string(),
+                    }
                     .suffix(pos)
                 } else if cached_show_suggestion() == "list" {
                     if line.is_empty() {
                         ModuleHint { display: place_holder_color() + &place_holder() + "\x1b[m" + "\n" + &aggregate_hints.join("\n"),
-                            completion: pos }
+                            completion: pos,
+                            prfx_to_complete: "".to_string(),
+                        }
                         .suffix(pos)
                     } else {
                         ModuleHint { display: "\n".to_owned() + &aggregate_hints.join("\n"),
-                            completion: pos }
+                            completion: pos,
+                            prfx_to_complete: "".to_string(),
+                        }
                         .suffix(pos)
                     }
                 } else {
                     ModuleHint { display: "".to_string(),
-                        completion: 0 }
+                            completion: 0,
+                            prfx_to_complete: "".to_string(),
+                    }
                     .suffix(0)
                 }
             )
@@ -290,6 +302,7 @@ impl Hinter for OtterHelper {
 struct ModuleHint {
     display: String,
     completion: usize,
+    prfx_to_complete: String,
 }
 
 impl ModuleHint {
@@ -302,6 +315,7 @@ impl ModuleHint {
                 text.into()
             },
             completion: completion.len(),
+            prfx_to_complete: "".to_string(),
         }
     }
     fn suffix(&self, strip_chars: usize) -> Self {
@@ -310,11 +324,13 @@ impl ModuleHint {
                 // key point
                 display: self.display.trim_start_matches(&list_prefix())[strip_chars..].to_owned(),
                 completion: strip_chars,
+                prfx_to_complete: remove_ascii(&self.display),
             }
         } else {
             Self {
                 display: self.display.trim_start_matches(&list_prefix()).to_owned(),
                 completion: strip_chars,
+                prfx_to_complete: remove_ascii(&self.display),
             }
         }
     }
@@ -326,12 +342,20 @@ impl Hint for ModuleHint {
     }
     fn completion(&self) -> Option<&str> {
         if cached_show_suggestion() == "line".to_string() {
-            let prfx = self.display.split_whitespace().next().unwrap();
-            if prfx.len() + 1 >= self.completion && self.completion > 0 {
-                Some(&prfx)
+            if self.completion > 0 {
+                let prfx = self.prfx_to_complete.split_whitespace().next().unwrap();
+                if prfx.len() >= self.completion {
+                    Some(&prfx[self.completion..])
+                } else {
+                    None
+                }
             } else { None }
         } else {
-            let prfx = self.display.trim_start_matches(&("\n".to_owned() + &list_prefix())).split_whitespace().next().unwrap();
+            let prfx = self.prfx_to_complete
+                .trim_start_matches(&("\n".to_owned() + &list_prefix()))
+                .split_whitespace()
+                .next()
+                .unwrap();
             if prfx.len() >= self.completion && self.completion > 0 {
                 Some(&prfx[self.completion..])
             } else {
@@ -361,7 +385,7 @@ fn suggestion_func() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
 
             let hint_string = format!("{}{} {}{}",
                 &variable_list_prefix,
-                remove_ascii(&module.prefix),
+                &module.prefix,
                 arg_indicator,
                 &module.description);
             ModuleHint:: new( &hint_string, &hint_string)

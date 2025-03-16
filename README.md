@@ -80,9 +80,7 @@ show_suggestion = "list" # search fro modules; autocompletion with TAB
 suggestion_lines = 4 # only take effect in the list suggestion mode
 indicator_with_arg_module = "> "
 indicator_no_arg_module = "< " # a sign of whether the suggested module should run with an argument
-# ASCII color codes are allowed with these options, with 2 caveats:
-    # 1. \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
-    # 2. prefix colors should now be defined in [interface].prefix_color, as color codes are not searchable.
+# ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
