@@ -2,11 +2,9 @@
 
 ![Kitty Config](./assets/kitty.png)
 
-Otter-launcher is a highly extendable commandline launcher with vi or emacs keybinds, designed for keyboard-centric wm users who prefer terminal aethetics than gui. Its interface can be decorated with ascii color codes, sixel or kitty image protocols.
+An extendable app launcher, designed for keyboard-centric wm users. It is customizable with ascii color codes, sixel or kitty image protocols.
 
-As a rust program implemented with as fewer libraries as possible, otter-launcher is blazingly fast and resource friendly.
-
-The concept is making the below behaviours possible:
+The concept is making these behaviours possible:
 
 - type "gg margaret thatcher" to google the lady in a web browser
 - "sh htop" to run htop in a terminal
@@ -21,14 +19,14 @@ It's recommended to use otter-launcher with [sway-launcher-desktop](https://gith
 
 # Features
 
-- vi and emacs keybinds
 - modularized to run different commands (via configuration)
+- vi and emacs keybinds
 - tab completion for configured modules
 - per-module prehook and callback commands
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
 - decorated with ascii color codes, chafa, sixel or kitty image protocol, etc.
-- minimalist, blazingly fast, keyboard-centric
+- minimalist, blazing fast, keyboard-centric
 
 # Installation
 
