@@ -29,6 +29,7 @@ vi_mode = false # set true to use vi keybinds, false to use emacs keybinds; defa
 esc_to_abort = true # allow to quit pressing esc; a useful option for vi users
 
 
+# ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
 [interface]
 header_cmd = "" # Run a shell command and make the stdout printed above the header
 header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
@@ -44,15 +45,10 @@ prompt_prefix = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "      "
 place_holder = "type and search..."
-show_suggestion = "list" # search fro modules; autocompletion with TAB
-# Three suggestion modes are avalable:
-    # line (default): show suggestions at the same line as input field
-    # list: list suggestions below the input field
-    # none: no suggestion, and no tab completion
-suggestion_lines = 4 # only take effect in the list suggestion mode
+show_suggestion = true # show a list of matched modules when typing; and autocomplete with TAB
+suggestion_lines = 4 # length of the suggestion list
 indicator_with_arg_module = "> "
 indicator_no_arg_module = "< " # a sign of whether the suggested module should run with an argument
-# ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"

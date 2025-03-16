@@ -2,31 +2,31 @@
 
 ![Kitty Config](./assets/kitty.png)
 
-Otter-launcher is a highly extendable commandline program to launch shell scripts, applications by a few key strokes, customizable with ascii color codes, sixel or kitty image protocols. It's a good companion to keyboard-centric window manager users.
+Otter-launcher is a highly extendable commandline program to launch shell scripts, applications by a vi or emacs keybinds, decorated with ascii color codes, sixel or kitty image protocols. It is design for keyboard-centric wm users who prefer cli or tui much more than gui.
 
 The concept is making the below behaviours possible:
 
-- type "gg margaret thatcher" to google the lady
+- type "gg margaret thatcher" to google the lady in a web browser
 - "sh htop" to run htop in a terminal
 - "dc linux" to search the word linux with an online dictionary
 - "app" to launch application menu
 - etc.
 
-It's recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop), making it a desktop application launcher. Use your wm's window rules to control its window size. 
+It's recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Use your wm's window rules to control its window size. 
 
 ![Demo Gif](./assets/demo.gif)
 
 
 # Features
 
-- vi and emacs keybindings
+- vi and emacs keybinds
 - modularized to run different commands (via configuration)
 - tab completion for configured modules
 - per-module prehook and callback commands
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
 - decorated with ascii color codes, chafa, sixel or kitty image protocol, etc.
-- minimalist, keyboard-centric, very fast
+- minimalist, blazingly fast, keyboard-centric
 
 # Installation
 
@@ -57,6 +57,7 @@ vi_mode = false # set true to use vi keybinds, false to use emacs keybinds; defa
 esc_to_abort = true # allow to quit pressing esc; a useful option for vi users
 
 
+# ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
 [interface]
 header_cmd = "" # Run a shell command and make the stdout printed above the header
 header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
@@ -72,15 +73,11 @@ prompt_prefix = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "      "
 place_holder = "type and search..."
-show_suggestion = "list" # search fro modules; autocompletion with TAB
-# Three suggestion modes are avalable:
-    # line (default): show suggestions at the same line as input field
-    # list: list suggestions below the input field
-    # none: no suggestion, and no tab completion
-suggestion_lines = 4 # only take effect in the list suggestion mode
+show_suggestion = true # show a list of matched modules when typing; and autocomplete with TAB
+suggestion_lines = 4 # length of the suggestion list
 indicator_with_arg_module = "> "
 indicator_no_arg_module = "< " # a sign of whether the suggested module should run with an argument
-# ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
+# below color options affect all modules; per-module coloring is allowed by using ascii color codes at module configurations
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
@@ -157,7 +154,7 @@ prompt_prefix = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "      "
 place_holder = "type and search..."
-show_suggestion = "list"
+show_suggestion = true
 suggestion_lines = 3
 prefix_color = "\u001B[32m"
 description_color = "\u001B[38m"
@@ -174,7 +171,7 @@ prompt_prefix = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "   \u001B[31m #\u001B[0m "
 place_holder = "type and search..."
-show_suggestion = "list"
+show_suggestion = true
 suggestion_lines = 1
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
@@ -195,7 +192,7 @@ header = """
 prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
 list_prefix = "    "
 place_holder = "type and search..."
-show_suggestion = "list"
+show_suggestion = true
 suggestion_lines = 1
 prefix_color = "\u001B[32m"
 description_color = "\u001B[38m"
@@ -214,7 +211,7 @@ header = ""
 prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
 list_prefix = "    "
 place_holder = "type and search..."
-show_suggestion = "list"
+show_suggestion = true
 suggestion_lines = 1
 prefix_color = "\u001B[32m"
 description_color = "\u001B[38m"
@@ -234,7 +231,7 @@ header_cmd_trimmed_lines = 1
 prompt_prefix = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m> \u001B[0m"
 list_prefix = "     "
 place_holder = "type and search"
-show_suggestion = "list"
+show_suggestion = true
 suggestion_lines = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
