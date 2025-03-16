@@ -298,7 +298,11 @@ impl ModuleHint {
                 .trim_start_matches(&list_prefix())
                 .to_owned(),
             completion: strip_chars,
-            clean_prfx: remove_ascii(&self.display),
+            clean_prfx: if strip_chars == 0 {
+                remove_ascii(&empty_module())
+            } else {
+                remove_ascii(&self.display)
+            },
             w_arg: self.w_arg,
         }
     }
@@ -317,7 +321,7 @@ impl Hint for ModuleHint {
             .split_whitespace()
             .next()
             .unwrap();
-        if prfx.len() >= self.completion && self.completion > 0 {
+        if prfx.len() >= self.completion {
             Some(&prfx[self.completion..])
         } else {
             None
