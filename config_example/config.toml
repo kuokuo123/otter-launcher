@@ -46,10 +46,10 @@ prompt_prefix = """
 list_prefix = "      "
 place_holder = "type and search..."
 show_suggestion = true # show a list of matched modules when typing; and autocomplete with TAB
-suggestion_lines = 4 # length of the suggestion list
+suggestion_lines = 3 # length of the suggestion list
 indicator_with_arg_module = "> "
 indicator_no_arg_module = "< " # a sign of whether the suggested module should run with an argument
-prefix_color = "\u001B[33m"
+prefix_color = "\u001B[32m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
 

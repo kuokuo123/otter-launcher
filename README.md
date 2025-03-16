@@ -2,7 +2,9 @@
 
 ![Kitty Config](./assets/kitty.png)
 
-Otter-launcher is a highly extendable commandline program to launch shell scripts, applications by a vi or emacs keybinds, decorated with ascii color codes, sixel or kitty image protocols. It is design for keyboard-centric wm users who prefer cli or tui much more than gui.
+Otter-launcher is a highly extendable commandline launcher with vi or emacs keybinds, designed for keyboard-centric wm users who prefer terminal aethetics than gui. Its interface can be decorated with ascii color codes, sixel or kitty image protocols.
+
+As a rust program implemented with as fewer libraries as possible, otter-launcher is blazingly fast and resource friendly.
 
 The concept is making the below behaviours possible:
 
@@ -74,11 +76,11 @@ prompt_prefix = """
 list_prefix = "      "
 place_holder = "type and search..."
 show_suggestion = true # show a list of matched modules when typing; and autocomplete with TAB
-suggestion_lines = 4 # length of the suggestion list
+suggestion_lines = 3 # length of the suggestion list
 indicator_with_arg_module = "> "
 indicator_no_arg_module = "< " # a sign of whether the suggested module should run with an argument
 # below color options affect all modules; per-module coloring is allowed by using ascii color codes at module configurations
-prefix_color = "\u001B[33m"
+prefix_color = "\u001B[32m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
 
