@@ -314,7 +314,7 @@ impl Hint for ModuleHint {
     //Text to insert in line when right arrow is pressed
     fn completion(&self) -> Option<&str> {
         let prfx = self.prfx_to_complete
-            .trim_start_matches(&("\n".to_owned() + &list_prefix()))
+            .trim_start_matches(&("\n".to_owned() + &remove_ascii(&list_prefix())))
             .split_whitespace()
             .next()
             .unwrap();
