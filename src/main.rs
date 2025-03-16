@@ -175,7 +175,8 @@ struct OtterHelper {
 struct ModuleHint {
     display: String,
     completion: usize,
-    prfx_to_complete: String,
+    clean_prfx: String,
+    w_arg: bool,
 }
 
 // The coloring functionality of OtterHelper
@@ -215,12 +216,20 @@ impl Highlighter for OtterHelper {
 impl Hinter for OtterHelper {
     type Hint = ModuleHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
-
         let aggregated_hint_lines = {
             self.hints
                 .iter()
                 .filter_map(|i| {
-                    let line_list_prefixed = remove_ascii(&(list_prefix() + line));
+                    let line_list_prefixed = if i.w_arg == true {
+                        remove_ascii(
+                            &(list_prefix() + line.split_whitespace()
+                                .next()
+                                .unwrap_or(""))
+                        )
+                    } else {
+                        remove_ascii(&(list_prefix() + &line.replace(" ", "\n")))
+                    };
+
                     if remove_ascii(&i.display).starts_with( &line_list_prefixed ) {
                         Some(i.display.as_str())
                     } else {
@@ -237,46 +246,34 @@ impl Hinter for OtterHelper {
                 .collect::<Vec<&str>>()
         };
 
-        if aggregated_hint_lines.is_empty() {
+        if line.is_empty() {
             Some( 
-                if line.is_empty() {
-                    ModuleHint {
-                        display: place_holder_color()
+                ModuleHint {
+                    display: place_holder_color()
                             + &place_holder() 
-                            + "\x1b[m",
-                        completion: 0,
-                        prfx_to_complete: "".to_string(),
-                    }
-                    .suffix(0)
-                } else {
-                    ModuleHint {
-                        display: "".to_string(),
-                        completion: 0,
-                        prfx_to_complete: "".to_string(),
-                    }
-                    .suffix(0)
-                }
+                            + "\x1b[m" 
+                            + "\n" 
+                            + &aggregated_hint_lines.join("\n"),
+                    completion: pos,
+                    clean_prfx: "".to_string(),
+                    w_arg: false,
+                }.suffix(pos)
             )
         } else {
             Some(
-                if line.is_empty() {
+                if aggregated_hint_lines.is_empty() {
                     ModuleHint {
-                        display: place_holder_color()
-                                + &place_holder() 
-                                + "\x1b[m" 
-                                + "\n" 
-                                + &aggregated_hint_lines
-                            .join("\n"),
+                        display: "".to_string(),
                         completion: pos,
-                        prfx_to_complete: "".to_string(),
+                        clean_prfx: "".to_string(),
+                        w_arg: false,
                     }.suffix(pos)
                 } else {
-                    ModuleHint { 
-                        display: "\n".to_owned() 
-                                + &aggregated_hint_lines
-                            .join("\n"),
+                    ModuleHint {
+                        display: "\n".to_owned() + &aggregated_hint_lines.join("\n"),
                         completion: pos,
-                        prfx_to_complete: "".to_string(),
+                        clean_prfx: "".to_string(),
+                        w_arg: false,
                     }.suffix(pos)
                 }
             )
@@ -286,12 +283,13 @@ impl Hinter for OtterHelper {
 
 // Define the functions that hint objects can modify the value within it self
 impl ModuleHint {
-    fn new(text: &str, completion: &str) -> Self {
+    fn new(text: &str, completion: &str, w_arg: Option<bool>) -> Self {
         assert!(text.starts_with(completion));
         Self {
             display: text.into(),
             completion: completion.len(),
-            prfx_to_complete: "".to_string(),
+            clean_prfx: "".to_string(),
+            w_arg: w_arg.unwrap_or(false),
         }
     }
     fn suffix(&self, strip_chars: usize) -> Self {
@@ -300,7 +298,8 @@ impl ModuleHint {
                 .trim_start_matches(&list_prefix())
                 .to_owned(),
             completion: strip_chars,
-            prfx_to_complete: remove_ascii(&self.display),
+            clean_prfx: remove_ascii(&self.display),
+            w_arg: self.w_arg,
         }
     }
 }
@@ -313,7 +312,7 @@ impl Hint for ModuleHint {
     }
     //Text to insert in line when right arrow is pressed
     fn completion(&self) -> Option<&str> {
-        let prfx = self.prfx_to_complete
+        let prfx = self.clean_prfx
             .trim_start_matches(&("\n".to_owned() + &remove_ascii(&list_prefix())))
             .split_whitespace()
             .next()
@@ -343,7 +342,7 @@ fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
                 &module.prefix,
                 arg_indicator,
                 &module.description);
-            ModuleHint:: new( &hint_string, &hint_string)
+            ModuleHint:: new( &hint_string, &hint_string, module.with_argument)
         })
         .collect::<Vec<_>>();
     Ok(set)
@@ -409,7 +408,7 @@ fn run_designated_module(prompt: String, prfx: String) {
         let target_module = CONFIG.modules
             .iter()
             .find(|module| 
-                module.prefix == prfx);
+                remove_ascii(&module.prefix) == prfx);
         let target_module = target_module.unwrap();
         // whether to use url encoding
         let prompt_wo_prefix = if target_module
@@ -516,7 +515,7 @@ fn main() {
                     &format!("{}", module.cmd.replace("{}", &argument)),
                     module);
             // Condition 2: when user input is exactly the same as the no-arg module
-            } else if module.prefix == prompt {
+            } else if remove_ascii(&module.prefix) == prompt {
                 run_module_command(
                     &module.cmd,
                     module);
