@@ -166,11 +166,11 @@ fn cached_show_suggestion() -> String {
 
 // Define Suggestion Provider
 #[derive(Completer, Helper, Validator)]
-struct SuggestionProvider {
-    hints: Vec<SuggestedModule>,
+struct OtterHelper {
+    hints: Vec<ModuleHint>,
 }
 
-impl Highlighter for SuggestionProvider {
+impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
         fn split_prfx(s: &str) -> (&str, &str) {
                 if let Some(pos) = s.find(char::is_whitespace) {
@@ -223,15 +223,15 @@ impl Highlighter for SuggestionProvider {
     }
 }
 
-impl Hinter for SuggestionProvider {
-    type Hint = SuggestedModule;
-    fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<SuggestedModule> {
+impl Hinter for OtterHelper {
+    type Hint = ModuleHint;
+    fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
         if cached_show_suggestion() != "list".to_string() {
             if line.is_empty() {
                 return Some(
-                    SuggestedModule{
+                    ModuleHint{
                         display: place_holder()
-                        .to_string(), complete_up_to: 0});
+                        .to_string(), completion: 0});
             }
         }
 
@@ -240,43 +240,45 @@ impl Hinter for SuggestionProvider {
         } else {
             &(list_prefix().to_owned() + line) };
         
-        let aggregate_hints = self.hints
-            .iter()
-            .filter_map(|i| 
-                if i.display.starts_with(&prefixed_line) {
-                    Some(i.display.as_str())
-                } else { None })
-            .take(
-                if cached_show_suggestion() == "line".to_string() { 1
-                } else { suggestion_lines() }
-            )
-            .collect::<Vec<&str>>();
+        let aggregate_hints = {
+            self.hints
+                .iter()
+                .filter_map(|i| 
+                    if remove_ascii(&i.display).starts_with(&remove_ascii(&prefixed_line)) {
+                        Some(i.display.as_str())
+                    } else { None })
+                .take(
+                    if cached_show_suggestion() == "line".to_string() { 1
+                    } else { suggestion_lines() }
+                )
+                .collect::<Vec<&str>>()
+        };
 
         if aggregate_hints.is_empty() {
-            Some( SuggestedModule {
+            Some( ModuleHint {
                     display: "".to_string(),
-                    complete_up_to: 0 }
+                    completion: 0 }
                 .suffix(0)
             )
         } else {
             Some(
                 if cached_show_suggestion() == "line" { 
-                    SuggestedModule { display: aggregate_hints.join(""),
-                        complete_up_to: pos }
+                    ModuleHint { display: aggregate_hints.join(""),
+                        completion: pos }
                     .suffix(pos)
                 } else if cached_show_suggestion() == "list" {
                     if line.is_empty() {
-                        SuggestedModule { display: place_holder_color() + &place_holder() + "\x1b[m" + "\n" + &aggregate_hints.join("\n"),
-                            complete_up_to: pos }
+                        ModuleHint { display: place_holder_color() + &place_holder() + "\x1b[m" + "\n" + &aggregate_hints.join("\n"),
+                            completion: pos }
                         .suffix(pos)
                     } else {
-                        SuggestedModule { display: "\n".to_owned() + &aggregate_hints.join("\n"),
-                            complete_up_to: pos }
+                        ModuleHint { display: "\n".to_owned() + &aggregate_hints.join("\n"),
+                            completion: pos }
                         .suffix(pos)
                     }
                 } else {
-                    SuggestedModule { display: "".to_string(),
-                        complete_up_to: 0 }
+                    ModuleHint { display: "".to_string(),
+                        completion: 0 }
                     .suffix(0)
                 }
             )
@@ -285,17 +287,21 @@ impl Hinter for SuggestionProvider {
 }
 
 #[derive(Hash, Debug, PartialEq, Eq)]
-struct SuggestedModule {
+struct ModuleHint {
     display: String,
-    complete_up_to: usize,
+    completion: usize,
 }
 
-impl SuggestedModule {
-    fn new(text: &str, complete_up_to: &str) -> Self {
-        assert!(text.starts_with(complete_up_to));
+impl ModuleHint {
+    fn new(text: &str, completion: &str) -> Self {
+        assert!(text.starts_with(completion));
         Self {
-            display: text.into(),
-            complete_up_to: complete_up_to.len(),
+            display: if cached_show_suggestion() == "line".to_string() {
+                remove_ascii(text).into()
+            } else {
+                text.into()
+            },
+            completion: completion.len(),
         }
     }
     fn suffix(&self, strip_chars: usize) -> Self {
@@ -303,59 +309,40 @@ impl SuggestedModule {
             Self {
                 // key point
                 display: self.display.trim_start_matches(&list_prefix())[strip_chars..].to_owned(),
-                complete_up_to: strip_chars,
+                completion: strip_chars,
             }
         } else {
             Self {
                 display: self.display.trim_start_matches(&list_prefix()).to_owned(),
-                complete_up_to: strip_chars,
+                completion: strip_chars,
             }
         }
     }
 }
 
-impl Hint for SuggestedModule {
+impl Hint for ModuleHint {
     fn display(&self) -> &str {
         &self.display
     }
     fn completion(&self) -> Option<&str> {
-        fn is_ansi_sequence(s: &str) -> bool {
-            let re = regex::Regex::new(r"^\x1b\[[0-9;]*m").unwrap();
-            re.is_match(s)
-        }
-
-        fn trim_ansi_prefix(s: &str) -> &str {
-            let mut result = s;
-            while is_ansi_sequence(result) {
-                let re = regex::Regex::new(r"^\x1b\[[0-9;]*m").unwrap();
-                if let Some(mat) = re.find(result) {
-                    result = result.trim_start_matches(mat.as_str());
-                }
-            }
-            result
-        }
-
         if cached_show_suggestion() == "line".to_string() {
-            if self.complete_up_to > 0 &&
-            !self.display.starts_with(" ") {
-                Some(&trim_ansi_prefix(&self.display.split_whitespace().next().unwrap()))
+            let prfx = self.display.split_whitespace().next().unwrap();
+            if prfx.len() + 1 >= self.completion && self.completion > 0 {
+                Some(&prfx)
             } else { None }
         } else {
-            if self.complete_up_to > 0 {
-                if let Some(s) = self.display.find(&list_prefix()) {
-                    let start_pos = s + &list_prefix().len();
-                    let tail = &self.display[start_pos..];
-                    Some(&trim_ansi_prefix(tail.split_whitespace().next().unwrap())[self.complete_up_to..])
-                } else {
-                    Some(&trim_ansi_prefix(&self.display.split_whitespace().next().unwrap())[self.complete_up_to..])
-                }
-            } else { None }
+            let prfx = self.display.trim_start_matches(&("\n".to_owned() + &list_prefix())).split_whitespace().next().unwrap();
+            if prfx.len() >= self.completion && self.completion > 0 {
+                Some(&prfx[self.completion..])
+            } else {
+                None
+            }
         }
     }
 }
 
 // function to format suggestion lines
-fn suggestion_func() -> Result<Vec<SuggestedModule>, Box<dyn Error>> {
+fn suggestion_func() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
     let set = CONFIG
         .modules
         .iter()
@@ -374,10 +361,10 @@ fn suggestion_func() -> Result<Vec<SuggestedModule>, Box<dyn Error>> {
 
             let hint_string = format!("{}{} {}{}",
                 &variable_list_prefix,
-                &module.prefix,
+                remove_ascii(&module.prefix),
                 arg_indicator,
                 &module.description);
-            SuggestedModule:: new( &hint_string, &hint_string)
+            ModuleHint:: new( &hint_string, &hint_string)
         })
         .collect::<Vec<_>>();
     Ok(set)
@@ -493,9 +480,9 @@ fn main() {
     }
 
     // read prompt using rustyline interactive shell
-    let mut rl: Editor<SuggestionProvider, DefaultHistory> = Editor::new().unwrap();
+    let mut rl: Editor<OtterHelper, DefaultHistory> = Editor::new().unwrap();
     rl.set_helper(
-        Some( SuggestionProvider {
+        Some( OtterHelper {
             hints: suggestion_func().expect("Failed to provide hints") }
     ));
     rl.bind_sequence(KeyEvent::new('\t', Modifiers::NONE),
