@@ -58,6 +58,8 @@ struct Interface {
     prompt_prefix: Option<String>,
     list_prefix: Option<String>,
     place_holder: Option<String>,
+    default_module_message: Option<String>,
+    empty_module_message: Option<String>,
     show_suggestion: Option<bool>,
     suggestion_lines: Option<usize>,
     indicator_no_arg_module: Option<String>,
@@ -104,8 +106,14 @@ fn read_config(file_path: &str) -> Result<Config, Box<dyn std::error::Error>> {
 fn default_module() -> String {
     CONFIG.general.default_module.clone().unwrap_or("".to_string())
 }
+fn default_module_message() -> String {
+    CONFIG.interface.default_module_message.clone().unwrap_or("".to_string())
+}
 fn empty_module() -> String {
     CONFIG.general.empty_module.clone().unwrap_or("".to_string())
+}
+fn empty_module_message() -> String {
+    CONFIG.interface.empty_module_message.clone().unwrap_or("".to_string())
 }
 fn exec_cmd() -> String {
     CONFIG.general.exec_cmd.clone().unwrap_or("sh -c".to_string())
@@ -126,10 +134,10 @@ fn suggestion_lines() -> usize {
     CONFIG.interface.suggestion_lines.unwrap_or(1)
 }
 fn indicator_no_arg_module() -> String {
-    CONFIG.interface.indicator_no_arg_module.clone().unwrap_or("# ".to_string())
+    CONFIG.interface.indicator_no_arg_module.clone().unwrap_or("".to_string())
 }
 fn indicator_with_arg_module() -> String {
-    CONFIG.interface.indicator_with_arg_module.clone().unwrap_or("> ".to_string())
+    CONFIG.interface.indicator_with_arg_module.clone().unwrap_or("".to_string())
 }
 fn header_cmd() -> String {
     CONFIG.interface.header_cmd.clone().unwrap_or("".to_string())
@@ -189,6 +197,10 @@ impl Highlighter for OtterHelper {
                     line.to_string()
                 } else if line.contains(&(place_holder_color() + &place_holder())) {
                     line.to_string()
+                } else if line == &empty_module_message() {
+                    line.to_string()
+                } else if line == &default_module_message() {
+                    line.to_string()
                 } else {
                     let mut parts = line.trim_start_matches(&list_prefix()).split_whitespace();
                     let prefix = parts.next().unwrap_or("");
@@ -216,8 +228,7 @@ impl Highlighter for OtterHelper {
 impl Hinter for OtterHelper {
     type Hint = ModuleHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
-        let aggregated_hint_lines = {
-            self.hints
+        let aggregated_hint_lines = self.hints
                 .iter()
                 .filter_map(|i| {
                     let line_list_prefixed = if i.w_arg == true {
@@ -243,34 +254,81 @@ impl Hinter for OtterHelper {
                         0
                     }
                 )
-                .collect::<Vec<&str>>()
-        };
+                .collect::<Vec<&str>>();
 
         if line.is_empty() {
-            Some( 
-                ModuleHint {
-                    display: place_holder_color()
-                            + &place_holder() 
-                            + "\x1b[m" 
-                            + "\n" 
-                            + &aggregated_hint_lines.join("\n"),
-                    completion: pos,
-                    clean_prfx: "".to_string(),
-                    w_arg: false,
-                }.suffix(pos)
-            )
-        } else {
-            Some(
-                if aggregated_hint_lines.is_empty() {
+            if cached_show_suggestion() == true {
+                if empty_module_message().is_empty() {
+                    Some( 
+                        ModuleHint {
+                            display: place_holder_color()
+                                    + &place_holder() 
+                                    + "\x1b[m" 
+                                    + "\n" 
+                                    + &aggregated_hint_lines.join("\n"),
+                            completion: pos,
+                            clean_prfx: "".to_string(),
+                            w_arg: false,
+                        }.suffix(pos)
+                    )
+                } else {
+                    Some( 
+                        ModuleHint {
+                            display: place_holder_color()
+                                    + &place_holder() 
+                                    + "\x1b[m" 
+                                    + "\n" 
+                                    + &empty_module_message(),
+                            completion: pos,
+                            clean_prfx: "".to_string(),
+                            w_arg: false,
+                        }.suffix(pos)
+                    )
+                }
+            } else {
+                Some( 
                     ModuleHint {
-                        display: "".to_string(),
+                        display: place_holder_color()
+                                + &place_holder() 
+                                + "\x1b[m" ,
                         completion: pos,
                         clean_prfx: "".to_string(),
                         w_arg: false,
                     }.suffix(pos)
+                )
+            }
+        } else {
+            Some(
+                if aggregated_hint_lines.is_empty() {
+                    if cached_show_suggestion() == true {
+                        if default_module_message().is_empty() {
+                            ModuleHint {
+                                display: "".to_owned(),
+                                    completion: pos,
+                                    clean_prfx: "".to_string(),
+                                    w_arg: false,
+                            }.suffix(pos)
+                        } else {
+                            ModuleHint {
+                                display: "\n".to_owned()
+                                        + &default_module_message(),
+                                    completion: pos,
+                                    clean_prfx: "".to_string(),
+                                    w_arg: false,
+                            }.suffix(pos)
+                        }
+                    } else {
+                        ModuleHint {
+                        display: "".to_string(),
+                            completion: pos,
+                            clean_prfx: "".to_string(),
+                            w_arg: false,
+                        }.suffix(pos)
+                    }
                 } else {
                     ModuleHint {
-                        display: "\n".to_owned() + &aggregated_hint_lines.join("\n"),
+                        display: "\n".to_owned()
+                            + &aggregated_hint_lines.join("\n"),
                         completion: pos,
                         clean_prfx: "".to_string(),
                         w_arg: false,
