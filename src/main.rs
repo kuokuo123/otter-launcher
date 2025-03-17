@@ -192,7 +192,7 @@ impl Highlighter for OtterHelper {
         return hint
             .lines()
             .map(|line| {
-                if line == empty_module() {
+                if line == empty_module() + " _first_otter" {
                     place_holder_color() + &place_holder() + "\x1b[m"
                 } else if line == &empty_module_message() {
                     line.to_string()
@@ -258,7 +258,7 @@ impl Hinter for OtterHelper {
                 if empty_module_message().is_empty() {
                     Some( 
                         ModuleHint {
-                            display: empty_module() + "\n"
+                            display: empty_module() + " _first_otter\n"
                                 + &aggregated_hint_lines.join("\n"),
                             completion: pos,
                             w_arg: None,
@@ -267,7 +267,7 @@ impl Hinter for OtterHelper {
                 } else {
                     Some( 
                         ModuleHint {
-                            display: empty_module() + "\n"
+                            display: empty_module() + " _first_otter\n"
                                     + &empty_module_message(),
                             completion: pos,
                             w_arg: None,
@@ -349,11 +349,12 @@ impl Hint for ModuleHint {
     //Text to insert in line when right arrow is pressed
     fn completion(&self) -> Option<&str> {
         let prfx = self.display
-            .trim_start_matches(&"\n".to_owned())
+            .trim_start_matches("\n")
+            .trim_start_matches(" _first_otter")
             .split_whitespace()
             .next()
             .unwrap();
-        if prfx.len() >= self.completion {
+        if prfx.len() > self.completion {
             Some(&prfx[self.completion..])
         } else {
             None
