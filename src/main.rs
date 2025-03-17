@@ -183,8 +183,7 @@ struct OtterHelper {
 struct ModuleHint {
     display: String,
     completion: usize,
-    clean_prfx: String,
-    w_arg: bool,
+    w_arg: Option<bool>,
 }
 
 // The coloring functionality of OtterHelper
@@ -193,16 +192,14 @@ impl Highlighter for OtterHelper {
         return hint
             .lines()
             .map(|line| {
-                if line.trim().is_empty() {
-                    line.to_string()
-                } else if line.contains(&(place_holder_color() + &place_holder())) {
-                    line.to_string()
+                if line == empty_module() {
+                    place_holder_color() + &place_holder() + "\x1b[m"
                 } else if line == &empty_module_message() {
                     line.to_string()
                 } else if line == &default_module_message() {
                     line.to_string()
                 } else {
-                    let mut parts = line.trim_start_matches(&list_prefix()).split_whitespace();
+                    let mut parts = line.split_whitespace();
                     let prefix = parts.next().unwrap_or("");
                     let desc = parts.collect::<Vec<&str>>().join(" ");
                     format!("{}{}{}{} {}{}{}",
@@ -231,17 +228,17 @@ impl Hinter for OtterHelper {
         let aggregated_hint_lines = self.hints
                 .iter()
                 .filter_map(|i| {
-                    let line_list_prefixed = if i.w_arg == true {
+                    let line_wo_ascii = if i.w_arg.unwrap_or(false) == true {
                         remove_ascii(
-                            &(list_prefix() + line.split_whitespace()
+                            &(line.split_whitespace()
                                 .next()
                                 .unwrap_or(""))
                         )
                     } else {
-                        remove_ascii(&(list_prefix() + &line.replace(" ", "\n")))
+                        remove_ascii(&line.replace(" ", "\n"))
                     };
 
-                    if remove_ascii(&i.display).starts_with( &line_list_prefixed ) {
+                    if remove_ascii(&i.display).starts_with( &line_wo_ascii ) {
                         Some(i.display.as_str())
                     } else {
                         None 
@@ -261,39 +258,28 @@ impl Hinter for OtterHelper {
                 if empty_module_message().is_empty() {
                     Some( 
                         ModuleHint {
-                            display: place_holder_color()
-                                    + &place_holder() 
-                                    + "\x1b[m" 
-                                    + "\n" 
-                                    + &aggregated_hint_lines.join("\n"),
+                            display: empty_module() + "\n"
+                                + &aggregated_hint_lines.join("\n"),
                             completion: pos,
-                            clean_prfx: "".to_string(),
-                            w_arg: false,
+                            w_arg: None,
                         }.suffix(pos)
                     )
                 } else {
                     Some( 
                         ModuleHint {
-                            display: place_holder_color()
-                                    + &place_holder() 
-                                    + "\x1b[m" 
-                                    + "\n" 
+                            display: empty_module() + "\n"
                                     + &empty_module_message(),
                             completion: pos,
-                            clean_prfx: "".to_string(),
-                            w_arg: false,
+                            w_arg: None,
                         }.suffix(pos)
                     )
                 }
             } else {
                 Some( 
                     ModuleHint {
-                        display: place_holder_color()
-                                + &place_holder() 
-                                + "\x1b[m" ,
+                        display: empty_module() + "\n",
                         completion: pos,
-                        clean_prfx: "".to_string(),
-                        w_arg: false,
+                        w_arg: None,
                     }.suffix(pos)
                 )
             }
@@ -304,25 +290,22 @@ impl Hinter for OtterHelper {
                         if default_module_message().is_empty() {
                             ModuleHint {
                                 display: "".to_owned(),
-                                    completion: pos,
-                                    clean_prfx: "".to_string(),
-                                    w_arg: false,
+                                completion: pos,
+                                w_arg: None,
                             }.suffix(pos)
                         } else {
                             ModuleHint {
                                 display: "\n".to_owned()
                                         + &default_module_message(),
-                                    completion: pos,
-                                    clean_prfx: "".to_string(),
-                                    w_arg: false,
+                                completion: pos,
+                                w_arg: None,
                             }.suffix(pos)
                         }
                     } else {
                         ModuleHint {
-                        display: "".to_string(),
+                            display: "".to_string(),
                             completion: pos,
-                            clean_prfx: "".to_string(),
-                            w_arg: false,
+                            w_arg: None,
                         }.suffix(pos)
                     }
                 } else {
@@ -330,8 +313,7 @@ impl Hinter for OtterHelper {
                         display: "\n".to_owned()
                             + &aggregated_hint_lines.join("\n"),
                         completion: pos,
-                        clean_prfx: "".to_string(),
-                        w_arg: false,
+                            w_arg: None,
                     }.suffix(pos)
                 }
             )
@@ -346,21 +328,13 @@ impl ModuleHint {
         Self {
             display: text.into(),
             completion: completion.len(),
-            clean_prfx: "".to_string(),
-            w_arg: w_arg.unwrap_or(false),
+            w_arg: w_arg,
         }
     }
     fn suffix(&self, strip_chars: usize) -> Self {
         Self {
-            display: self.display
-                .trim_start_matches(&list_prefix())
-                .to_owned(),
+            display: self.display.to_owned(),
             completion: strip_chars,
-            clean_prfx: if strip_chars == 0 {
-                remove_ascii(&empty_module())
-            } else {
-                remove_ascii(&self.display)
-            },
             w_arg: self.w_arg,
         }
     }
@@ -374,8 +348,8 @@ impl Hint for ModuleHint {
     }
     //Text to insert in line when right arrow is pressed
     fn completion(&self) -> Option<&str> {
-        let prfx = self.clean_prfx
-            .trim_start_matches(&("\n".to_owned() + &remove_ascii(&list_prefix())))
+        let prfx = self.display
+            .trim_start_matches(&"\n".to_owned())
             .split_whitespace()
             .next()
             .unwrap();
@@ -399,8 +373,7 @@ fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
                 } else {
                     indicator_no_arg_module() };
 
-            let hint_string = format!("{}{} {}{}",
-                &list_prefix(),
+            let hint_string = format!("{} {}{}",
                 &module.prefix,
                 arg_indicator,
                 &module.description);
