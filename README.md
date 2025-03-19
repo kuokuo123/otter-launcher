@@ -2,7 +2,7 @@
 
 ![Kitty Config](./assets/kitty.png)
 
-An extendable app launcher, designed for keyboard-centric wm users. It is customizable with ascii color codes, sixel or kitty image protocols.
+An extendable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols.
 
 The concept is making these behaviours possible:
 

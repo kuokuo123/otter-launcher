@@ -264,7 +264,7 @@ fn cached_default_module_message() -> String {
 }
 static PLACE_HOLDER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 fn init_place_holder() {
-    let message = CONFIG.interface.place_holder.clone().unwrap_or("".to_string());
+    let message = CONFIG.interface.place_holder.clone().unwrap_or("type and search...".to_string());
     let mut place_holder = PLACE_HOLDER.lock().unwrap();
     *place_holder = Some(message);
 }
@@ -274,7 +274,7 @@ fn cached_place_holder() -> String {
 }
 static PLACE_HOLDER_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 fn init_place_holder_color() {
-    let message = CONFIG.interface.place_holder_color.clone().unwrap_or("".to_string());
+    let message = CONFIG.interface.place_holder_color.clone().unwrap_or("\x1b[90m".to_string());
     let mut place_holder_color = PLACE_HOLDER_COLOR.lock().unwrap();
     *place_holder_color = Some(message);
 }
