@@ -78,6 +78,7 @@ empty_module_message = "" # the text to show when empty module is in use
 suggestion_lines = 3 # length of the suggestion list, set to 0 to disable suggestions and tab completion
 indicator_with_arg_module = "> " # a sign showing whether the module should run with an argument
 indicator_no_arg_module = "< "
+prefix_padding = 0 # format prefixes to have a unified width; prefixes will be padded with spaces to have a least specified number of chars
 # below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
 prefix_color = "\u001B[32m"
 description_color = "\u001B[38m"

@@ -63,6 +63,7 @@ struct Interface {
     suggestion_lines: Option<usize>,
     indicator_no_arg_module: Option<String>,
     indicator_with_arg_module: Option<String>,
+    prefix_padding: Option<usize>,
     prefix_color: Option<String>,
     description_color: Option<String>,
     place_holder_color: Option<String>,
@@ -100,63 +101,97 @@ fn read_config(file_path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     Ok(config)
 }
 
-// Functions to load config values
-// load at runtime
-fn default_module() -> String {
-    CONFIG.general.default_module.clone().unwrap_or("".to_string())
+// Load config variables and cache as statics
+static ESC_TO_ABORT: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
+fn init_esc_to_abort() {
+    let hd = CONFIG.general.esc_to_abort.clone().unwrap_or(true);
+    let mut esc_to_abort = ESC_TO_ABORT.lock().unwrap();
+    *esc_to_abort = Some(hd);
 }
-fn default_module_message() -> String {
-    CONFIG.interface.default_module_message.clone().unwrap_or("".to_string())
+fn cached_esc_to_abort() -> bool {
+    let esc_to_abort = ESC_TO_ABORT.lock().unwrap();
+        esc_to_abort.clone().unwrap_or(true)
 }
-fn empty_module() -> String {
-    CONFIG.general.empty_module.clone().unwrap_or("".to_string())
+static VI_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
+fn init_vi_mode() {
+    let hd = CONFIG.general.vi_mode.clone().unwrap_or(false);
+    let mut vi_mode = VI_MODE.lock().unwrap();
+    *vi_mode = Some(hd);
 }
-fn empty_module_message() -> String {
-    CONFIG.interface.empty_module_message.clone().unwrap_or("".to_string())
+fn cached_vi_mode() -> bool {
+    let vi_mode = VI_MODE.lock().unwrap();
+        vi_mode.clone().unwrap_or(false)
 }
-fn exec_cmd() -> String {
-    CONFIG.general.exec_cmd.clone().unwrap_or("sh -c".to_string())
+static HEADER_CMD_TRIMMED_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+fn init_header_cmd_trimmed_lines() {
+    let hd = CONFIG.interface.header_cmd_trimmed_lines.clone().unwrap_or(0);
+    let mut header_cmd_trimmed_lines = HEADER_CMD_TRIMMED_LINES.lock().unwrap();
+    *header_cmd_trimmed_lines = Some(hd);
 }
-fn esc_to_abort() -> bool {
-    CONFIG.general.esc_to_abort.clone().unwrap_or(true)
+fn cached_header_cmd_trimmed_lines() -> usize {
+    let header_cmd_trimmed_lines = HEADER_CMD_TRIMMED_LINES.lock().unwrap();
+        header_cmd_trimmed_lines.clone().unwrap_or(0)
 }
-fn vi_mode() -> bool {
-    CONFIG.general.vi_mode.clone().unwrap_or(false)
+static HEADER_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_header_cmd() {
+    let hd = CONFIG.interface.header_cmd.clone().unwrap_or("".to_string());
+    let mut header_cmd = HEADER_CMD.lock().unwrap();
+    *header_cmd = Some(hd);
 }
-fn list_prefix() -> String {
-    CONFIG.interface.list_prefix.clone().unwrap_or("".to_string())
+fn cached_header_cmd() -> String {
+    let header_cmd = HEADER_CMD.lock().unwrap();
+        header_cmd.clone().unwrap_or("".to_string())
 }
-fn place_holder() -> String {
-    CONFIG.interface.place_holder.clone().unwrap_or("type and search...".to_string())
+static HEADER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_header() {
+    let hd = CONFIG.interface.header.clone().unwrap_or("".to_string());
+    let mut header = HEADER.lock().unwrap();
+    *header = Some(hd);
 }
-fn indicator_no_arg_module() -> String {
-    CONFIG.interface.indicator_no_arg_module.clone().unwrap_or("".to_string())
+fn cached_header() -> String {
+    let header = HEADER.lock().unwrap();
+        header.clone().unwrap_or("".to_string())
 }
-fn indicator_with_arg_module() -> String {
-    CONFIG.interface.indicator_with_arg_module.clone().unwrap_or("".to_string())
+static PROMPT_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_prompt_prefix() {
+    let cmd = CONFIG.interface.prompt_prefix.clone().unwrap_or("\x1b[34m \x1b[0m otter-launcher \x1b[34m>\x1b[0m ".to_string());
+    let mut prompt_prefix = PROMPT_PREFIX.lock().unwrap();
+    *prompt_prefix = Some(cmd);
 }
-fn header_cmd() -> String {
-    CONFIG.interface.header_cmd.clone().unwrap_or("".to_string())
+fn cached_prompt_prefix() -> String {
+    let prompt_prefix = PROMPT_PREFIX.lock().unwrap();
+        prompt_prefix.clone().unwrap_or("".to_string())
 }
-fn header_cmd_trimmed_lines() -> usize {
-    CONFIG.interface.header_cmd_trimmed_lines.unwrap_or(0)
+static EXEC_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_exec_cmd() {
+    let cmd = CONFIG.general.exec_cmd.clone().unwrap_or("sh -c".to_string());
+    let mut exec_cmd = EXEC_CMD.lock().unwrap();
+    *exec_cmd = Some(cmd);
 }
-fn header() -> String {
-    CONFIG.interface.header.clone().unwrap_or("".to_string())
+fn cached_exec_cmd() -> String {
+    let exec_cmd = EXEC_CMD.lock().unwrap();
+        exec_cmd.clone().unwrap_or("".to_string())
 }
-fn prompt_prefix() -> String {
-    CONFIG.interface.prompt_prefix.clone().unwrap_or("\x1b[34m \x1b[0m otter-launcher \x1b[34m>\x1b[0m ".to_string())
+static DEFAULT_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_default_module() {
+    let module = CONFIG.general.default_module.clone().unwrap_or("".to_string());
+    let mut default_module = DEFAULT_MODULE.lock().unwrap();
+    *default_module = Some(module);
 }
-fn prefix_color() -> String {
-    CONFIG.interface.prefix_color.clone().unwrap_or("\x1b[90m".to_string())
+fn cached_default_module() -> String {
+    let default_module = DEFAULT_MODULE.lock().unwrap();
+        default_module.clone().unwrap_or("".to_string())
 }
-fn description_color() -> String {
-    CONFIG.interface.description_color.clone().unwrap_or("\x1b[90m".to_string())
+static EMPTY_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_empty_module() {
+    let module = CONFIG.general.empty_module.clone().unwrap_or("".to_string());
+    let mut empty_module = EMPTY_MODULE.lock().unwrap();
+    *empty_module = Some(module);
 }
-fn place_holder_color() -> String {
-    CONFIG.interface.place_holder_color.clone().unwrap_or("\x1b[90m".to_string())
+fn cached_empty_module() -> String {
+    let empty_module = EMPTY_MODULE.lock().unwrap();
+        empty_module.clone().unwrap_or("".to_string())
 }
-// load and cache as statics
 static SUGGESTION_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 fn init_suggestion_lines() {
     let suggestion = CONFIG.interface.suggestion_lines.clone().unwrap_or(1);
@@ -166,6 +201,106 @@ fn init_suggestion_lines() {
 fn cached_suggestion_lines() -> usize {
     let suggestion_lines = SUGGESTION_LINES.lock().unwrap();
         suggestion_lines.clone().unwrap_or(1)
+}
+static PREFIX_PADDING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+fn init_prefix_padding() {
+    let padding = CONFIG.interface.prefix_padding.clone().unwrap_or(0);
+    let mut prefix_padding = PREFIX_PADDING.lock().unwrap();
+    *prefix_padding = Some(padding);
+}
+fn cached_prefix_padding() -> usize {
+    let prefix_padding = PREFIX_PADDING.lock().unwrap();
+        prefix_padding.clone().unwrap_or(1)
+}
+static LIST_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_list_prefix() {
+    let list = CONFIG.interface.list_prefix.clone().unwrap_or("".to_string());
+    let mut list_prefix = LIST_PREFIX.lock().unwrap();
+    *list_prefix = Some(list);
+}
+fn cached_list_prefix() -> String {
+    let list_prefix = LIST_PREFIX.lock().unwrap();
+        list_prefix.clone().unwrap_or("".to_string())
+}
+static PREFIX_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_prefix_color() {
+    let color = CONFIG.interface.prefix_color.clone().unwrap_or("".to_string());
+    let mut prefix_color = PREFIX_COLOR.lock().unwrap();
+    *prefix_color = Some(color);
+}
+fn cached_prefix_color() -> String {
+    let prefix_color = PREFIX_COLOR.lock().unwrap();
+        prefix_color.clone().unwrap_or("".to_string())
+}
+static DESCRIPTION_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_description_color() {
+    let color = CONFIG.interface.description_color.clone().unwrap_or("".to_string());
+    let mut description_color = DESCRIPTION_COLOR.lock().unwrap();
+    *description_color = Some(color);
+}
+fn cached_description_color() -> String {
+    let description_color = DESCRIPTION_COLOR.lock().unwrap();
+        description_color.clone().unwrap_or("".to_string())
+}
+static EMPTY_MODULE_MESSAGE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_empty_module_message() {
+    let message = CONFIG.interface.empty_module_message.clone().unwrap_or("".to_string());
+    let mut empty_module_message = EMPTY_MODULE_MESSAGE.lock().unwrap();
+    *empty_module_message = Some(message);
+}
+fn cached_empty_module_message() -> String {
+    let empty_module_message = EMPTY_MODULE_MESSAGE.lock().unwrap();
+        empty_module_message.clone().unwrap_or("".to_string())
+}
+static DEFAULT_MODULE_MESSAGE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_default_module_message() {
+    let message = CONFIG.interface.default_module_message.clone().unwrap_or("".to_string());
+    let mut default_module_message = DEFAULT_MODULE_MESSAGE.lock().unwrap();
+    *default_module_message = Some(message);
+}
+fn cached_default_module_message() -> String {
+    let default_module_message = DEFAULT_MODULE_MESSAGE.lock().unwrap();
+        default_module_message.clone().unwrap_or("".to_string())
+}
+static PLACE_HOLDER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_place_holder() {
+    let message = CONFIG.interface.place_holder.clone().unwrap_or("".to_string());
+    let mut place_holder = PLACE_HOLDER.lock().unwrap();
+    *place_holder = Some(message);
+}
+fn cached_place_holder() -> String {
+    let place_holder = PLACE_HOLDER.lock().unwrap();
+        place_holder.clone().unwrap_or("".to_string())
+}
+static PLACE_HOLDER_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_place_holder_color() {
+    let message = CONFIG.interface.place_holder_color.clone().unwrap_or("".to_string());
+    let mut place_holder_color = PLACE_HOLDER_COLOR.lock().unwrap();
+    *place_holder_color = Some(message);
+}
+fn cached_place_holder_color() -> String {
+    let place_holder_color = PLACE_HOLDER_COLOR.lock().unwrap();
+        place_holder_color.clone().unwrap_or("".to_string())
+}
+static INDICATOR_WITH_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_indicator_with_arg_module() {
+    let indicator = CONFIG.interface.indicator_with_arg_module.clone().unwrap_or("".to_string());
+    let mut indicator_with_arg_module = INDICATOR_WITH_ARG_MODULE.lock().unwrap();
+    *indicator_with_arg_module = Some(indicator);
+}
+fn cached_indicator_with_arg_module() -> String {
+    let indicator_with_arg_module = INDICATOR_WITH_ARG_MODULE.lock().unwrap();
+        indicator_with_arg_module.clone().unwrap_or("".to_string())
+}
+static INDICATOR_NO_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_indicator_no_arg_module() {
+    let indicator = CONFIG.interface.indicator_no_arg_module.clone().unwrap_or("".to_string());
+    let mut indicator_no_arg_module = INDICATOR_NO_ARG_MODULE.lock().unwrap();
+    *indicator_no_arg_module = Some(indicator);
+}
+fn cached_indicator_no_arg_module() -> String {
+    let indicator_no_arg_module = INDICATOR_NO_ARG_MODULE.lock().unwrap();
+        indicator_no_arg_module.clone().unwrap_or("".to_string())
 }
 
 // Define the helper that provide hints, highlights to the rustyline editor
@@ -189,24 +324,26 @@ impl Highlighter for OtterHelper {
             .lines()
             .map(|line| {
                 if line == "otter_magic_first_otter" {
-                    place_holder_color() + &place_holder() + "\x1b[0m"
-                } else if line == &empty_module_message() {
+                    cached_place_holder_color() + &cached_place_holder() + "\x1b[0m"
+                } else if line == &cached_empty_module_message() {
                     line.to_string()
-                } else if line == &default_module_message() {
+                } else if line == &cached_default_module_message() {
                     line.to_string()
                 } else {
-                    let mut parts = line.split_whitespace();
-                    let prefix = parts.next().unwrap_or("");
-                    let desc = parts.collect::<Vec<&str>>().join(" ");
-
-                    format!("{}{}{}{} {}{}{}",
-                        list_prefix(),
-                        prefix_color(),
-                        prefix,
-                        "\x1b[0m",
-                        description_color(),
-                        desc,
-                        "\x1b[0m")
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    let width = cached_prefix_padding();
+                    if parts.len() >= 2 {
+                        format!("{}{}{:width$}{} {}{}{}",
+                            cached_list_prefix(),
+                            cached_prefix_color(),
+                            parts[0],
+                            "\x1b[0m",
+                            cached_description_color(),
+                            parts[1..].join(" "),
+                            "\x1b[0m")
+                    } else {
+                        line.to_string()
+                    }
                 }
             })
             .collect::<Vec<String>>()
@@ -243,8 +380,8 @@ impl Hinter for OtterHelper {
                 .collect::<Vec<&str>>();
 
         let agg_line = aggregated_hint_lines.join("\n");
-        let e_module = empty_module_message();
-        let d_module = default_module_message();
+        let e_module = cached_empty_module_message();
+        let d_module = cached_default_module_message();
 
         if line.is_empty() {
             Some( 
@@ -318,7 +455,7 @@ impl Hint for ModuleHint {
         let prfx = self.display
             .trim_start_matches("\n")
             .trim_start_matches("otter_magic_first_otter")
-            .trim_start_matches(&default_module_message())
+            .trim_start_matches(&cached_default_module_message())
             .split_whitespace()
             .next()
             .unwrap_or("");
@@ -338,9 +475,9 @@ fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
         .map(|module| {
             let arg_indicator = 
                 if module.with_argument == Some(true) {
-                    indicator_with_arg_module()
+                    cached_indicator_with_arg_module()
                 } else {
-                    indicator_no_arg_module() };
+                    cached_indicator_no_arg_module() };
 
             let hint_string = format!("{} {}{}",
                 &module.prefix,
@@ -361,7 +498,7 @@ fn remove_ascii(text: &str) -> String {
 // function to run module.cmd
 fn run_module_command(mod_cmd_arg: &str, module: &Module) {
     // format the shell command by which the module commands are launched
-    let exec_cmd = exec_cmd();
+    let exec_cmd = cached_exec_cmd();
     let mut cmd_parts = exec_cmd.split_whitespace();
     let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
     let exec_cmd_args: Vec<&str> = cmd_parts.collect();
@@ -434,19 +571,38 @@ fn run_designated_module(prompt: String, prfx: String) {
 fn main() {
     //initializing static variables
     init_suggestion_lines();
+    init_prefix_padding();
+    init_list_prefix();
+    init_prefix_color();
+    init_description_color();
+    init_empty_module_message();
+    init_default_module_message();
+    init_place_holder();
+    init_place_holder_color();
+    init_indicator_with_arg_module();
+    init_indicator_no_arg_module();
+    init_default_module();
+    init_empty_module();
+    init_exec_cmd();
+    init_prompt_prefix();
+    init_header();
+    init_header_cmd();
+    init_header_cmd_trimmed_lines();
+    init_vi_mode();
+    init_esc_to_abort();
 
     // print headers
-    if !header_cmd().is_empty() {
+    if !cached_header_cmd().is_empty() {
         let output = Command::new("sh")
             .arg("-c")
-            .arg(header_cmd())
+            .arg(cached_header_cmd())
             .output()
             .expect("Failed to launch header command...");
 
         if output.status.success() {
             let pprefix = from_utf8(&output.stdout).unwrap();
             let lines: Vec<&str> = pprefix.lines().collect();
-            let remove_lines_count = header_cmd_trimmed_lines();
+            let remove_lines_count = cached_header_cmd_trimmed_lines();
 
             if lines.len() > remove_lines_count {
                 let remaining_lines = &lines[..lines.len() - remove_lines_count];
@@ -470,13 +626,13 @@ fn main() {
     rl.bind_sequence(KeyEvent::new('\t', Modifiers::NONE),
         EventHandler::Simple(Cmd::CompleteHint));
     // check if vi_mode is on
-    if vi_mode() == true { rl.set_edit_mode(EditMode::Vi) };
+    if cached_vi_mode() == true { rl.set_edit_mode(EditMode::Vi) };
     // check if esc_to_abort is on
-    if esc_to_abort() == true {
+    if cached_esc_to_abort() == true {
         rl.bind_sequence(KeyEvent::new('\x1b', Modifiers::NONE),
             EventHandler::Simple(Cmd::Interrupt));
     }
-    let prompt = rl.readline(&(header()+&prompt_prefix()));
+    let prompt = rl.readline(&(cached_header()+&cached_prompt_prefix()));
     match prompt {
         Ok(_) => { },
         Err(_) => {
@@ -527,7 +683,7 @@ fn main() {
             } else {
                 run_designated_module(
                     prompt,
-                    default_module())
+                    cached_default_module())
             }
         },
         // if user input doesn't start with some module prefixes
@@ -536,12 +692,12 @@ fn main() {
             if prompt.is_empty() {
                 run_designated_module(
                     prompt,
-                    empty_module())
+                    cached_empty_module())
             // Condition 2: when no module is matched, run the default module
             } else {
                 run_designated_module(
                     prompt,
-                    default_module())
+                    cached_default_module())
             }
         }
     }
