@@ -60,7 +60,6 @@ struct Interface {
     place_holder: Option<String>,
     default_module_message: Option<String>,
     empty_module_message: Option<String>,
-    show_suggestion: Option<bool>,
     suggestion_lines: Option<usize>,
     indicator_no_arg_module: Option<String>,
     indicator_with_arg_module: Option<String>,
@@ -130,9 +129,6 @@ fn list_prefix() -> String {
 fn place_holder() -> String {
     CONFIG.interface.place_holder.clone().unwrap_or("type and search...".to_string())
 }
-fn suggestion_lines() -> usize {
-    CONFIG.interface.suggestion_lines.unwrap_or(1)
-}
 fn indicator_no_arg_module() -> String {
     CONFIG.interface.indicator_no_arg_module.clone().unwrap_or("".to_string())
 }
@@ -161,15 +157,15 @@ fn place_holder_color() -> String {
     CONFIG.interface.place_holder_color.clone().unwrap_or("\x1b[90m".to_string())
 }
 // load and cache as statics
-static SHOW_SUGGESTION: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
-fn init_show_suggestion() {
-    let suggestion = CONFIG.interface.show_suggestion.clone().unwrap_or(true);
-    let mut show_suggestion = SHOW_SUGGESTION.lock().unwrap();
-    *show_suggestion = Some(suggestion);
+static SUGGESTION_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+fn init_suggestion_lines() {
+    let suggestion = CONFIG.interface.suggestion_lines.clone().unwrap_or(1);
+    let mut suggestion_lines = SUGGESTION_LINES.lock().unwrap();
+    *suggestion_lines = Some(suggestion);
 }
-fn cached_show_suggestion() -> bool {
-    let show_suggestion = SHOW_SUGGESTION.lock().unwrap();
-        show_suggestion.clone().unwrap_or(true)
+fn cached_suggestion_lines() -> usize {
+    let suggestion_lines = SUGGESTION_LINES.lock().unwrap();
+        suggestion_lines.clone().unwrap_or(1)
 }
 
 // Define the helper that provide hints, highlights to the rustyline editor
@@ -192,8 +188,8 @@ impl Highlighter for OtterHelper {
         return hint
             .lines()
             .map(|line| {
-                if line == empty_module() + " _first_otter" {
-                    place_holder_color() + &place_holder() + "\x1b[m"
+                if line == "otter_magic_first_otter" {
+                    place_holder_color() + &place_holder() + "\x1b[0m"
                 } else if line == &empty_module_message() {
                     line.to_string()
                 } else if line == &default_module_message() {
@@ -202,20 +198,19 @@ impl Highlighter for OtterHelper {
                     let mut parts = line.split_whitespace();
                     let prefix = parts.next().unwrap_or("");
                     let desc = parts.collect::<Vec<&str>>().join(" ");
+
                     format!("{}{}{}{} {}{}{}",
                         list_prefix(),
                         prefix_color(),
                         prefix,
-                        "\x1b[m",
+                        "\x1b[0m",
                         description_color(),
                         desc,
-                        "\x1b[m")
+                        "\x1b[0m")
                 }
             })
             .collect::<Vec<String>>()
             .join("\n")
-            .trim_start_matches(&list_prefix())
-            .to_string()
             .into();
     }
 }
@@ -244,78 +239,50 @@ impl Hinter for OtterHelper {
                         None 
                     }
                 })
-                .take( 
-                    if cached_show_suggestion() == true {
-                        suggestion_lines() 
-                    } else {
-                        0
-                    }
-                )
+                .take( cached_suggestion_lines() )
                 .collect::<Vec<&str>>();
 
+        let agg_line = aggregated_hint_lines.join("\n");
+        let e_module = empty_module_message();
+        let d_module = default_module_message();
+
         if line.is_empty() {
-            if cached_show_suggestion() == true {
-                if empty_module_message().is_empty() {
-                    Some( 
-                        ModuleHint {
-                            display: empty_module() + " _first_otter\n"
-                                + &aggregated_hint_lines.join("\n"),
-                            completion: pos,
-                            w_arg: None,
-                        }.suffix(pos)
-                    )
-                } else {
-                    Some( 
-                        ModuleHint {
-                            display: empty_module() + " _first_otter\n"
-                                    + &empty_module_message(),
-                            completion: pos,
-                            w_arg: None,
-                        }.suffix(pos)
-                    )
-                }
-            } else {
-                Some( 
-                    ModuleHint {
-                        display: empty_module() + "\n",
-                        completion: pos,
-                        w_arg: None,
-                    }.suffix(pos)
-                )
-            }
+            Some( 
+                ModuleHint {
+                    display: format!(
+                        "{}{}", 
+                        "otter_magic_first_otter",
+                        if e_module.is_empty() { 
+                            if agg_line.is_empty() { 
+                                "".to_string() 
+                            } else { 
+                                format!("\n{}", agg_line) 
+                            } 
+                        } else { 
+                            format!("\n{}", e_module) 
+                        },
+                    ),
+                    completion: pos,
+                    w_arg: None,
+                }.suffix(pos)
+            )
         } else {
-            Some(
-                if aggregated_hint_lines.is_empty() {
-                    if cached_show_suggestion() == true {
-                        if default_module_message().is_empty() {
-                            ModuleHint {
-                                display: "".to_owned(),
-                                completion: pos,
-                                w_arg: None,
-                            }.suffix(pos)
-                        } else {
-                            ModuleHint {
-                                display: "\n".to_owned()
-                                        + &default_module_message(),
-                                completion: pos,
-                                w_arg: None,
-                            }.suffix(pos)
-                        }
-                    } else {
-                        ModuleHint {
-                            display: "".to_string(),
-                            completion: pos,
-                            w_arg: None,
-                        }.suffix(pos)
-                    }
-                } else {
-                    ModuleHint {
-                        display: "\n".to_owned()
-                            + &aggregated_hint_lines.join("\n"),
-                        completion: pos,
-                            w_arg: None,
-                    }.suffix(pos)
-                }
+            Some( 
+                ModuleHint {
+                    display: format!(
+                        "{}", 
+                        if agg_line.is_empty() { 
+                            if d_module.is_empty() { 
+                                "".to_string() 
+                            } else { 
+                                format!("\n{}", d_module) } 
+                        } else { 
+                            format!("\n{}", agg_line) 
+                        },
+                    ),
+                    completion: pos,
+                    w_arg: None,
+                }.suffix(pos)
             )
         }
     }
@@ -350,11 +317,12 @@ impl Hint for ModuleHint {
     fn completion(&self) -> Option<&str> {
         let prfx = self.display
             .trim_start_matches("\n")
-            .trim_start_matches(" _first_otter")
+            .trim_start_matches("otter_magic_first_otter")
+            .trim_start_matches(&default_module_message())
             .split_whitespace()
             .next()
-            .unwrap();
-        if prfx.len() > self.completion {
+            .unwrap_or("");
+        if prfx.len() > self.completion && self.completion > 0 {
             Some(&prfx[self.completion..])
         } else {
             None
@@ -465,7 +433,7 @@ fn run_designated_module(prompt: String, prfx: String) {
 // main function
 fn main() {
     //initializing static variables
-    init_show_suggestion();
+    init_suggestion_lines();
 
     // print headers
     if !header_cmd().is_empty() {

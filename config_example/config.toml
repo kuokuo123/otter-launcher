@@ -47,8 +47,7 @@ list_prefix = "      "
 place_holder = "type and search..."
 default_module_message = "" # if set, the text will be shown when the default module is in use
 empty_module_message = "" # the text to show when empty module is in use
-show_suggestion = true # show a list of matched modules when typing; and autocomplete with TAB
-suggestion_lines = 3 # length of the suggestion list
+suggestion_lines = 3 # length of the suggestion list, set to 0 to disable suggestions and tab completion
 indicator_with_arg_module = "> " # a sign showing whether the module should run with an argument
 indicator_no_arg_module = "< "
 # below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
