@@ -24,7 +24,7 @@ extern crate rustyline;
 extern crate rustyline_derive;
 extern crate regex;
 
-use std::{str::from_utf8, env, path::Path, error::Error, process, process::Command, sync::Mutex, borrow::Cow};
+use std::{str::from_utf8, env, io::Write, path::Path, error::Error, process, process::{Command, Stdio}, sync::Mutex, borrow::Cow};
 use serde::Deserialize;
 use once_cell::sync::Lazy;
 use urlencoding::encode;
@@ -47,7 +47,10 @@ struct General {
     empty_module: Option<String>,
     exec_cmd: Option<String>,
     esc_to_abort: Option<bool>,
+    cheatsheet_entry: Option<String>,
     vi_mode: Option<bool>,
+    loop_mode: Option<bool>,
+    callback: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -102,6 +105,36 @@ fn read_config(file_path: &str) -> Result<Config, Box<dyn std::error::Error>> {
 }
 
 // Load config variables and cache as statics
+static LOOP_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
+fn init_loop_mode() {
+    let mode = CONFIG.general.loop_mode.clone().unwrap_or(false);
+    let mut loop_mode = LOOP_MODE.lock().unwrap();
+    *loop_mode = Some(mode);
+}
+fn cached_loop_mode() -> bool {
+    let loop_mode = LOOP_MODE.lock().unwrap();
+        loop_mode.clone().unwrap_or(false)
+}
+static CALLBACK: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_callback() {
+    let cmd = CONFIG.general.callback.clone().unwrap_or("".to_string());
+    let mut callback = CALLBACK.lock().unwrap();
+    *callback = Some(cmd);
+}
+fn cached_callback() -> String {
+    let callback = CALLBACK.lock().unwrap();
+        callback.clone().unwrap_or("".to_string())
+}
+static HELP_ENTRY: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_cheatsheet_entry() {
+    let entry = CONFIG.general.cheatsheet_entry.clone().unwrap_or("?".to_string());
+    let mut cheatsheet_entry = HELP_ENTRY.lock().unwrap();
+    *cheatsheet_entry = Some(entry);
+}
+fn cached_cheatsheet_entry() -> String {
+    let cheatsheet_entry = HELP_ENTRY.lock().unwrap();
+        cheatsheet_entry.clone().unwrap_or("".to_string())
+}
 static ESC_TO_ABORT: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 fn init_esc_to_abort() {
     let hd = CONFIG.general.esc_to_abort.clone().unwrap_or(true);
@@ -590,6 +623,9 @@ fn main() {
     init_header_cmd_trimmed_lines();
     init_vi_mode();
     init_esc_to_abort();
+    init_loop_mode();
+    init_callback();
+    init_cheatsheet_entry();
 
     // print headers
     if !cached_header_cmd().is_empty() {
@@ -693,6 +729,63 @@ fn main() {
                 run_designated_module(
                     prompt,
                     cached_empty_module())
+            // Condition 2: when helper keyword is passed, open cheatsheet in less
+            } else if prompt == cached_cheatsheet_entry() {
+                // Format Help Message
+                let mapped_modules = CONFIG
+                    .modules
+                    .iter()
+                    .map(|module| {
+                        let arg_indicator = 
+                            if module.with_argument == Some(true) {
+                                cached_indicator_with_arg_module()
+                            } else {
+                                cached_indicator_no_arg_module() };
+
+                        let width = CONFIG.modules
+                            .iter()
+                            .map(|line| { remove_ascii(&line.prefix).len() })
+                            .max()
+                            .unwrap_or(0);
+                        format!("{}{}{:width$}{} {}{}{}{}",
+                            &cached_list_prefix(),
+                            cached_prefix_color(),
+                            &module.prefix,
+                            "\x1b[0m",
+                            cached_description_color(),
+                            arg_indicator,
+                            &module.description,
+                            "\x1b[0m")
+                    })
+                    .collect::<Vec<String>>().join("\n");
+
+                let mut child = Command::new("sh")
+                    .arg("-c")
+                    .arg("less -R")
+                    .stdin(Stdio::piped()) // Connect the stdin from the child to write into it
+                    .spawn();
+                
+                if let Ok(ref mut child) = child {
+                    if let Some(stdin) = child.stdin.as_mut() {
+                        match stdin.write_all((
+                                "\n".to_owned()
+                              + &cached_prefix_color()
+                              + &cached_list_prefix()
+                              + "Configured Modules:\n\n\x1b[0m"
+                              + &mapped_modules).as_bytes()
+                        ) {
+                            Ok(_) => { }
+                            Err(e) => {
+                                eprintln!("Error writing to stdin of child process: {}", e);
+                            }
+                        }
+                    }
+                }
+
+                let _ = child.expect("").wait();
+                // Clear screen and run main() again
+                print!("\x1B[2J\x1B[H");
+                main();
             // Condition 2: when no module is matched, run the default module
             } else {
                 run_designated_module(
@@ -700,5 +793,31 @@ fn main() {
                     cached_default_module())
             }
         }
+    }
+
+    // run general.callback if set
+    if !cached_callback().is_empty() {
+        let exec_cmd = cached_exec_cmd();
+        let mut cmd_parts = exec_cmd.split_whitespace();
+        let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
+        let exec_cmd_args: Vec<&str> = cmd_parts.collect();
+
+        let mut cb_cmd = Command::new(exec_cmd_base);
+        for arg in &exec_cmd_args {
+            cb_cmd.arg(arg);
+        }
+
+        let mut callback = cb_cmd
+            .arg(cached_callback())
+            .spawn()
+            .expect("Failed to launch general.callback");
+        let _ = callback.wait().expect("general.callback wasn't running");
+    }
+
+    // if in loop_mode, run main() again
+    if cached_loop_mode() {
+        // flush terminal lines
+        print!("\x1B[2J\x1B[H");
+        main ();
     }
 }
