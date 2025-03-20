@@ -48,6 +48,7 @@ struct General {
     exec_cmd: Option<String>,
     esc_to_abort: Option<bool>,
     cheatsheet_entry: Option<String>,
+    cheatsheet_viewer: Option<String>,
     vi_mode: Option<bool>,
     loop_mode: Option<bool>,
     callback: Option<String>,
@@ -134,6 +135,16 @@ fn init_cheatsheet_entry() {
 fn cached_cheatsheet_entry() -> String {
     let cheatsheet_entry = HELP_ENTRY.lock().unwrap();
         cheatsheet_entry.clone().unwrap_or("".to_string())
+}
+static CHEATSHEET_VIEWER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_cheatsheet_viewer() {
+    let viewer = CONFIG.general.cheatsheet_viewer.clone().unwrap_or("less -R".to_string());
+    let mut cheatsheet_viewer = CHEATSHEET_VIEWER.lock().unwrap();
+    *cheatsheet_viewer = Some(viewer);
+}
+fn cached_cheatsheet_viewer() -> String {
+    let cheatsheet_viewer = CHEATSHEET_VIEWER.lock().unwrap();
+        cheatsheet_viewer.clone().unwrap_or("".to_string())
 }
 static ESC_TO_ABORT: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 fn init_esc_to_abort() {
@@ -626,6 +637,7 @@ fn main() {
     init_loop_mode();
     init_callback();
     init_cheatsheet_entry();
+    init_cheatsheet_viewer();
 
     // print headers
     if !cached_header_cmd().is_empty() {
@@ -761,7 +773,7 @@ fn main() {
 
                 let mut child = Command::new("sh")
                     .arg("-c")
-                    .arg("less -R")
+                    .arg(cached_cheatsheet_viewer())
                     .stdin(Stdio::piped()) // Connect the stdin from the child to write into it
                     .spawn();
                 

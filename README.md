@@ -26,6 +26,8 @@ It's recommended to use otter-launcher with [sway-launcher-desktop](https://gith
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
 - decorated with ascii color codes, chafa, sixel or kitty image protocol, etc.
+- loop mode
+- cheatsheet for configured modules
 - minimalist, blazing fast, keyboard-centric
 
 # Installation
@@ -55,7 +57,8 @@ exec_cmd = "sh -c" # The exec command of your shell or window manager, default t
 # for example: "swaymsg exec" for swaywm; "hyprctl dispatch exec" for hyprland; "zsh -c" for zsh
 vi_mode = false # set true to use vi keybinds, false to use emacs keybinds; default to emacs
 esc_to_abort = true # allow to quit pressing esc; a useful option for vi users
-cheatsheet_entry = "?" # when entered, otter-launcher will show a list of configured modules; default to "?"
+cheatsheet_entry = "?" # when entered, otter-launcher will show a list of configured modules
+cheatsheet_viewer = "less -R" # the program that otter-launcher will pipe cheatsheet into
 loop_mode = false # in loop mode, otter-launcher won't quit after running a module
 #callback = "" # if set, otter-launcher will run the command after a module is executed; for example, using swaymsg to adjust window size
 
