@@ -55,6 +55,9 @@ exec_cmd = "sh -c" # The exec command of your shell or window manager, default t
 # for example: "swaymsg exec" for swaywm; "hyprctl dispatch exec" for hyprland; "zsh -c" for zsh
 vi_mode = false # set true to use vi keybinds, false to use emacs keybinds; default to emacs
 esc_to_abort = true # allow to quit pressing esc; a useful option for vi users
+cheatsheet_entry = "?" # when entered, otter-launcher will show a list of configured modules; default to "?"
+loop_mode = false # in loop mode, otter-launcher won't quit after running a module
+#callback = "" # if set, otter-launcher will run the command after a module is executed; for example, using swaymsg to adjust window size
 
 
 # ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
