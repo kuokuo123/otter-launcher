@@ -74,8 +74,6 @@ header = """
   ░█░█░░█░░░█░░█▀▀░█▀▄░▀▀▀░█░░░█▀█░█░█░█░█░█░░░█▀█
   ░▀▀▀░░▀░░░▀░░▀▀▀░▀░▀░░░░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀
               ————————————————————————\u001B[0m
-"""
-prompt_prefix = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "      "
 place_holder = "type and search..."
@@ -157,8 +155,6 @@ header = """
   ░█░█░░█░░░█░░█▀▀░█▀▄░▀▀▀░█░░░█▀█░█░█░█░█░█░░░█▀█
   ░▀▀▀░░▀░░░▀░░▀▀▀░▀░▀░░░░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀
               ————————————————————————\u001B[0m
-"""
-prompt_prefix = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "      "
 place_holder = "type and search..."
@@ -175,7 +171,7 @@ place_holder_color = "\u001B[90m"
 
 ```
 [interface]
-prompt_prefix = """
+header = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "   \u001B[31m #\u001B[0m "
 place_holder = "type and search..."
@@ -198,8 +194,8 @@ header_cmd = "echo ' '; pfetch"
 header_cmd_trimmed_lines = 2
 header = """
                \u001B[30m———\u001B[0m\u001B[31m———\u001B[0m\u001B[32m———\u001B[0m\u001B[33m———\u001B[0m\u001B[34m———\u001B[0m\u001B[35m———\u001B[0m\u001B[36m———\u001B[0m\u001B[37m———\u001B[0m
+ \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m 
 """
-prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
 list_prefix = "    "
 place_holder = "type and search..."
 show_suggestion = true
@@ -219,8 +215,7 @@ place_holder_color = "\u001B[30m"
 [interface]
 header_cmd = "fastfetch --structure break:colors:break:os:wm:kernel:uptime:packages:memory:datetime:break --key-type icon --logo-type data --logo \"$(krabby name quilava --no-title)\""
 header_cmd_trimmed_lines = 1
-header = ""
-prompt_prefix = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m"
+header = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m "
 list_prefix = "    "
 place_holder = "type and search..."
 show_suggestion = true
@@ -242,7 +237,7 @@ place_holder_color = "\u001B[30m"
 [interface]
 header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/ascii/waterways_and_otterways.jpg"
 header_cmd_trimmed_lines = 1
-prompt_prefix = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m> \u001B[0m"
+header = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m> \u001B[0m"
 list_prefix = "     "
 place_holder = "type and search"
 show_suggestion = true

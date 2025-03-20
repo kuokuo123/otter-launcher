@@ -59,7 +59,6 @@ struct Interface {
     header: Option<String>,
     header_cmd: Option<String>,
     header_cmd_trimmed_lines: Option<usize>,
-    prompt_prefix: Option<String>,
     list_prefix: Option<String>,
     place_holder: Option<String>,
     default_module_message: Option<String>,
@@ -195,16 +194,6 @@ fn init_header() {
 fn cached_header() -> String {
     let header = HEADER.lock().unwrap();
         header.clone().unwrap_or("".to_string())
-}
-static PROMPT_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-fn init_prompt_prefix() {
-    let cmd = CONFIG.interface.prompt_prefix.clone().unwrap_or("\x1b[34m \x1b[0m otter-launcher \x1b[34m>\x1b[0m ".to_string());
-    let mut prompt_prefix = PROMPT_PREFIX.lock().unwrap();
-    *prompt_prefix = Some(cmd);
-}
-fn cached_prompt_prefix() -> String {
-    let prompt_prefix = PROMPT_PREFIX.lock().unwrap();
-        prompt_prefix.clone().unwrap_or("".to_string())
 }
 static EXEC_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 fn init_exec_cmd() {
@@ -428,11 +417,14 @@ impl Hinter for OtterHelper {
         let d_module = cached_default_module_message();
 
         if line.is_empty() {
+            // if nothing has been typed
             Some( 
                 ModuleHint {
                     display: format!(
                         "{}{}", 
+                        // show place holder first
                         "otter_magic_first_otter",
+                        // if empty module is not set
                         if e_module.is_empty() { 
                             if agg_line.is_empty() { 
                                 "".to_string() 
@@ -440,6 +432,7 @@ impl Hinter for OtterHelper {
                                 format!("\n{}", agg_line) 
                             } 
                         } else { 
+                        // if empty module is set
                             format!("\n{}", e_module) 
                         },
                     ),
@@ -448,15 +441,26 @@ impl Hinter for OtterHelper {
                 }.suffix(pos)
             )
         } else {
+            // if something is typed
             Some( 
                 ModuleHint {
                     display: format!(
                         "{}", 
-                        if agg_line.is_empty() { 
+                        // if cheatsheet entry is typed
+                        if line == cached_cheatsheet_entry() {
+                            format!("\n{}", cached_list_prefix()
+                                + &cached_cheatsheet_entry()
+                                + " "
+                                + &cached_indicator_no_arg_module()
+                                + "cheat sheet")
+                        // if no module is matched
+                        } else if agg_line.is_empty() { 
+                            // check if default module message is set
                             if d_module.is_empty() { 
                                 "".to_string() 
                             } else { 
                                 format!("\n{}", d_module) } 
+                        // if some module is matched
                         } else { 
                             format!("\n{}", agg_line) 
                         },
@@ -494,7 +498,7 @@ impl Hint for ModuleHint {
     fn display(&self) -> &str {
         &self.display
     }
-    //Text to insert in line when right arrow is pressed
+    //Text to insert in line when tab or right arrow is pressed
     fn completion(&self) -> Option<&str> {
         let prfx = self.display
             .trim_start_matches("\n")
@@ -543,42 +547,43 @@ fn remove_ascii(text: &str) -> String {
 fn run_module_command(mod_cmd_arg: &str, module: &Module) {
     // format the shell command by which the module commands are launched
     let exec_cmd = cached_exec_cmd();
-    let mut cmd_parts = exec_cmd.split_whitespace();
-    let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
-    let exec_cmd_args: Vec<&str> = cmd_parts.collect();
+    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
 
     // run prehook is there is one
     if module.prehook.is_some() {
-        let mut ph_cmd = Command::new(exec_cmd_base);
-        for arg in &exec_cmd_args {
+        let mut ph_cmd = Command::new(cmd_parts[0]);
+        for arg in &cmd_parts[1..] {
             ph_cmd.arg(arg);
         }
-        let mut prehook = ph_cmd.arg(module.prehook.as_ref().unwrap())
+        ph_cmd.arg(module.prehook.as_ref().unwrap())
             .spawn()
-            .expect("Failed to launch prehook cmd...");
-        let _ = prehook.wait().expect("Prehook cmd wasn't running");
+            .expect("Failed to launch prehook cmd...")
+            .wait()
+            .expect("Prehook cmd wasn't running");
     }
 
     // run the module cmd
-    let mut shell_cmd = Command::new(exec_cmd_base);
-    for arg in &exec_cmd_args {
+    let mut shell_cmd = Command::new(cmd_parts[0]);
+    for arg in &cmd_parts[1..] {
         shell_cmd.arg(arg);
     }
-    let mut run_module_cmd = shell_cmd.arg(mod_cmd_arg)
+    shell_cmd.arg(mod_cmd_arg)
         .spawn()
-        .expect("Failed to launch callback...");
-    let _ = run_module_cmd.wait().expect("Module.cmd process wasn't running");
+        .expect("Failed to launch callback...")
+        .wait()
+        .expect("Module.cmd process wasn't running");
 
     // run callback if there is one
     if module.callback.is_some() {
-        let mut cb_cmd = Command::new(exec_cmd_base);
-        for arg in &exec_cmd_args {
+        let mut cb_cmd = Command::new(cmd_parts[0]);
+        for arg in &cmd_parts[1..] {
             cb_cmd.arg(arg);
         }
-        let mut callback = cb_cmd.arg(module.callback.as_ref().unwrap())
+        cb_cmd.arg(module.callback.as_ref().unwrap())
             .spawn()
-            .expect("Failed to launch callback cmd...");
-        let _ = callback.wait().expect("Callback cmd wasn't running");
+            .expect("Failed to launch callback cmd...")
+            .wait()
+            .expect("Callback cmd wasn't running");
     }
 }
 
@@ -628,7 +633,6 @@ fn main() {
     init_default_module();
     init_empty_module();
     init_exec_cmd();
-    init_prompt_prefix();
     init_header();
     init_header_cmd();
     init_header_cmd_trimmed_lines();
@@ -639,7 +643,7 @@ fn main() {
     init_cheatsheet_entry();
     init_cheatsheet_viewer();
 
-    // print headers
+    // print header
     if !cached_header_cmd().is_empty() {
         let output = Command::new("sh")
             .arg("-c")
@@ -665,7 +669,7 @@ fn main() {
         }
     }
 
-    // read prompt using rustyline interactive shell
+    // read prompt using rustyline
     let mut rl: Editor<OtterHelper, DefaultHistory> = Editor::new().unwrap();
     rl.set_helper(
         Some( OtterHelper {
@@ -680,7 +684,7 @@ fn main() {
         rl.bind_sequence(KeyEvent::new('\x1b', Modifiers::NONE),
             EventHandler::Simple(Cmd::Interrupt));
     }
-    let prompt = rl.readline(&(cached_header()+&cached_prompt_prefix()));
+    let prompt = rl.readline(&cached_header());
     match prompt {
         Ok(_) => { },
         Err(_) => {
@@ -743,7 +747,7 @@ fn main() {
                     cached_empty_module())
             // Condition 2: when helper keyword is passed, open cheatsheet in less
             } else if prompt == cached_cheatsheet_entry() {
-                // Format Help Message
+                // Format cheat sheet
                 let mapped_modules = CONFIG
                     .modules
                     .iter()
@@ -793,8 +797,9 @@ fn main() {
                         }
                     }
                 }
+                child.expect("failed to pipe cheatsheet into viewer")
+                    .wait().expect("cannot wait for cheatsheet pipeline");
 
-                let _ = child.expect("").wait();
                 // Clear screen and run main() again
                 print!("\x1B[2J\x1B[H");
                 main();
@@ -810,20 +815,16 @@ fn main() {
     // run general.callback if set
     if !cached_callback().is_empty() {
         let exec_cmd = cached_exec_cmd();
-        let mut cmd_parts = exec_cmd.split_whitespace();
-        let exec_cmd_base = cmd_parts.next().expect("No exec_cmd found");
-        let exec_cmd_args: Vec<&str> = cmd_parts.collect();
-
-        let mut cb_cmd = Command::new(exec_cmd_base);
-        for arg in &exec_cmd_args {
+        let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+        let mut cb_cmd = Command::new(cmd_parts[0]);
+        for arg in &cmd_parts[1..] {
             cb_cmd.arg(arg);
         }
-
-        let mut callback = cb_cmd
-            .arg(cached_callback())
+        cb_cmd.arg(cached_callback())
             .spawn()
-            .expect("Failed to launch general.callback");
-        let _ = callback.wait().expect("general.callback wasn't running");
+            .expect("Failed to launch general.callback")
+            .wait()
+            .expect("Callback cmd wasn't running");
     }
 
     // if in loop_mode, run main() again
