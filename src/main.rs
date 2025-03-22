@@ -95,25 +95,22 @@ static CONFIG: Lazy<Config> = Lazy::new(|| {
     } else {
         config_file = "/etc/otter-launcher/config.toml";
     }
-    read_config(config_file).expect("")
-});
+    let contents = std::fs::read_to_string(config_file).expect("cannot read config_file");
+    let config: Config = toml::from_str(&contents).expect("cannot read contents from config_file");
 
-fn read_config(file_path: &str) -> Result<Config, Box<dyn std::error::Error>> {
-    let contents = std::fs::read_to_string(file_path)?;
-    let config: Config = toml::from_str(&contents)?;
-    Ok(config)
-}
+    config
+});
 
 // Load config variables and cache as statics
 static LOOP_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 fn init_loop_mode() {
-    let mode = CONFIG.general.loop_mode.clone().unwrap_or(false);
+    let mode = CONFIG.general.loop_mode.unwrap_or(false);
     let mut loop_mode = LOOP_MODE.lock().unwrap();
     *loop_mode = Some(mode);
 }
 fn cached_loop_mode() -> bool {
     let loop_mode = LOOP_MODE.lock().unwrap();
-        loop_mode.clone().unwrap_or(false)
+        loop_mode.unwrap_or(false)
 }
 static CALLBACK: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 fn init_callback() {
@@ -147,33 +144,33 @@ fn cached_cheatsheet_viewer() -> String {
 }
 static ESC_TO_ABORT: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 fn init_esc_to_abort() {
-    let hd = CONFIG.general.esc_to_abort.clone().unwrap_or(true);
+    let hd = CONFIG.general.esc_to_abort.unwrap_or(true);
     let mut esc_to_abort = ESC_TO_ABORT.lock().unwrap();
     *esc_to_abort = Some(hd);
 }
 fn cached_esc_to_abort() -> bool {
     let esc_to_abort = ESC_TO_ABORT.lock().unwrap();
-        esc_to_abort.clone().unwrap_or(true)
+        esc_to_abort.unwrap_or(true)
 }
 static VI_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 fn init_vi_mode() {
-    let hd = CONFIG.general.vi_mode.clone().unwrap_or(false);
+    let hd = CONFIG.general.vi_mode.unwrap_or(false);
     let mut vi_mode = VI_MODE.lock().unwrap();
     *vi_mode = Some(hd);
 }
 fn cached_vi_mode() -> bool {
     let vi_mode = VI_MODE.lock().unwrap();
-        vi_mode.clone().unwrap_or(false)
+        vi_mode.unwrap_or(false)
 }
 static HEADER_CMD_TRIMMED_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 fn init_header_cmd_trimmed_lines() {
-    let hd = CONFIG.interface.header_cmd_trimmed_lines.clone().unwrap_or(0);
+    let hd = CONFIG.interface.header_cmd_trimmed_lines.unwrap_or(0);
     let mut header_cmd_trimmed_lines = HEADER_CMD_TRIMMED_LINES.lock().unwrap();
     *header_cmd_trimmed_lines = Some(hd);
 }
 fn cached_header_cmd_trimmed_lines() -> usize {
     let header_cmd_trimmed_lines = HEADER_CMD_TRIMMED_LINES.lock().unwrap();
-        header_cmd_trimmed_lines.clone().unwrap_or(0)
+        header_cmd_trimmed_lines.unwrap_or(0)
 }
 static HEADER_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 fn init_header_cmd() {
@@ -227,23 +224,23 @@ fn cached_empty_module() -> String {
 }
 static SUGGESTION_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 fn init_suggestion_lines() {
-    let suggestion = CONFIG.interface.suggestion_lines.clone().unwrap_or(1);
+    let suggestion = CONFIG.interface.suggestion_lines.unwrap_or(1);
     let mut suggestion_lines = SUGGESTION_LINES.lock().unwrap();
     *suggestion_lines = Some(suggestion);
 }
 fn cached_suggestion_lines() -> usize {
     let suggestion_lines = SUGGESTION_LINES.lock().unwrap();
-        suggestion_lines.clone().unwrap_or(1)
+        suggestion_lines.unwrap_or(1)
 }
 static PREFIX_PADDING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 fn init_prefix_padding() {
-    let padding = CONFIG.interface.prefix_padding.clone().unwrap_or(0);
+    let padding = CONFIG.interface.prefix_padding.unwrap_or(0);
     let mut prefix_padding = PREFIX_PADDING.lock().unwrap();
     *prefix_padding = Some(padding);
 }
 fn cached_prefix_padding() -> usize {
     let prefix_padding = PREFIX_PADDING.lock().unwrap();
-        prefix_padding.clone().unwrap_or(1)
+        prefix_padding.unwrap_or(1)
 }
 static LIST_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 fn init_list_prefix() {
@@ -652,17 +649,15 @@ fn main() {
             .expect("Failed to launch header command...");
 
         if output.status.success() {
-            let pprefix = from_utf8(&output.stdout).unwrap();
-            let lines: Vec<&str> = pprefix.lines().collect();
             let remove_lines_count = cached_header_cmd_trimmed_lines();
+            let stdout = from_utf8(&output.stdout).unwrap();
+            let lines: Vec<&str> = stdout.lines().collect();
 
             if lines.len() > remove_lines_count {
-                let remaining_lines = &lines[..lines.len() - remove_lines_count];
-                for line in remaining_lines {
-                    println!("{}\x1b[?25h", line);
-                }
+                let remaining_lines = &lines[..lines.len() - remove_lines_count - 1];
+                println!("{}\x1b[?25h", remaining_lines.join("\n"));
             } else {
-                println!("{}", pprefix.trim_end());
+                println!("not enough lines of header_cmd output to be trimmed");
             }
         } else {
             eprintln!("Header_cmd failed with status: {}", output.status);
@@ -692,7 +687,7 @@ fn main() {
             process::exit(0);
         }
     }
-    let prompt = prompt.expect("");
+    let prompt = prompt.expect("failed to read prompt");
 
     // matching the prompted prefix with module prefixes to decide what to do
     let prompted_prfx = prompt
