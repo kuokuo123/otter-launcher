@@ -389,11 +389,14 @@ impl Hinter for OtterHelper {
                 .iter()
                 .filter_map(|i| {
                     let line_wo_ascii = if i.w_arg.unwrap_or(false) == true {
-                        remove_ascii(
-                            &(line.split_whitespace()
-                                .next()
-                                .unwrap_or(""))
-                        )
+                        if line.contains(" ") {
+                            remove_ascii( 
+                                &(line.split_whitespace()
+                                    .next()
+                                    .unwrap_or(""))) + " "
+                        } else {
+                            line.to_string()
+                        }
                     } else {
                         remove_ascii(&line.replace(" ", "\n"))
                     };
@@ -523,7 +526,7 @@ fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
                     cached_indicator_no_arg_module() };
 
             let hint_string = format!("{} {}{}",
-                &module.prefix,
+                remove_ascii(&module.prefix),
                 arg_indicator,
                 &module.description);
             ModuleHint:: new( &hint_string, &hint_string, module.with_argument)
