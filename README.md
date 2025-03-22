@@ -22,7 +22,6 @@ It's recommended to use otter-launcher with [sway-launcher-desktop](https://gith
 - modularized to run different commands (via configuration)
 - vi and emacs keybinds
 - tab completion for configured modules
-- per-module prehook and callback commands
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
 - decorated with ascii color codes, chafa, sixel or kitty image protocol, etc.
@@ -100,8 +99,6 @@ url_encode = true # "url_encode" should be true if the module is set to call web
 [[modules]]
 description = "launch desktop applications with fzf"
 prefix = "app"
-prehook = "swaymsg [app_id=otter-launcher] resize set width 650 px height 300 px" # if set, the prehook command will run before the main cmd starts. 
-#callback = "" # if set, the callback command will run after the main cmd has finished. 
 cmd = """
 desktop_file() {
 find /usr/share/applications -name "*.desktop" 2>/dev/null

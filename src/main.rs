@@ -79,8 +79,6 @@ struct Module {
     cmd: String,
     with_argument: Option<bool>,
     url_encode: Option<bool>,
-    prehook: Option<String>,
-    callback: Option<String>,
 }
 
 // Load toml config
@@ -353,8 +351,8 @@ impl Highlighter for OtterHelper {
         return hint
             .lines()
             .map(|line| {
-                if line == "otter_magic_first_otter" {
-                    cached_place_holder_color() + &cached_place_holder() + "\x1b[0m"
+                if line == cached_place_holder() {
+                    format!("{}{}{}", cached_place_holder_color(), cached_place_holder(), "\x1b[0m")
                 } else if line == &cached_empty_module_message() {
                     line.to_string()
                 } else if line == &cached_default_module_message() {
@@ -420,7 +418,7 @@ impl Hinter for OtterHelper {
                     display: format!(
                         "{}{}", 
                         // show place holder first
-                        "otter_magic_first_otter",
+                        cached_place_holder(),
                         // if empty module is not set
                         if e_module.is_empty() { 
                             if agg_line.is_empty() { 
@@ -499,7 +497,7 @@ impl Hint for ModuleHint {
     fn completion(&self) -> Option<&str> {
         let prfx = self.display
             .trim_start_matches("\n")
-            .trim_start_matches("otter_magic_first_otter")
+            .trim_start_matches(&cached_place_holder())
             .trim_start_matches(&cached_default_module_message())
             .split_whitespace()
             .next()
@@ -541,23 +539,10 @@ fn remove_ascii(text: &str) -> String {
 }
 
 // function to run module.cmd
-fn run_module_command(mod_cmd_arg: &str, module: &Module) {
+fn run_module_command(mod_cmd_arg: &str) {
     // format the shell command by which the module commands are launched
     let exec_cmd = cached_exec_cmd();
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-
-    // run prehook is there is one
-    if module.prehook.is_some() {
-        let mut ph_cmd = Command::new(cmd_parts[0]);
-        for arg in &cmd_parts[1..] {
-            ph_cmd.arg(arg);
-        }
-        ph_cmd.arg(module.prehook.as_ref().unwrap())
-            .spawn()
-            .expect("Failed to launch prehook cmd...")
-            .wait()
-            .expect("Prehook cmd wasn't running");
-    }
 
     // run the module cmd
     let mut shell_cmd = Command::new(cmd_parts[0]);
@@ -569,19 +554,6 @@ fn run_module_command(mod_cmd_arg: &str, module: &Module) {
         .expect("Failed to launch callback...")
         .wait()
         .expect("Module.cmd process wasn't running");
-
-    // run callback if there is one
-    if module.callback.is_some() {
-        let mut cb_cmd = Command::new(cmd_parts[0]);
-        for arg in &cmd_parts[1..] {
-            cb_cmd.arg(arg);
-        }
-        cb_cmd.arg(module.callback.as_ref().unwrap())
-            .spawn()
-            .expect("Failed to launch callback cmd...")
-            .wait()
-            .expect("Callback cmd wasn't running");
-    }
 }
 
 // function to run empty & default modules
@@ -608,8 +580,7 @@ fn run_designated_module(prompt: String, prfx: String) {
         run_module_command(
             &format!("{}", target_module
                 .cmd
-                .replace("{}", &prompt_wo_prefix)),
-            target_module);
+                .replace("{}", &prompt_wo_prefix)));
     }
 }
 
@@ -719,13 +690,11 @@ fn main() {
             // Condition 1: when the selected module runs with arguement
             if module.with_argument.unwrap_or(false) == true {
                 run_module_command(
-                    &format!("{}", module.cmd.replace("{}", &argument)),
-                    module);
+                    &format!("{}", module.cmd.replace("{}", &argument)));
             // Condition 2: when user input is exactly the same as the no-arg module
             } else if remove_ascii(&module.prefix) == prompt {
                 run_module_command(
-                    &module.cmd,
-                    module);
+                    &module.cmd);
             // Condition 3: when no-arg modules is running with arguement
             } else {
                 run_designated_module(
@@ -778,12 +747,15 @@ fn main() {
                 
                 if let Ok(ref mut child) = child {
                     if let Some(stdin) = child.stdin.as_mut() {
-                        match stdin.write_all((
-                                "\n".to_owned()
-                              + &cached_prefix_color()
-                              + &cached_list_prefix()
-                              + "Configured Modules:\n\n\x1b[0m"
-                              + &mapped_modules).as_bytes()
+                        match stdin.write_all(
+                            format!(
+                                "\n{}{}{}{}",
+                                cached_list_prefix(),
+                                cached_prefix_color(),
+                                "Configured Modules:\n\n\x1b[0m",
+                                mapped_modules
+                            )
+                            .as_bytes()
                         ) {
                             Ok(_) => { }
                             Err(e) => {
@@ -792,12 +764,9 @@ fn main() {
                         }
                     }
                 }
-                child.expect("failed to pipe cheatsheet into viewer")
-                    .wait().expect("cannot wait for cheatsheet pipeline");
-
-                // Clear screen and run main() again
-                print!("\x1B[2J\x1B[H");
-                main();
+                    print!("\x1B[2J\x1B[1;1H");
+                    std::io::stdout().flush().unwrap();
+                let _ = child.expect("failed to pipe cheatsheet into viewer").wait();
             // Condition 2: when no module is matched, run the default module
             } else {
                 run_designated_module(
@@ -807,6 +776,8 @@ fn main() {
         }
     }
 
+    print!("\x1B[2J\x1B[1;1H");
+    std::io::stdout().flush().unwrap();
     // run general.callback if set
     if !cached_callback().is_empty() {
         let exec_cmd = cached_exec_cmd();
@@ -825,7 +796,6 @@ fn main() {
     // if in loop_mode, run main() again
     if cached_loop_mode() {
         // flush terminal lines
-        print!("\x1B[2J\x1B[H");
         main ();
     }
 }
