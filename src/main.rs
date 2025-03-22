@@ -625,7 +625,7 @@ fn main() {
             let lines: Vec<&str> = stdout.lines().collect();
 
             if lines.len() > remove_lines_count {
-                let remaining_lines = &lines[..lines.len() - remove_lines_count - 1];
+                let remaining_lines = &lines[..lines.len() - remove_lines_count];
                 println!("{}\x1b[?25h", remaining_lines.join("\n"));
             } else {
                 println!("not enough lines of header_cmd output to be trimmed");
