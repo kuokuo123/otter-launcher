@@ -63,6 +63,7 @@ struct Interface {
     place_holder: Option<String>,
     default_module_message: Option<String>,
     empty_module_message: Option<String>,
+    suggestion_mode: Option<String>,
     suggestion_lines: Option<usize>,
     suggestion_spacing: Option<usize>,
     indicator_no_arg_module: Option<String>,
@@ -71,6 +72,7 @@ struct Interface {
     prefix_color: Option<String>,
     description_color: Option<String>,
     place_holder_color: Option<String>,
+    hint_color: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -221,6 +223,16 @@ fn cached_empty_module() -> String {
     let empty_module = EMPTY_MODULE.lock().unwrap();
         empty_module.clone().unwrap_or("".to_string())
 }
+static SUGGESTION_MODE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_suggestion_mode() {
+    let mode = CONFIG.interface.suggestion_mode.clone().unwrap_or("list".to_string());
+    let mut suggestion_mode = SUGGESTION_MODE.lock().unwrap();
+    *suggestion_mode = Some(mode);
+}
+fn cached_suggestion_mode() -> String {
+    let suggestion_mode = SUGGESTION_MODE.lock().unwrap();
+        suggestion_mode.clone().unwrap_or("list".to_string())
+}
 static SUGGESTION_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 fn init_suggestion_lines() {
     let suggestion = CONFIG.interface.suggestion_lines.unwrap_or(1);
@@ -313,13 +325,23 @@ fn cached_place_holder() -> String {
 }
 static PLACE_HOLDER_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 fn init_place_holder_color() {
-    let message = CONFIG.interface.place_holder_color.clone().unwrap_or("\x1b[90m".to_string());
+    let color = CONFIG.interface.place_holder_color.clone().unwrap_or("\x1b[90m".to_string());
     let mut place_holder_color = PLACE_HOLDER_COLOR.lock().unwrap();
-    *place_holder_color = Some(message);
+    *place_holder_color = Some(color);
 }
 fn cached_place_holder_color() -> String {
     let place_holder_color = PLACE_HOLDER_COLOR.lock().unwrap();
         place_holder_color.clone().unwrap_or("".to_string())
+}
+static HINT_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+fn init_hint_color() {
+    let color = CONFIG.interface.hint_color.clone().unwrap_or("\x1b[90m".to_string());
+    let mut hint_color = HINT_COLOR.lock().unwrap();
+    *hint_color = Some(color);
+}
+fn cached_hint_color() -> String {
+    let hint_color = HINT_COLOR.lock().unwrap();
+        hint_color.clone().unwrap_or("".to_string())
 }
 static INDICATOR_WITH_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 fn init_indicator_with_arg_module() {
@@ -359,35 +381,39 @@ struct ModuleHint {
 // The coloring functionality of OtterHelper
 impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        return hint
-            .lines()
-            .map(|line| {
-                if line == cached_place_holder() {
-                    format!("{}{}{}", cached_place_holder_color(), cached_place_holder(), "\x1b[0m")
-                } else if line == &cached_empty_module_message() {
-                    line.to_string()
-                } else if line == &cached_default_module_message() {
-                    line.to_string()
-                } else {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    let width = cached_prefix_padding();
-                    if parts.len() >= 2 {
-                        format!("{}{}{:width$}{} {}{}{}",
-                            cached_list_prefix(),
-                            cached_prefix_color(),
-                            parts[0],
-                            "\x1b[0m",
-                            cached_description_color(),
-                            parts[1..].join(" "),
-                            "\x1b[0m")
-                    } else {
+        if cached_suggestion_mode() == "hint" {
+            return format!("{}{}{}{}", "\x1b[0m", cached_hint_color(), hint, "\x1b[0m").into()
+        } else {
+            return hint
+                .lines()
+                .map(|line| {
+                    if line == cached_place_holder() {
+                        format!("{}{}{}", cached_place_holder_color(), cached_place_holder(), "\x1b[0m")
+                    } else if cached_empty_module_message().contains(line) {
                         line.to_string()
+                    } else if cached_default_module_message().contains(line) {
+                        line.to_string()
+                    } else {
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        let width = cached_prefix_padding();
+                        if parts.len() >= 2 {
+                            format!("{}{}{:width$}{} {}{}{}",
+                                cached_list_prefix(),
+                                cached_prefix_color(),
+                                parts[0],
+                                "\x1b[0m",
+                                cached_description_color(),
+                                parts[1..].join(" "),
+                                "\x1b[0m")
+                        } else {
+                            line.to_string()
+                        }
                     }
-                }
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
-            .into();
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+                .into();
+        }
     }
 }
 
@@ -396,88 +422,116 @@ impl Highlighter for OtterHelper {
 impl Hinter for OtterHelper {
     type Hint = ModuleHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
-        let aggregated_hint_lines = self.hints
-                .iter()
-                .filter_map(|i| {
-                    let line_wo_ascii = if i.w_arg.unwrap_or(false) == true {
-                        if line.contains(" ") {
-                            remove_ascii( 
-                                &(line.split_whitespace()
-                                    .next()
-                                    .unwrap_or(""))) + " "
+        if cached_suggestion_mode() == "hint" {
+            if line.is_empty() {
+                Some(
+                    ModuleHint{
+                        display: cached_place_holder(),
+                        completion: 0,
+                        w_arg: None,
+                    })
+            } else {
+                Some(
+                    self.hints
+                        .iter()
+                        .filter_map(|i| {
+                            let adjusted_line = if i.w_arg.unwrap_or(false) == true {
+                                line
+                            } else {
+                                &line.replace(" ", "\n") };
+
+                            if remove_ascii(&i.display).starts_with(adjusted_line) {
+                                Some(i.suffix(pos))
+                            } else {
+                                None 
+                            }
+                        }).next()?
+                )
+            }
+        } else {
+            let aggregated_hint_lines = self.hints
+                    .iter()
+                    .filter_map(|i| {
+                        let adjusted_line = if i.w_arg.unwrap_or(false) == true {
+                            if line.contains(" ") {
+                                    line.split_whitespace()
+                                        .next()
+                                        .unwrap_or("")
+                                        .to_owned() + " "
+                            } else {
+                                line.to_string()
+                            }
                         } else {
-                            line.to_string()
+                            line.replace(" ", "\n")
+                        };
+
+                        if remove_ascii(&i.display).starts_with( &adjusted_line ) {
+                            Some(i.display.as_str())
+                        } else {
+                            None 
                         }
-                    } else {
-                        remove_ascii(&line.replace(" ", "\n"))
-                    };
+                    })
+                    .take( cached_suggestion_lines() )
+                    .collect::<Vec<&str>>();
 
-                    if remove_ascii(&i.display).starts_with( &line_wo_ascii ) {
-                        Some(i.display.as_str())
-                    } else {
-                        None 
-                    }
-                })
-                .take( cached_suggestion_lines() )
-                .collect::<Vec<&str>>();
+            let agg_line = aggregated_hint_lines.join("\n");
+            let e_module = cached_empty_module_message();
+            let d_module = cached_default_module_message();
+            let s_spacing = "\n".repeat(cached_suggestion_spacing() + 1);
 
-        let agg_line = aggregated_hint_lines.join("\n");
-        let e_module = cached_empty_module_message();
-        let d_module = cached_default_module_message();
-        let s_spacing = "\n".repeat(cached_suggestion_spacing() + 1);
-
-        if line.is_empty() {
-            // if nothing has been typed
-            Some( 
-                ModuleHint {
-                    display: format!(
-                        "{}{}", 
-                        // show place holder first
-                        cached_place_holder(),
-                        // if empty module is not set
-                        if e_module.is_empty() { 
-                            if agg_line.is_empty() { 
-                                "".to_string() 
+            if line.is_empty() {
+                // if nothing has been typed
+                Some( 
+                    ModuleHint {
+                        display: format!(
+                            "{}{}", 
+                            // show place holder first
+                            cached_place_holder(),
+                            // if empty module is not set
+                            if e_module.is_empty() { 
+                                if agg_line.is_empty() { 
+                                    "".to_string() 
+                                } else { 
+                                    format!("{}{}", s_spacing, agg_line) 
+                                } 
+                            } else { 
+                            // if empty module is set
+                                format!("{}{}", s_spacing, e_module) 
+                            },
+                        ),
+                        completion: pos,
+                        w_arg: None,
+                    }.suffix(pos)
+                )
+            } else {
+                // if something is typed
+                Some( 
+                    ModuleHint {
+                        display: format!(
+                            "{}", 
+                            // if cheatsheet entry is typed
+                            if line == cached_cheatsheet_entry() {
+                                format!("{}{} {} {}", s_spacing,
+                                    &cached_cheatsheet_entry(),
+                                    &cached_indicator_no_arg_module(),
+                                    "cheat sheet")
+                            // if no module is matched
+                            } else if agg_line.is_empty() { 
+                                // check if default module message is set
+                                if d_module.is_empty() { 
+                                    "".to_string() 
+                                } else { 
+                                    format!("{}{}", s_spacing, d_module) } 
+                            // if some module is matched
                             } else { 
                                 format!("{}{}", s_spacing, agg_line) 
-                            } 
-                        } else { 
-                        // if empty module is set
-                            format!("{}{}", s_spacing, e_module) 
-                        },
-                    ),
-                    completion: pos,
-                    w_arg: None,
-                }.suffix(pos)
-            )
-        } else {
-            // if something is typed
-            Some( 
-                ModuleHint {
-                    display: format!(
-                        "{}", 
-                        // if cheatsheet entry is typed
-                        if line == cached_cheatsheet_entry() {
-                            format!("{}{} {} {}", s_spacing,
-                                &cached_cheatsheet_entry(),
-                                &cached_indicator_no_arg_module(),
-                                "cheat sheet")
-                        // if no module is matched
-                        } else if agg_line.is_empty() { 
-                            // check if default module message is set
-                            if d_module.is_empty() { 
-                                "".to_string() 
-                            } else { 
-                                format!("{}{}", s_spacing, d_module) } 
-                        // if some module is matched
-                        } else { 
-                            format!("{}{}", s_spacing, agg_line) 
-                        },
-                    ),
-                    completion: pos,
-                    w_arg: None,
-                }.suffix(pos)
-            )
+                            },
+                        ),
+                        completion: pos,
+                        w_arg: None,
+                    }.suffix(pos)
+                )
+            }
         }
     }
 }
@@ -505,7 +559,11 @@ impl ModuleHint {
 impl Hint for ModuleHint {
     // Text to display when hint is active
     fn display(&self) -> &str {
-        &self.display
+        if cached_suggestion_mode() == "hint" {
+            &self.display[self.completion..]
+        } else {
+            &self.display
+        }
     }
     //Text to insert in line when tab or right arrow is pressed
     fn completion(&self) -> Option<&str> {
@@ -527,22 +585,22 @@ impl Hint for ModuleHint {
 // function to format vec<hints> according to configured modules, and to provide them to hinter
 fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
     let set = CONFIG
-        .modules
-        .iter()
-        .map(|module| {
-            let arg_indicator = 
-                if module.with_argument == Some(true) {
-                    cached_indicator_with_arg_module()
-                } else {
-                    cached_indicator_no_arg_module() };
+            .modules
+            .iter()
+            .map(|module| {
+                let arg_indicator = 
+                    if module.with_argument == Some(true) {
+                        cached_indicator_with_arg_module()
+                    } else {
+                        cached_indicator_no_arg_module() };
 
-            let hint_string = format!("{} {}{}",
-                remove_ascii(&module.prefix),
-                arg_indicator,
-                &module.description);
-            ModuleHint:: new( &hint_string, &hint_string, module.with_argument)
-        })
-        .collect::<Vec<_>>();
+                let hint_string = format!("{} {}{}",
+                    remove_ascii(&module.prefix),
+                    arg_indicator,
+                    &module.description);
+                ModuleHint:: new( &hint_string, &hint_string, module.with_argument)
+            })
+            .collect::<Vec<_>>();
     Ok(set)
 }
 
@@ -625,6 +683,8 @@ fn main() {
     init_cheatsheet_entry();
     init_cheatsheet_viewer();
     init_suggestion_spacing();
+    init_suggestion_mode();
+    init_hint_color();
 
     // print header
     if !cached_header_cmd().is_empty() {
@@ -742,8 +802,7 @@ fn main() {
                             .map(|line| { remove_ascii(&line.prefix).len() })
                             .max()
                             .unwrap_or(0);
-                        format!("{}{}{:width$}{} {}{}{}{}",
-                            &cached_list_prefix(),
+                        format!("    {}{:width$}{} {}{}{}{}",
                             cached_prefix_color(),
                             &module.prefix,
                             "\x1b[0m",
@@ -764,8 +823,7 @@ fn main() {
                     if let Some(stdin) = child.stdin.as_mut() {
                         match stdin.write_all(
                             format!(
-                                "\n{}{}{}{}",
-                                cached_list_prefix(),
+                                "\n  {}{}{}",
                                 cached_prefix_color(),
                                 "Configured Modules:\n\n\x1b[0m",
                                 mapped_modules
