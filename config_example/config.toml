@@ -50,6 +50,7 @@ place_holder = "type and search..."
 default_module_message = "" # if set, the text will be shown when the default module is in use
 empty_module_message = "" # the text to show when empty module is in use
 suggestion_lines = 3 # length of the suggestion list, set to 0 to disable suggestions and tab completion
+suggestion_spacing = 0 # spacing between input field and suggestions
 indicator_with_arg_module = "> " # a sign showing whether the module should run with an argument
 indicator_no_arg_module = "< "
 prefix_padding = 0 # format prefixes to have a unified width; prefixes will be padded with spaces to have a least specified number of chars

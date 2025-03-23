@@ -64,6 +64,7 @@ struct Interface {
     default_module_message: Option<String>,
     empty_module_message: Option<String>,
     suggestion_lines: Option<usize>,
+    suggestion_spacing: Option<usize>,
     indicator_no_arg_module: Option<String>,
     indicator_with_arg_module: Option<String>,
     prefix_padding: Option<usize>,
@@ -229,6 +230,16 @@ fn init_suggestion_lines() {
 fn cached_suggestion_lines() -> usize {
     let suggestion_lines = SUGGESTION_LINES.lock().unwrap();
         suggestion_lines.unwrap_or(1)
+}
+static SUGGESTION_SPACING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+fn init_suggestion_spacing() {
+    let spacing = CONFIG.interface.suggestion_spacing.unwrap_or(0);
+    let mut suggestion_spacing = SUGGESTION_SPACING.lock().unwrap();
+    *suggestion_spacing = Some(spacing);
+}
+fn cached_suggestion_spacing() -> usize {
+    let suggestion_spacing = SUGGESTION_SPACING.lock().unwrap();
+        suggestion_spacing.unwrap_or(0)
 }
 static PREFIX_PADDING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 fn init_prefix_padding() {
@@ -413,6 +424,7 @@ impl Hinter for OtterHelper {
         let agg_line = aggregated_hint_lines.join("\n");
         let e_module = cached_empty_module_message();
         let d_module = cached_default_module_message();
+        let s_spacing = "\n".repeat(cached_suggestion_spacing() + 1);
 
         if line.is_empty() {
             // if nothing has been typed
@@ -427,11 +439,11 @@ impl Hinter for OtterHelper {
                             if agg_line.is_empty() { 
                                 "".to_string() 
                             } else { 
-                                format!("\n{}", agg_line) 
+                                format!("{}{}", s_spacing, agg_line) 
                             } 
                         } else { 
                         // if empty module is set
-                            format!("\n{}", e_module) 
+                            format!("{}{}", s_spacing, e_module) 
                         },
                     ),
                     completion: pos,
@@ -446,21 +458,20 @@ impl Hinter for OtterHelper {
                         "{}", 
                         // if cheatsheet entry is typed
                         if line == cached_cheatsheet_entry() {
-                            format!("\n{}", cached_list_prefix()
-                                + &cached_cheatsheet_entry()
-                                + " "
-                                + &cached_indicator_no_arg_module()
-                                + "cheat sheet")
+                            format!("{}{} {} {}", s_spacing,
+                                &cached_cheatsheet_entry(),
+                                &cached_indicator_no_arg_module(),
+                                "cheat sheet")
                         // if no module is matched
                         } else if agg_line.is_empty() { 
                             // check if default module message is set
                             if d_module.is_empty() { 
                                 "".to_string() 
                             } else { 
-                                format!("\n{}", d_module) } 
+                                format!("{}{}", s_spacing, d_module) } 
                         // if some module is matched
                         } else { 
-                            format!("\n{}", agg_line) 
+                            format!("{}{}", s_spacing, agg_line) 
                         },
                     ),
                     completion: pos,
@@ -613,6 +624,7 @@ fn main() {
     init_callback();
     init_cheatsheet_entry();
     init_cheatsheet_viewer();
+    init_suggestion_spacing();
 
     // print header
     if !cached_header_cmd().is_empty() {
