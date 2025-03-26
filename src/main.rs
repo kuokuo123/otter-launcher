@@ -613,6 +613,10 @@ fn remove_ascii(text: &str) -> String {
 
 // function to run module.cmd
 fn run_module_command(mod_cmd_arg: &str) {
+    // clear screen so that main() won't flash back when module.cmd is finished
+    print!("\x1B[2J\x1B[1;1H");
+    std::io::stdout().flush().expect("failed to flush stdout");
+
     // format the shell command by which the module commands are launched
     let exec_cmd = cached_exec_cmd();
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
@@ -840,7 +844,7 @@ fn main() {
                 }
                 let _ = child.expect("failed to pipe cheatsheet into viewer").wait();
                 print!("\x1B[2J\x1B[1;1H");
-                std::io::stdout().flush().unwrap();
+                std::io::stdout().flush().expect("failed to flush stdout");
                 main()
             // Condition 2: when no module is matched, run the default module
             } else {
@@ -851,8 +855,6 @@ fn main() {
         }
     }
 
-    //print!("\x1B[2J\x1B[1;1H");
-    std::io::stdout().flush().unwrap();
     // run general.callback if set
     if !cached_callback().is_empty() {
         let exec_cmd = cached_exec_cmd();
@@ -870,7 +872,9 @@ fn main() {
 
     // if in loop_mode, run main() again
     if cached_loop_mode() {
-        // flush terminal lines
+        // clear screen befor loop, preventing previous module's stdout interfering launcher layout
+        print!("\x1B[2J\x1B[1;1H");
+        std::io::stdout().flush().expect("failed to flush stdout");
         main ();
     }
 }
