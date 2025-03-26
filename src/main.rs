@@ -693,12 +693,14 @@ fn main() {
 
     // print header
     if !cached_header_cmd().is_empty() {
-        let output = Command::new("sh")
-            .arg("-c")
+        let exec_cmd = cached_exec_cmd();
+        let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+        let mut shell_cmd = Command::new(cmd_parts[0]);
+        for arg in &cmd_parts[1..] { shell_cmd.arg(arg); }
+        let output = shell_cmd
             .arg(cached_header_cmd())
             .output()
             .expect("Failed to launch header command...");
-
         if output.status.success() {
             let remove_lines_count = cached_header_cmd_trimmed_lines();
             let stdout = from_utf8(&output.stdout).unwrap();
@@ -818,12 +820,14 @@ fn main() {
                     })
                     .collect::<Vec<String>>().join("\n");
 
-                let mut child = Command::new("sh")
-                    .arg("-c")
+                let exec_cmd = cached_exec_cmd();
+                let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+                let mut shell_cmd = Command::new(cmd_parts[0]);
+                for arg in &cmd_parts[1..] { shell_cmd.arg(arg); }
+                let mut child = shell_cmd
                     .arg(cached_cheatsheet_viewer())
                     .stdin(Stdio::piped()) // Connect the stdin from the child to write into it
                     .spawn();
-                
                 if let Ok(ref mut child) = child {
                     if let Some(stdin) = child.stdin.as_mut() {
                         match stdin.write_all(
@@ -842,9 +846,9 @@ fn main() {
                         }
                     }
                 }
-                let _ = child.expect("failed to pipe cheatsheet into viewer").wait();
                 print!("\x1B[2J\x1B[1;1H");
                 std::io::stdout().flush().expect("failed to flush stdout");
+                let _ = child.expect("failed to pipe cheatsheet into viewer").wait();
                 main()
             // Condition 2: when no module is matched, run the default module
             } else {
