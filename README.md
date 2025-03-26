@@ -1,6 +1,6 @@
 # otter-launcher
 
-![Kitty Config](./assets/kitty.png)
+![Foot Config](./assets/foot.png)
 
 An extendable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols.
 
@@ -13,6 +13,8 @@ The concept is making these behaviours possible:
 - etc.
 
 It's recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Use your wm's window rules to control its window size. 
+
+[Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
 
 ![Demo Gif](./assets/demo.gif)
 
@@ -58,7 +60,7 @@ vi_mode = false # set true to use vi keybinds, false to use emacs keybinds; defa
 esc_to_abort = true # allow to quit pressing esc; a useful option for vi users
 cheatsheet_entry = "?" # when entered, otter-launcher will show a list of configured modules
 cheatsheet_viewer = "less -R" # the program that otter-launcher will pipe cheatsheet into
-loop_mode = false # in loop mode, otter-launcher won't quit after running a module
+loop_mode = false # in loop mode, otter-launcher won't quit after running a module, and can be used with a scratchpad
 #callback = "" # if set, otter-launcher will run the command after a module is executed; for example, using swaymsg to adjust window size
 
 
@@ -157,7 +159,7 @@ header = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "      "
 place_holder = "type and search..."
-show_suggestion = true
+suggestion_mode = "list"
 suggestion_lines = 3
 prefix_color = "\u001B[32m"
 description_color = "\u001B[38m"
@@ -174,7 +176,7 @@ header = """
    \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 list_prefix = "   \u001B[31m #\u001B[0m "
 place_holder = "type and search..."
-show_suggestion = true
+suggestion_mode = "list"
 suggestion_lines = 1
 indicator_with_arg_module = ""
 indicator_no_arg_module = ""
@@ -197,7 +199,7 @@ header = """
 """
 list_prefix = "    "
 place_holder = "type and search..."
-show_suggestion = true
+suggestion_mode = "list"
 suggestion_lines = 1
 indicator_with_arg_module = ""
 indicator_no_arg_module = ""
@@ -217,7 +219,7 @@ header_cmd_trimmed_lines = 1
 header = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m "
 list_prefix = "    "
 place_holder = "type and search..."
-show_suggestion = true
+suggestion_mode = "list"
 suggestion_lines = 1
 indicator_with_arg_module = ""
 indicator_no_arg_module = ""
@@ -226,24 +228,25 @@ description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
 ```
 
-## Chafa & Kitty Integration
+## Image Protocol Integration (Sixel or Kitty) with CPU & MEM Indicators
 
-![Kitty Config](./assets/kitty.png)
-
-[Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
+![Foot Config](./assets/foot.png)
 
 ```
 [interface]
-header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/ascii/waterways_and_otterways.jpg"
-header_cmd_trimmed_lines = 1
-header = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m> \u001B[0m"
-list_prefix = "     "
-place_holder = "type and search"
-show_suggestion = true
+header_cmd = "chafa --fit-width /home/kkoala/.config/otter-launcher/ascii/waterways_and_otterways.jpg; echo -e \"   \u001B[34m  >\u001B[0m $USER@$HOSTNAME              \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\""
+header_cmd_trimmed_lines = 0
+header = """      \u001B[34;1m>\u001B[0;1m """
+list_prefix = "        "
+place_holder = "type and search..."
+indicator_with_arg_module = "\u001B[31m#>\u001B[0m "
+indicator_no_arg_module = "\u001B[31m#!\u001B[0m "
+default_module_message = """
+        \u001B[35msearch\u001B[0m on the internet"""
+suggestion_mode = "list"
 suggestion_lines = 3
-indicator_with_arg_module = "> "
-indicator_no_arg_module = "# "
-prefix_color = "\u001B[33m"
+prefix_padding = 3
 description_color = "\u001B[38m"
-place_holder_color = "\u001B[30m"
+place_holder_color = "\u001B[90m"
+hint_color = "\u001B[90m"
 ```

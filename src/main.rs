@@ -96,7 +96,8 @@ static CONFIG: Lazy<Config> = Lazy::new(|| {
     } else {
         config_file = "/etc/otter-launcher/config.toml";
     }
-    let contents = std::fs::read_to_string(config_file).expect("cannot read config_file");
+    let contents = std::fs::read_to_string(config_file)
+        .expect("Cannot read from config.toml. Please create a config.toml in either $HOME/.config/otter-launcher/ or /etc/otter-launcher/ In fact, copy one that comes with user mannual from the otter-launcher repo.");
     let config: Config = toml::from_str(&contents).expect("cannot read contents from config_file");
 
     config
@@ -389,9 +390,9 @@ impl Highlighter for OtterHelper {
                 .map(|line| {
                     if line == cached_place_holder() {
                         format!("{}{}{}", cached_place_holder_color(), cached_place_holder(), "\x1b[0m")
-                    } else if cached_empty_module_message().contains(line) {
+                    } else if cached_empty_module_message().contains(line) && !line.is_empty() {
                         line.to_string()
-                    } else if cached_default_module_message().contains(line) {
+                    } else if cached_default_module_message().contains(line) && !line.is_empty() {
                         line.to_string()
                     } else {
                         let parts: Vec<&str> = line.split_whitespace().collect();
@@ -837,9 +838,10 @@ fn main() {
                         }
                     }
                 }
-                    print!("\x1B[2J\x1B[1;1H");
-                    std::io::stdout().flush().unwrap();
                 let _ = child.expect("failed to pipe cheatsheet into viewer").wait();
+                print!("\x1B[2J\x1B[1;1H");
+                std::io::stdout().flush().unwrap();
+                main()
             // Condition 2: when no module is matched, run the default module
             } else {
                 run_designated_module(
@@ -849,7 +851,7 @@ fn main() {
         }
     }
 
-    print!("\x1B[2J\x1B[1;1H");
+    //print!("\x1B[2J\x1B[1;1H");
     std::io::stdout().flush().unwrap();
     // run general.callback if set
     if !cached_callback().is_empty() {
