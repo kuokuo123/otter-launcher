@@ -14,7 +14,7 @@ The concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-It's recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Use your wm's window rules to control its window size. Also, some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder.
+Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) as a module to launch desktop apps. Use your wm's window rules to control its window size.
 
 
 ![Demo Gif](./assets/demo.gif)
@@ -24,15 +24,15 @@ It's recommended to use otter-launcher with [sway-launcher-desktop](https://gith
 
 - modularized to run different commands (via configuration)
 - vi and emacs keybinds
-- tab completion for configured modules
+- tab completion
+- two suggestion modes: list & hint
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
-- decorated with ascii color codes, chafa, sixel or kitty image protocol, etc.
+- supporting ascii color codes, chafa, sixel or kitty image protocol, etc.
 - loop mode
-- cheatsheet for configured modules
-- system info as widgets by scripting the header_cmd command
-- two modes of suggesting configured module during runtime: list & hint
-- configurable callback functions (per-module callback and prehook can be scripted in module.cmd )
+- cheat sheet for configured modules
+- able to show any sys info (by scripting interface.header_cmd)
+- callback function (per-module callback and prehook can also be scripted in module.cmd )
 - minimalist, blazingly fast, keyboard-centric
 
 # Installation
@@ -48,11 +48,9 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 # Configuration
 
-Otter-launcher reads a config file from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml
+Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml
 
-An example config file is at config_example/config.toml in this repo. Copy it to one of the above locations.
-
-Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
+An example config file is at [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/contrib). Copy it to one of the above locations. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
 ``` toml
 [general]
