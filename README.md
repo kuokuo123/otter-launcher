@@ -190,29 +190,6 @@ description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
 ```
 
-## Pfetch Integration
-
-![Pfetch Config](./assets/pfetch.png)
-
-```
-[interface]
-header_cmd = "echo ' '; pfetch"
-header_cmd_trimmed_lines = 2
-header = """
-               \u001B[30m———\u001B[0m\u001B[31m———\u001B[0m\u001B[32m———\u001B[0m\u001B[33m———\u001B[0m\u001B[34m———\u001B[0m\u001B[35m———\u001B[0m\u001B[36m———\u001B[0m\u001B[37m———\u001B[0m
- \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m 
-"""
-list_prefix = "    "
-place_holder = "type and search..."
-suggestion_mode = "list"
-suggestion_lines = 1
-indicator_with_arg_module = ""
-indicator_no_arg_module = ""
-prefix_color = "\u001B[32m"
-description_color = "\u001B[38m"
-place_holder_color = "\u001B[30m"
-```
-
 ## Fastfetch & Krabby Integration
 
 ![Quilava Config](./assets/quilava.png)
