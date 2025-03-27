@@ -30,7 +30,6 @@ use once_cell::sync::Lazy;
 use urlencoding::encode;
 use rustyline::{EditMode, Context, Editor, KeyEvent, Modifiers, EventHandler, Cmd, history::DefaultHistory, hint::{Hint, Hinter}, config::Configurer, highlight::Highlighter};
 use rustyline_derive::{Helper, Completer, Validator};
-use regex::Regex;
 
 // Define config structure
 #[derive(Deserialize, Default)]
@@ -98,9 +97,8 @@ static CONFIG: Lazy<Config> = Lazy::new(|| {
     }
     let contents = std::fs::read_to_string(config_file)
         .expect("Cannot read from config.toml. Please create a config.toml in either $HOME/.config/otter-launcher/ or /etc/otter-launcher/ In fact, copy one that comes with user mannual from the otter-launcher repo.");
-    let config: Config = toml::from_str(&contents).expect("cannot read contents from config_file");
 
-    config
+    toml::from_str(&contents).expect("cannot read contents from config_file")
 });
 
 // Load config variables and cache as statics
@@ -389,7 +387,10 @@ impl Highlighter for OtterHelper {
                 .lines()
                 .map(|line| {
                     if line == cached_place_holder() {
-                        format!("{}{}{}", cached_place_holder_color(), cached_place_holder(), "\x1b[0m")
+                        format!("{}{}{}", 
+                            cached_place_holder_color(), 
+                            cached_place_holder(), 
+                            "\x1b[0m")
                     } else if cached_empty_module_message().contains(line) && !line.is_empty() {
                         line.to_string()
                     } else if cached_default_module_message().contains(line) && !line.is_empty() {
@@ -537,7 +538,7 @@ impl Hinter for OtterHelper {
     }
 }
 
-// Define the functions that hint objects can modify the value within it self
+// Define the functions for struct ModuleHint
 impl ModuleHint {
     fn new(text: &str, completion: &str, w_arg: Option<bool>) -> Self {
         assert!(text.starts_with(completion));
@@ -570,7 +571,6 @@ impl Hint for ModuleHint {
     fn completion(&self) -> Option<&str> {
         let prfx = self.display
             .trim_start_matches("\n")
-            .trim_start_matches(&cached_place_holder())
             .trim_start_matches(&cached_default_module_message())
             .split_whitespace()
             .next()
@@ -607,30 +607,25 @@ fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
 
 // function to remove ascii color code from &str
 fn remove_ascii(text: &str) -> String {
-    let re = Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+    let re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
     re.replace_all(text, "").to_string()
 }
 
 // function to run module.cmd
 fn run_module_command(mod_cmd_arg: &str) {
-    // clear screen so that main() won't flash back when module.cmd is finished
-    print!("\x1B[2J\x1B[1;1H");
-    std::io::stdout().flush().expect("failed to flush stdout");
-
     // format the shell command by which the module commands are launched
     let exec_cmd = cached_exec_cmd();
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-
-    // run the module cmd
     let mut shell_cmd = Command::new(cmd_parts[0]);
     for arg in &cmd_parts[1..] {
         shell_cmd.arg(arg);
     }
+    // run module cmd
     shell_cmd.arg(mod_cmd_arg)
         .spawn()
-        .expect("Failed to launch callback...")
+        .expect("failed to launch callback...")
         .wait()
-        .expect("Module.cmd process wasn't running");
+        .expect("failed to wail for callback execution...");
 }
 
 // function to run empty & default modules
@@ -657,7 +652,8 @@ fn run_designated_module(prompt: String, prfx: String) {
         run_module_command(
             &format!("{}", target_module
                 .cmd
-                .replace("{}", &prompt_wo_prefix)));
+                .replace("{}", &prompt_wo_prefix))
+        );
     }
 }
 
@@ -693,19 +689,21 @@ fn main() {
 
     // print header
     if !cached_header_cmd().is_empty() {
+        // format exec_cmd
         let exec_cmd = cached_exec_cmd();
         let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
         let mut shell_cmd = Command::new(cmd_parts[0]);
         for arg in &cmd_parts[1..] { shell_cmd.arg(arg); }
+        // run header_cmd and pipe the output
         let output = shell_cmd
             .arg(cached_header_cmd())
             .output()
             .expect("Failed to launch header command...");
         if output.status.success() {
+            // trime stdout according to toml config
             let remove_lines_count = cached_header_cmd_trimmed_lines();
             let stdout = from_utf8(&output.stdout).unwrap();
             let lines: Vec<&str> = stdout.lines().collect();
-
             if lines.len() > remove_lines_count {
                 let remaining_lines = &lines[..lines.len() - remove_lines_count];
                 println!("{}\x1b[?25h", remaining_lines.join("\n"));
@@ -719,24 +717,26 @@ fn main() {
 
     // read prompt using rustyline
     let mut rl: Editor<OtterHelper, DefaultHistory> = Editor::new().unwrap();
+    // set OtterHelper as hint and completion provider
     rl.set_helper(
         Some( OtterHelper {
-            hints: map_hints().expect("Failed to provide hints") }
+            hints: map_hints().expect("failed to provide hints") }
     ));
+    // set tab as completion trigger
     rl.bind_sequence(KeyEvent::new('\t', Modifiers::NONE),
         EventHandler::Simple(Cmd::CompleteHint));
     // check if vi_mode is on
-    if cached_vi_mode() == true { rl.set_edit_mode(EditMode::Vi) };
+    if cached_vi_mode() { rl.set_edit_mode(EditMode::Vi) };
     // check if esc_to_abort is on
-    if cached_esc_to_abort() == true {
+    if cached_esc_to_abort() {
         rl.bind_sequence(KeyEvent::new('\x1b', Modifiers::NONE),
             EventHandler::Simple(Cmd::Interrupt));
     }
+    // run rustyline with configured header
     let prompt = rl.readline(&cached_header());
     match prompt {
         Ok(_) => { },
         Err(_) => {
-            //println!("{:?}", err);
             process::exit(0);
         }
     }
@@ -752,6 +752,7 @@ fn main() {
         .iter()
         .find(|module| remove_ascii(&module.prefix) == prompted_prfx);
 
+    let _ = rl.clear_screen();
     match module_prfx {
         // if user input starts with some module prefixes
         Some(module) => {
@@ -826,7 +827,7 @@ fn main() {
                 for arg in &cmd_parts[1..] { shell_cmd.arg(arg); }
                 let mut child = shell_cmd
                     .arg(cached_cheatsheet_viewer())
-                    .stdin(Stdio::piped()) // Connect the stdin from the child to write into it
+                    .stdin(Stdio::piped())
                     .spawn();
                 if let Ok(ref mut child) = child {
                     if let Some(stdin) = child.stdin.as_mut() {
@@ -846,11 +847,12 @@ fn main() {
                         }
                     }
                 }
-                print!("\x1B[2J\x1B[1;1H");
-                std::io::stdout().flush().expect("failed to flush stdout");
-                let _ = child.expect("failed to pipe cheatsheet into viewer").wait();
+                child
+                    .expect("failed to pipe cheatsheet into viewer")
+                    .wait()
+                    .expect("failed to wait the execution of general.callback");
                 main()
-            // Condition 2: when no module is matched, run the default module
+            // Condition 3: when no module is matched, run the default module
             } else {
                 run_designated_module(
                     prompt,
@@ -861,24 +863,24 @@ fn main() {
 
     // run general.callback if set
     if !cached_callback().is_empty() {
+        // format exec_cmd
         let exec_cmd = cached_exec_cmd();
         let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
         let mut cb_cmd = Command::new(cmd_parts[0]);
         for arg in &cmd_parts[1..] {
             cb_cmd.arg(arg);
         }
+        // run callback
         cb_cmd.arg(cached_callback())
             .spawn()
-            .expect("Failed to launch general.callback")
+            .expect("failed to launch general.callback")
             .wait()
-            .expect("Callback cmd wasn't running");
+            .expect("failed to wait the execution of general.callback");
     }
 
     // if in loop_mode, run main() again
     if cached_loop_mode() {
         // clear screen befor loop, preventing previous module's stdout interfering launcher layout
-        print!("\x1B[2J\x1B[1;1H");
-        std::io::stdout().flush().expect("failed to flush stdout");
         main ();
     }
 }

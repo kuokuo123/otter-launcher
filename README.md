@@ -12,7 +12,7 @@ The concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-It's recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Use your wm's window rules to control its window size. 
+It's recommended to use otter-launcher with [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Use your wm's window rules to control its window size. Also, some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder.
 
 [Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
 
@@ -54,14 +54,14 @@ Also, check [more examples of module config](https://github.com/kuokuo123/otter-
 [general]
 default_module = "gg" # The module to run when no prefix is matched
 empty_module = "app" # run with an empty prompt
-exec_cmd = "sh -c" # The exec command of your shell or window manager, default to bash
-# for example: "swaymsg exec" for swaywm; "hyprctl dispatch exec" for hyprland; "zsh -c" for zsh
+exec_cmd = "sh -c" # The exec command of your shell, default to sh
+# for example: "bach -c" for bash; "zsh -c" for zsh. This can also runs wm exec commands, like hyprctl dispatch exec
 vi_mode = false # set true to use vi keybinds, false to use emacs keybinds; default to emacs
 esc_to_abort = true # allow to quit pressing esc; a useful option for vi users
 cheatsheet_entry = "?" # when entered, otter-launcher will show a list of configured modules
 cheatsheet_viewer = "less -R" # the program that otter-launcher will pipe cheatsheet into
 loop_mode = false # in loop mode, otter-launcher won't quit after running a module, and can be used with a scratchpad
-#callback = "" # if set, otter-launcher will run the command after a module is executed; for example, using swaymsg to adjust window size
+#callback = "" # if set, otter-launcher will run the command after a module is executed; for example, it can call swaymsg to adjust window size
 
 
 # ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
@@ -89,7 +89,8 @@ prefix_padding = 0 # format prefixes to have a unified width; prefixes will be p
 # below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
 prefix_color = "\u001B[32m"
 description_color = "\u001B[38m"
-place_holder_color = "\u001B[90m"
+place_holder_color = "\u001B[30m"
+hint_color = "\u001B[30m" # the color of hint mode suggestions
 
 
 # Modules are defined as followed

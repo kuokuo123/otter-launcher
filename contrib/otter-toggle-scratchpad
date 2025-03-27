@@ -1,0 +1,18 @@
+# This is a bash script that toggles otter-launcher using sway's scratchpad functionality.
+# Modify foot --app-id to others, for example alacritty --class, if you use other emulators.
+# When run, otter-launcher will be launched if not already running, be focused if running but not being focused, and be sent to scratchpad when already running and focused.
+
+#!/bin/bash
+
+if [ -z $(swaymsg -t get_tree | grep '"app_id": "otter-launcher"') ] 
+then
+    foot --app-id "otter-launcher" -T "otter-launcher" -e sh -c "sleep 0.01 && otter-launcher"
+    #foot --app-id "otter-launcher" -T "otter-launcher" -e "otter-launcher"
+else
+    if [ -z $(swaymsg -t get_tree | jq '.. | select(.type?) | select(.focused==true).app_id' | grep "otter-launcher") ];
+	then
+	    swaymsg "[con_mark="otter-launcher"] scratchpad show; move position center";
+	else
+	    swaymsg "[app_id="otter-launcher"] mark "otter-launcher"; move window scratchpad";
+    fi
+fi
