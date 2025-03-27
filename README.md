@@ -29,7 +29,10 @@ It's recommended to use otter-launcher with [sway-launcher-desktop](https://gith
 - decorated with ascii color codes, chafa, sixel or kitty image protocol, etc.
 - loop mode
 - cheatsheet for configured modules
-- minimalist, blazing fast, keyboard-centric
+- system info as widgets by scripting the header_cmd command
+- two modes of suggesting configured module during runtime: list & hint
+- configurable callback functions (per-module callback and prehook can be scripted in module.cmd )
+- minimalist, blazingly fast, keyboard-centric
 
 # Installation
 
@@ -235,7 +238,7 @@ place_holder_color = "\u001B[30m"
 
 ```
 [interface]
-header_cmd = "chafa --fit-width /home/kkoala/.config/otter-launcher/ascii/waterways_and_otterways.jpg; echo -e \"   \u001B[34m  >\u001B[0m $USER@$HOSTNAME              \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\""
+header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/waterways_and_otterways.jpg; echo -e \"   \u001B[34m  >\u001B[0m $USER@$HOSTNAME              \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\""
 header_cmd_trimmed_lines = 0
 header = """      \u001B[34;1m>\u001B[0;1m """
 list_prefix = "        "
