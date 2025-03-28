@@ -17,8 +17,6 @@ The core concept is making these behaviours possible:
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) as a module to launch desktop apps. Use your wm's window rules to control its window size.
 
 
-![Demo2 Gif](./assets/demo2.gif)
-
 ![Demo Gif](./assets/demo.gif)
 
 
