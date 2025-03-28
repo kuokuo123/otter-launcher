@@ -143,12 +143,12 @@ url_encode = true
 [[modules]]
 description = "open files with fzf"
 prefix = "fo"
-cmd = "setsid -f $TERM --class fzf -e sh -c 'fd --type f | fzf | xargs -r xdg-open'"
+cmd = "setsid -f $TERMINAL --app-id fzf -e sh -c 'fd --type f | fzf | setsid -f xargs -r -I {} xdg-open \"{}\"'"
 
 [[modules]]
 description = "open folders with fzf and yazi"
 prefix = "yz"
-cmd = "setsid -f $TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r $TERM -e yazi'"
+cmd = "setsid -f $TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r -I {} $TERM -e yazi \"{}\"'"
 ```
 
 # Examples for Styling
