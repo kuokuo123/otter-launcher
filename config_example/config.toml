@@ -66,7 +66,7 @@ hint_color = "\u001B[30m" # the color of hint mode suggestions
 [[modules]]
 description = "search with google"
 prefix = "gg"
-cmd = "xdg-open 'https://www.google.com/search?q={}'"
+cmd = "setsid -f xdg-open 'https://www.google.com/search?q={}'"
 with_argument = true # If "with_argument" is true, the {} in the cmd value will be replaced with user input. If the field is not explicitly set, will be taken as false.
 url_encode = true # "url_encode" should be true if the module is set to call webpages, as this ensures special characters in url being readable to browsers. It'd better be false with shell scripts. If the field is not explicitly set, will be taken as false.
 
@@ -89,14 +89,14 @@ echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $lin
 [[modules]]
 description = "search github"
 prefix = "gh"
-cmd = "xdg-open https://github.com/search?q='{}'"
+cmd = "setsid -f xdg-open https://github.com/search?q='{}'"
 with_argument = true
 url_encode = true
 
 [[modules]]
 description = "cambridge dictionary online"
 prefix = "dc"
-cmd = "xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
+cmd = "setsid -f xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
 with_argument = true
 url_encode = true
 

@@ -6,7 +6,7 @@ A very extensible app launcher, designed for keyboard-centric wm users. It is bl
 
 [Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
 
-The concept is making these behaviours possible:
+The core concept is making these behaviours possible:
 
 - type "gg margaret thatcher" to google the lady in a web browser
 - "sh htop" to run htop in a terminal
@@ -16,6 +16,8 @@ The concept is making these behaviours possible:
 
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) as a module to launch desktop apps. Use your wm's window rules to control its window size.
 
+
+![Demo2 Gif](./assets/demo2.gif)
 
 ![Demo Gif](./assets/demo.gif)
 
@@ -39,6 +41,8 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 
 ## Building from source
 
+### 1. Compile otter-launcher from the repo and place it in your PATH
+
 ```
 git clone https://github.com/kuokuo123/otter-launcher /tmp/otter-launcher
 cd /tmp/otter-launcher
@@ -46,11 +50,13 @@ cargo build --release
 sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 ```
 
-# Configuration
+### 2. Create a config.toml
 
 Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml
 
 An example config file is at [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Copy it to one of the above locations. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
+
+# Configuration
 
 ``` toml
 [general]
@@ -99,7 +105,7 @@ hint_color = "\u001B[30m" # the color of hint mode suggestions
 [[modules]]
 description = "search with google"
 prefix = "gg"
-cmd = "xdg-open 'https://www.google.com/search?q={}'"
+cmd = "setsid -f xdg-open 'https://www.google.com/search?q={}'"
 with_argument = true # If "with_argument" is true, the {} in the cmd value will be replaced with user input. If the field is not explicitly set, will be taken as false.
 url_encode = true # "url_encode" should be true if the module is set to call webpages, as this ensures special characters in url being readable to browsers. It'd better be false with shell scripts. If the field is not explicitly set, will be taken as false.
 
@@ -122,14 +128,14 @@ echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $lin
 [[modules]]
 description = "search github"
 prefix = "gh"
-cmd = "xdg-open https://github.com/search?q='{}'"
+cmd = "setsid -f xdg-open https://github.com/search?q='{}'"
 with_argument = true
 url_encode = true
 
 [[modules]]
 description = "cambridge dictionary online"
 prefix = "dc"
-cmd = "xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
+cmd = "setsid -f xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
 with_argument = true
 url_encode = true
 
@@ -208,7 +214,7 @@ description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
 ```
 
-## Image Protocol Integration (Sixel or Kitty) with CPU & MEM Indicators
+## Image Protocol with CPU & MEM Indicators
 
 ![Foot Config](./assets/foot.png)
 
@@ -230,3 +236,26 @@ description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
+
+# TUI Programs Integration
+
+Otter-launcher can work with other tui programs to achieve a mouseless, terminal-based environment. When launching external programs, module.cmd can be scripted to perform extra functions, like adjusting window size.
+
+In the below example, otter-launcher changes window size before and after running pulsemixer, a vim-key-supported tui audio controller, by asking swaywm to do so:
+
+```
+[[modules]]
+description = "pulsemixer for audio control"
+prefix = "vol"
+cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pulsemixer; swaymsg [app_id=otter-launcher] resize set width 600 px height 60 px"
+```
+
+Here are some recommendations of tui utilities that works really well.
+
+- Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop)
+- Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
+- Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
+- Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
+- Spotify: [spotify_player](https://github.com/aome510/spotify-player)
+
+More to be found on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
