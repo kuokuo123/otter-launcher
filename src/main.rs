@@ -456,7 +456,6 @@ fn run_designated_module(prompt: String, prfx: String) {
 // main function
 fn main() {
     //initializing static variables
-
     init_statics(&EXEC_CMD, CONFIG.general.exec_cmd.clone(), "sh -c".to_string());
     init_statics(&DEFAULT_MODULE, CONFIG.general.default_module.clone(), "".to_string());
     init_statics(&EMPTY_MODULE, CONFIG.general.empty_module.clone(), "".to_string());
@@ -466,7 +465,6 @@ fn main() {
     init_statics(&ESC_TO_ABORT, CONFIG.general.esc_to_abort.clone(), true);
     init_statics(&LOOP_MODE, CONFIG.general.loop_mode.clone(), false);
     init_statics(&CALLBACK, CONFIG.general.callback.clone(), "".to_string());
-
     init_statics(&HEADER_CMD, CONFIG.interface.header_cmd.clone(), "".to_string());
     init_statics(&HEADER_CMD_TRIMMED_LINES, CONFIG.interface.header_cmd_trimmed_lines.clone(), 0);
     init_statics(&HEADER, CONFIG.interface.header.clone(), "".to_string());
