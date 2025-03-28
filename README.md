@@ -255,5 +255,6 @@ Here are some recommendations of tui utilities that works really well.
 - Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
 - Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
 - Spotify: [spotify_player](https://github.com/aome510/spotify-player)
+- Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
 
 More to be found on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
