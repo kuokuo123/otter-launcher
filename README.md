@@ -50,7 +50,7 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml
 
-An example config file is at [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/contrib). Copy it to one of the above locations. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
+An example config file is at [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Copy it to one of the above locations. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
 ``` toml
 [general]
