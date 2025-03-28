@@ -5,7 +5,7 @@
 # When run, otter-launcher will be launched if not already running, be focused if running but not being focused, and be closed when already running and focused.
 
 if [ -z $(hyprctl clients | grep "class: otter-launcher") ]; 
-then hyprctl dispatch exec "foot --app-id otter-launcher -T otter-launcher -e otter-launcher"; 
+then hyprctl dispatch exec "foot --app-id otter-launcher -T otter-launcher -e sh -c 'sleep 0.05 && otter-launcher'"; 
 else echo application_already_Running; 
     if [ -z $(hyprctl activewindow | grep "class: otter-launcher") ];
 	then hyprctl dispatch 'focuswindow class:otter-launcher'
