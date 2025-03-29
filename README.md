@@ -151,7 +151,7 @@ cmd = "setsid -f $TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r -I {}
 
 # Examples for Styling
 
-## Default Config File
+## Default Config
 
 ![Default Config](./assets/default.png)
 
@@ -192,7 +192,7 @@ description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
 ```
 
-## Fastfetch & Krabby Integration
+## Fastfetch & Krabby
 
 ![Quilava Config](./assets/quilava.png)
 
@@ -235,11 +235,11 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
-# TUI Programs Integration
+# Integration
 
-Otter-launcher can work with other tui programs to achieve a mouseless, terminal-based environment. When launching external programs, module.cmd can be scripted to perform extra functions, like adjusting window size.
+Otter-launcher can work well with tui programs. When launching them, module.cmd can be scripted to perform functions like adjusting window size.
 
-In the below example, otter-launcher changes window size before and after running pulsemixer, a vim-key-supported tui audio controller, by asking swaywm to do so:
+In the below example, otter-launcher changes window size before and after launching pulsemixer by calling swaymsg:
 
 ```
 [[modules]]
@@ -248,7 +248,7 @@ prefix = "vol"
 cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pulsemixer; swaymsg [app_id=otter-launcher] resize set width 600 px height 60 px"
 ```
 
-Here are some recommendations of tui utilities that works really well.
+Some recommendations of tui utilities that works really well:
 
 - Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop)
 - Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
@@ -257,4 +257,4 @@ Here are some recommendations of tui utilities that works really well.
 - Spotify: [spotify_player](https://github.com/aome510/spotify-player)
 - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
 
-More to be found on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
+More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
