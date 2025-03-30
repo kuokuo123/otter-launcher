@@ -524,7 +524,7 @@ fn main() {
     init_statics(
         &CHEATSHEET_VIEWER,
         CONFIG.general.cheatsheet_viewer.clone(),
-        "less -R".to_string(),
+        "less -R; clear".to_string(),
     );
     init_statics(&VI_MODE, CONFIG.general.vi_mode, false);
     init_statics(&ESC_TO_ABORT, CONFIG.general.esc_to_abort, true);
@@ -733,7 +733,10 @@ fn main() {
                         shell_cmd.arg(arg);
                     }
                     let mut child = shell_cmd
-                        .arg(cached_statics(&CHEATSHEET_VIEWER, "less -R".to_string()))
+                        .arg(cached_statics(
+                            &CHEATSHEET_VIEWER,
+                            "less -R; clear".to_string(),
+                        ))
                         .stdin(Stdio::piped())
                         .spawn();
                     if let Ok(ref mut child) = child {
@@ -785,8 +788,6 @@ fn main() {
                         .expect("failed to pipe cheatsheet into viewer")
                         .wait()
                         .expect("failed to wait for the execution of cheatsheet_viewer");
-
-                    let _ = rl.clear_screen();
                     loop_switch = true;
                 // Condition 3: when no module is matched, run the default module
                 } else {
