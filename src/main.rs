@@ -216,6 +216,8 @@ impl Hinter for OtterHelper {
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
         let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
         let place_holder = cached_statics(&PLACE_HOLDER, "type and search...".to_string());
+        let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, "?".to_string());
+        let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
 
         if suggestion_mode == "hint" {
             if line.is_empty() {
@@ -224,6 +226,19 @@ impl Hinter for OtterHelper {
                     completion: 0,
                     w_arg: None,
                 })
+            } else if line == cheatsheet_entry {
+                Some(
+                    ModuleHint {
+                        display: format!(
+                            "{} {}{}",
+                            cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
+                        )
+                        .to_string(),
+                        completion: pos,
+                        w_arg: None,
+                    }
+                    .suffix(pos),
+                )
             } else {
                 Some(
                     self.hints
@@ -299,9 +314,6 @@ impl Hinter for OtterHelper {
                     .suffix(pos),
                 )
             } else {
-                let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, "?".to_string());
-                let indicator_no_arg_module =
-                    cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
                 // if something is typed
                 Some(
                     ModuleHint {
@@ -608,6 +620,29 @@ fn main() {
         CONFIG.interface.hint_color.clone(),
         "\x1b[30m".to_string(),
     );
+
+    // rustyline editor setup
+    let mut rl: Editor<OtterHelper, DefaultHistory> = Editor::new().unwrap();
+    // set OtterHelper as hint and completion provider
+    rl.set_helper(Some(OtterHelper {
+        hints: map_hints().expect("failed to provide hints"),
+    }));
+    // set tab as completion trigger
+    rl.bind_sequence(
+        KeyEvent::new('\t', Modifiers::NONE),
+        EventHandler::Simple(Cmd::CompleteHint),
+    );
+    // check if vi_mode is on
+    if cached_statics(&VI_MODE, false) {
+        rl.set_edit_mode(EditMode::Vi)
+    };
+    // check if esc_to_abort is on
+    if cached_statics(&ESC_TO_ABORT, true) {
+        rl.bind_sequence(
+            KeyEvent::new('\x1b', Modifiers::NONE),
+            EventHandler::Simple(Cmd::Interrupt),
+        );
+    }
     loop {
         // print header
         let header_cmd = cached_statics(&HEADER_CMD, "".to_string());
@@ -639,33 +674,6 @@ fn main() {
                 eprintln!("Header_cmd failed with status: {}", output.status);
             }
         }
-
-        // set up a flow switches
-        let mut loop_switch = cached_statics(&LOOP_MODE, false);
-        let clear_switch = cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, true);
-
-        // read prompt using rustyline
-        let mut rl: Editor<OtterHelper, DefaultHistory> = Editor::new().unwrap();
-        // set OtterHelper as hint and completion provider
-        rl.set_helper(Some(OtterHelper {
-            hints: map_hints().expect("failed to provide hints"),
-        }));
-        // set tab as completion trigger
-        rl.bind_sequence(
-            KeyEvent::new('\t', Modifiers::NONE),
-            EventHandler::Simple(Cmd::CompleteHint),
-        );
-        // check if vi_mode is on
-        if cached_statics(&VI_MODE, false) {
-            rl.set_edit_mode(EditMode::Vi)
-        };
-        // check if esc_to_abort is on
-        if cached_statics(&ESC_TO_ABORT, true) {
-            rl.bind_sequence(
-                KeyEvent::new('\x1b', Modifiers::NONE),
-                EventHandler::Simple(Cmd::Interrupt),
-            );
-        }
         // run rustyline with configured header
         let prompt = rl.readline(&cached_statics(&HEADER, "".to_string()));
         match prompt {
@@ -676,16 +684,21 @@ fn main() {
         }
         let prompt = prompt.expect("failed to read prompt");
 
+        // flow switches setup
+        let mut loop_switch = cached_statics(&LOOP_MODE, false);
+        let clear_switch = cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, true);
+
+        // clear screen if clear_screen_after_execution is on
+        if clear_switch {
+            let _ = rl.clear_screen();
+        }
+
         // matching the prompted prefix with module prefixes to decide what to do
         let prompted_prfx = prompt.split_whitespace().next().unwrap_or("");
         let module_prfx = CONFIG
             .modules
             .iter()
             .find(|module| remove_ascii(&module.prefix) == prompted_prfx);
-
-        if clear_switch {
-            let _ = rl.clear_screen();
-        }
 
         match module_prfx {
             // if user input starts with some module prefixes

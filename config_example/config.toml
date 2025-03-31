@@ -26,7 +26,7 @@ empty_module = "app" # run with an empty prompt
 exec_cmd = "sh -c" # The exec command of your shell, default to sh
 # for example: "bach -c" for bash; "zsh -c" for zsh. This can also runs wm exec commands, like hyprctl dispatch exec
 vi_mode = false # set true to use vi keybinds, false to use emacs keybinds; default to emacs
-esc_to_abort = true # allow to quit pressing esc; a useful option for vi users
+esc_to_abort = true # allow to quit with esc keypress; a useful option for vi users
 cheatsheet_entry = "?" # when entered, otter-launcher will show a list of configured modules
 cheatsheet_viewer = "less -R; clear" # the program that otter-launcher will pipe cheatsheet into
 clear_screen_after_execution = false # useful when chafa image flash back after module execution
