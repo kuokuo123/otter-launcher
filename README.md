@@ -1,10 +1,8 @@
 # otter-launcher
 
-![Foot Config](./assets/foot.png)
+![Chafa-text Config](./assets/chafa-text.png)
 
-A very extensible app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
-
-[Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
+A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
 The core concept is making these behaviours possible:
 
@@ -217,6 +215,8 @@ place_holder_color = "\u001B[30m"
 
 ![Foot Config](./assets/foot.png)
 
+[Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
+
 ```
 [interface]
 header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/waterways_and_otterways.jpg; echo -e \"   \u001B[34m  >\u001B[0m $USER@$HOSTNAME              \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\""
@@ -232,6 +232,29 @@ suggestion_mode = "list"
 suggestion_lines = 3
 prefix_padding = 3
 description_color = "\u001B[38m"
+place_holder_color = "\u001B[90m"
+hint_color = "\u001B[90m"
+```
+
+## Chafa Image to the Left
+
+![Chafa-text Config](./assets/chafa-text.png)
+
+This config utilize a hackable [bash script](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-text.sh) to display an [image of shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp) and format the layout. Otter-launcher call the script in header_cmd with a line containing system info widges printed beneath the script output.
+
+
+```
+[interface]
+header_cmd = """
+$HOME/.config/otter-launcher/scripts/chafa-text.sh;
+echo -e \"\n    \u001B[31;1m#\u001B[0m $USER@$HOSTNAME           \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\"
+"""
+header_cmd_trimmed_lines = 0
+header = """    \u001B[31;1m>\u001B[0;1m """
+indicator_with_arg_module = "^ "
+indicator_no_arg_module = "$ "
+place_holder = "type and search..."
+suggestion_mode = "hint"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
