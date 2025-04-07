@@ -240,7 +240,7 @@ hint_color = "\u001B[90m"
 
 ![Chafa-text Config](./assets/chafa-text.png)
 
-This config utilize a hackable [bash script](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-text.sh) to display an [image of shocked otters](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp) and format the layout. Otter-launcher call the script in header_cmd with a line containing system info widges printed beneath the script output.
+This config uses a hackable [bash script](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-text.sh) to display an [image of shocked otters](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp) and format the layout. Otter-launcher call the script in header_cmd with a line containing system info widges printed beneath the script output.
 
 
 ```
@@ -255,6 +255,8 @@ indicator_with_arg_module = "^ "
 indicator_no_arg_module = "$ "
 place_holder = "type and search..."
 suggestion_mode = "hint"
+prefix_color = "\u001B[33m"
+description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```

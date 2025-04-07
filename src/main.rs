@@ -686,7 +686,7 @@ fn main() {
 
         // flow switches setup
         let mut loop_switch = cached_statics(&LOOP_MODE, false);
-        let clear_switch = cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, true);
+        let clear_switch = cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, false);
 
         // clear screen if clear_screen_after_execution is on
         if clear_switch {
