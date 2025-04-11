@@ -75,6 +75,7 @@ struct Interface {
     header: Option<String>,
     header_cmd: Option<String>,
     header_cmd_trimmed_lines: Option<usize>,
+    header_concatenate: Option<bool>,
     list_prefix: Option<String>,
     place_holder: Option<String>,
     default_module_message: Option<String>,
@@ -128,6 +129,7 @@ static ESC_TO_ABORT: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static CLEAR_SCREEN_AFTER_EXECUTION: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static HEADER_CMD_TRIMMED_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static HEADER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static HEADER_CONCATENATE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static EXEC_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static DEFAULT_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static EMPTY_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
@@ -256,7 +258,15 @@ impl Hinter for OtterHelper {
                                 None
                             }
                         })
-                        .next()?,
+                        .next()
+                        .unwrap_or(
+                            ModuleHint {
+                                display: "\x1b[0m".to_string(),
+                                completion: 0,
+                                w_arg: None,
+                            }
+                            .suffix(0),
+                        ),
                 )
             }
         } else {
@@ -326,7 +336,7 @@ impl Hinter for OtterHelper {
                         } else if agg_line.is_empty() {
                             // check if default module message is set
                             if d_module.is_empty() {
-                                "".to_string()
+                                "\x1b[0m".to_string()
                             } else {
                                 format!("{}{}", s_spacing, d_module)
                             }
@@ -563,6 +573,11 @@ fn main() {
         "\x1b[34;1m \x1b[0m otter-launcher \x1b[34;1m>\x1b[0;1m ".to_string(),
     );
     init_statics(
+        &HEADER_CONCATENATE,
+        CONFIG.interface.header_concatenate,
+        false,
+    );
+    init_statics(
         &LIST_PREFIX,
         CONFIG.interface.list_prefix.clone(),
         "".to_string(),
@@ -646,36 +661,39 @@ fn main() {
     loop {
         // print header
         let header_cmd = cached_statics(&HEADER_CMD, "".to_string());
-        if !header_cmd.is_empty() {
-            // format exec_cmd
-            let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
-            let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-            let mut shell_cmd = Command::new(cmd_parts[0]);
-            for arg in &cmd_parts[1..] {
-                shell_cmd.arg(arg);
-            }
-            // run header_cmd and pipe the output
-            let output = shell_cmd
-                .arg(header_cmd)
-                .output()
-                .expect("Failed to launch header command...");
-            if output.status.success() {
-                // trime stdout according to toml config
-                let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, 0);
-                let stdout = from_utf8(&output.stdout).unwrap();
-                let lines: Vec<&str> = stdout.lines().collect();
-                if lines.len() > remove_lines_count {
-                    let remaining_lines = &lines[..lines.len() - remove_lines_count];
-                    println!("{}\x1b[?25h", remaining_lines.join("\n"));
-                } else {
-                    println!("not enough lines of header_cmd output to be trimmed");
-                }
-            } else {
-                eprintln!("Header_cmd failed with status: {}", output.status);
-            }
+        // format exec_cmd
+        let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+        let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+        let mut shell_cmd = Command::new(cmd_parts[0]);
+        for arg in &cmd_parts[1..] {
+            shell_cmd.arg(arg);
         }
+        // run header_cmd and pipe the output
+        let output = shell_cmd
+            .arg(header_cmd)
+            .output()
+            .expect("Failed to launch header command...");
+        // trim stdout according to toml config
+        let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, 0);
+        let stdout = from_utf8(&output.stdout).unwrap();
+        let lines: Vec<&str> = stdout.lines().collect();
+        let remaining_lines = if lines.len() >= remove_lines_count {
+            &lines[..lines.len() - remove_lines_count].join("\x1b[?25h\n")
+        } else {
+            &"not enough lines of header_cmd output to be trimmed".to_string()
+        };
+        let concatenated_header = format!(
+            "{}{}{}",
+            remaining_lines,
+            if cached_statics(&HEADER_CONCATENATE, false) {
+                ""
+            } else {
+                "\n"
+            },
+            cached_statics(&HEADER, "".to_string())
+        );
         // run rustyline with configured header
-        let prompt = rl.readline(&cached_statics(&HEADER, "".to_string()));
+        let prompt = rl.readline(&concatenated_header);
         match prompt {
             Ok(_) => {}
             Err(_) => {
