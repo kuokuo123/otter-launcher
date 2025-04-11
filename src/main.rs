@@ -690,7 +690,8 @@ fn main() {
 
         // clear screen if clear_screen_after_execution is on
         if clear_switch {
-            let _ = rl.clear_screen();
+            print!("\x1B[2J\x1B[1;1H");
+            std::io::stdout().flush().expect("failed to flush stdout");
         }
 
         // matching the prompted prefix with module prefixes to decide what to do
