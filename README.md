@@ -1,7 +1,6 @@
 # otter-launcher
 
 ![Chafa-text Config](./assets/chafa-text.png)
-![Prinny Config](./assets/prinny.png)
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
@@ -35,6 +34,8 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 - minimalist, blazingly fast, keyboard-centric
 
 # Installation
+
+![Prinny Config](./assets/prinny.png)
 
 ## Building from source
 
