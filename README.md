@@ -1,6 +1,7 @@
 # otter-launcher
 
 ![Chafa-text Config](./assets/chafa-text.png)
+![Prinny Config](./assets/prinny.png)
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
@@ -75,25 +76,20 @@ header_cmd = "" # Run a shell command and make the stdout printed above the head
 header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
 # use three quotes to write longer commands
 header = """
-  \u001B[32m
-  ░█▀█░▀█▀░▀█▀░█▀▀░█▀█░░░░░█░░░█▀█░█░█░█▀█░█▀▀░█░█
-  ░█░█░░█░░░█░░█▀▀░█▀▄░▀▀▀░█░░░█▀█░█░█░█░█░█░░░█▀█
-  ░▀▀▀░░▀░░░▀░░▀▀▀░▀░▀░░░░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀
-              ————————————————————————\u001B[0m
-   \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
+  \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 header_concatenate = false # print header and header_cmd output at the same line, default to false
-list_prefix = "      "
-place_holder = "type and search..."
+list_prefix = "     "
+place_holder = "type and search"
 default_module_message = "" # if set, the text will be shown when the default module is in use
 empty_module_message = "" # the text to show when empty module is in use
 suggestion_mode = "list" # available options: list, hint
-suggestion_lines = 3 # length of the suggestion list, set to 0 to disable suggestions and tab completion
+suggestion_lines = 1 # length of the suggestion list, set to 0 to disable suggestions and tab completion
 suggestion_spacing = 0 # spacing between input field and suggestions
-indicator_with_arg_module = "> " # a sign showing whether the module should run with an argument
-indicator_no_arg_module = "< "
+indicator_with_arg_module = "" # a sign showing whether the module should run with an argument
+indicator_no_arg_module = ""
 prefix_padding = 0 # format prefixes to have a unified width; prefixes will be padded with spaces to have a least specified number of chars
 # below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
-prefix_color = "\u001B[32m"
+prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m" # the color of hint mode suggestions
@@ -158,31 +154,9 @@ cmd = "setsid -f $TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r -I {}
 ```
 [interface]
 header = """
-  \u001B[32m
-  ░█▀█░▀█▀░▀█▀░█▀▀░█▀█░░░░░█░░░█▀█░█░█░█▀█░█▀▀░█░█
-  ░█░█░░█░░░█░░█▀▀░█▀▄░▀▀▀░█░░░█▀█░█░█░█░█░█░░░█▀█
-  ░▀▀▀░░▀░░░▀░░▀▀▀░▀░▀░░░░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀
-              ————————————————————————\u001B[0m
-   \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
-list_prefix = "      "
-place_holder = "type and search..."
-suggestion_mode = "list"
-suggestion_lines = 3
-prefix_color = "\u001B[32m"
-description_color = "\u001B[38m"
-place_holder_color = "\u001B[90m"
-```
-
-## Two-liner
-
-![One-liner Config](./assets/one-liner.png)
-
-```
-[interface]
-header = """
-   \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
-list_prefix = "   \u001B[31m #\u001B[0m "
-place_holder = "type and search..."
+  \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
+list_prefix = "     "
+place_holder = "type and search"
 suggestion_mode = "list"
 suggestion_lines = 1
 indicator_with_arg_module = ""

@@ -670,7 +670,7 @@ fn main() {
         }
         // run header_cmd and pipe the output
         let output = shell_cmd
-            .arg(header_cmd)
+            .arg(&header_cmd)
             .output()
             .expect("Failed to launch header command...");
         // trim stdout according to toml config
@@ -686,6 +686,8 @@ fn main() {
             "{}{}{}",
             remaining_lines,
             if cached_statics(&HEADER_CONCATENATE, false) {
+                ""
+            } else if header_cmd.is_empty() {
                 ""
             } else {
                 "\n"
@@ -708,7 +710,7 @@ fn main() {
 
         // clear screen if clear_screen_after_execution is on
         if clear_switch {
-            print!("\x1B[2J\x1B[1;1H");
+            print!("\x1B[2J");
             std::io::stdout().flush().expect("failed to flush stdout");
         }
 
