@@ -1,6 +1,6 @@
 # otter-launcher
 
-![Chafa-text Config](./assets/chafa-text.png)
+![Prinny Config](./assets/prinny.png)
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
@@ -34,8 +34,6 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 - minimalist, blazingly fast, keyboard-centric
 
 # Installation
-
-![Prinny Config](./assets/prinny.png)
 
 ## Building from source
 
@@ -173,16 +171,16 @@ place_holder_color = "\u001B[30m"
 
 ```
 [interface]
-header_cmd = "fastfetch --structure break:colors:break:os:wm:kernel:uptime:packages:memory:datetime:break --key-type icon --logo-type data --logo \"$(krabby name quilava --no-title)\""
+header_cmd = "fastfetch --structure break:break:colors:break:os:shell:wm:kernel:uptime:break --key-type icon --logo-type data --logo \"$(krabby name quilava --no-title)\""
 header_cmd_trimmed_lines = 1
-header = " \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m "
-list_prefix = "    "
-place_holder = "type and search..."
+header = "  \u001B[31m󰐝\u001B[0m  search \u001B[31m>\u001B[0m "
+list_prefix = "     "
+place_holder = "type the keyword"
 suggestion_mode = "list"
 suggestion_lines = 1
 indicator_with_arg_module = ""
 indicator_no_arg_module = ""
-prefix_color = "\u001B[32m"
+prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
 ```
@@ -195,24 +193,27 @@ place_holder_color = "\u001B[30m"
 
 ```
 [interface]
-header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/waterways_and_otterways.jpg; echo -e \"   \u001B[34m  >\u001B[0m $USER@$HOSTNAME              \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\""
+header_cmd = """
+chafa --fit-width $HOME/.config/otter-launcher/waterways_and_otterways.jpg;
+echo -e "   \u001B[34m  >\u001B[0m $USER@$HOSTNAME         \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
+"""
 header_cmd_trimmed_lines = 0
 header = """      \u001B[34;1m>\u001B[0;1m """
 list_prefix = "        "
 place_holder = "type and search..."
-indicator_with_arg_module = "\u001B[31m#>\u001B[0m "
-indicator_no_arg_module = "\u001B[31m#!\u001B[0m "
+indicator_with_arg_module = "\u001B[31m^\u001B[0m "
+indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 default_module_message = """
-        \u001B[35msearch\u001B[0m on the internet"""
+        \u001B[35msearch\u001B[0m the internet"""
 suggestion_mode = "list"
 suggestion_lines = 3
 prefix_padding = 3
+prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
-hint_color = "\u001B[90m"
 ```
 
-## Chafa Image to the Left
+## Image to the Left
 
 ![Chafa-text Config](./assets/chafa-text.png)
 
@@ -235,6 +236,32 @@ prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
+```
+
+## Image to the Right
+
+![Prinny Config](./assets/prinny.png)
+
+This config uses [chafa-penguin.sh](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-text.sh) to render a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png).
+
+```
+[interface]
+header_cmd = """
+$HOME/.config/otter-launcher/scripts/chafa-penguin.sh;
+"""
+header = "    │ \u001B[90m\u001B[0m  "
+indicator_with_arg_module = ""
+indicator_no_arg_module = ""
+place_holder = "type & search"
+suggestion_mode = "list"
+suggestion_lines = 1
+list_prefix = "    └ \u001B[34m󱓞  "
+prefix_padding = 0
+default_module_message = "    └ \u001B[34m󱓞  \u001B[33msearch\u001B[0m the internet"
+prefix_color = "\u001B[33m"
+description_color = "\u001B[38m"
+place_holder_color = "\u001B[90m"
+
 ```
 
 # Integration
