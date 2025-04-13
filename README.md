@@ -1,5 +1,7 @@
 # otter-launcher
 
+![Chafa-text Config](./assets/chafa-text.png)
+
 ![Prinny Config](./assets/prinny.png)
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
@@ -152,8 +154,7 @@ cmd = "setsid -f $TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r -I {}
 
 ```
 [interface]
-header = """
-  \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
+header = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m "
 list_prefix = "     "
 place_holder = "type and search"
 suggestion_mode = "list"
@@ -198,7 +199,7 @@ chafa --fit-width $HOME/.config/otter-launcher/waterways_and_otterways.jpg;
 echo -e "   \u001B[34m  >\u001B[0m $USER@$HOSTNAME         \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
 """
 header_cmd_trimmed_lines = 0
-header = """      \u001B[34;1m>\u001B[0;1m """
+header = "      \u001B[34;1m>\u001B[0;1m "
 list_prefix = "        "
 place_holder = "type and search..."
 indicator_with_arg_module = "\u001B[31m^\u001B[0m "
@@ -227,7 +228,7 @@ $HOME/.config/otter-launcher/scripts/chafa-text.sh;
 echo -e "\n    \u001B[31;1m#\u001B[0m $USER@$HOSTNAME           \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
 """
 header_cmd_trimmed_lines = 0
-header = """    \u001B[31;1m>\u001B[0;1m """
+header = "    \u001B[31;1m>\u001B[0;1m "
 indicator_with_arg_module = "^ "
 indicator_no_arg_module = "$ "
 place_holder = "type and search..."
