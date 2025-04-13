@@ -685,9 +685,7 @@ fn main() {
         let concatenated_header = format!(
             "{}{}{}",
             remaining_lines,
-            if cached_statics(&HEADER_CONCATENATE, false) {
-                ""
-            } else if header_cmd.is_empty() {
+            if cached_statics(&HEADER_CONCATENATE, false) || header_cmd.is_empty() {
                 ""
             } else {
                 "\n"
