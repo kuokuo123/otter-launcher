@@ -242,7 +242,7 @@ hint_color = "\u001B[90m"
 
 ![Prinny Config](./assets/prinny.png)
 
-This config uses [chafa-penguin.sh](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-text.sh) to render a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png).
+This config uses [chafa-penguin.sh](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-penguin.sh) to render a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png).
 
 ```
 [interface]
