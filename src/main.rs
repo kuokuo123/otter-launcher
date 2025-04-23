@@ -708,7 +708,7 @@ fn main() {
 
         // clear screen if clear_screen_after_execution is on
         if clear_switch {
-            print!("\x1B[2J");
+            print!("\x1B[2J\x1B[1;1H");
             std::io::stdout().flush().expect("failed to flush stdout");
         }
 
