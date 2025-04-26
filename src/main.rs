@@ -144,7 +144,9 @@ static SUGGESTION_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(No
 static SUGGESTION_SPACING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static PREFIX_PADDING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static SELECTION_INDEX: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
-static SELECTION_SPAN: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(10));
+static SELECTION_SPAN: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
+static HINT_SPAN: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
+static HINT_BENCHMARK: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 static LIST_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static SELECTION_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static PREFIX_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
@@ -186,8 +188,7 @@ impl Highlighter for OtterHelper {
         let mut selection_index = SELECTION_INDEX.lock().unwrap();
         let mut selection_span = SELECTION_SPAN.lock().unwrap();
 
-        *selection_span = hint.lines().count() - 1;
-
+        *selection_span = cached_statics(&SUGGESTION_LINES, 0);
         if *selection_index > *selection_span {
             *selection_index = *selection_span
         }
@@ -256,6 +257,10 @@ impl Hinter for OtterHelper {
         let place_holder = cached_statics(&PLACE_HOLDER, "type and search...".to_string());
         let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, "?".to_string());
         let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 1);
+        let hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        let mut hint_span = HINT_SPAN.lock().unwrap();
+        *hint_span = self.hints.len();
 
         if suggestion_mode == "hint" {
             if line.is_empty() {
@@ -306,7 +311,7 @@ impl Hinter for OtterHelper {
                 )
             }
         } else {
-            let aggregated_hint_lines = self
+            let agg_line = self
                 .hints
                 .iter()
                 .filter_map(|i| {
@@ -326,10 +331,11 @@ impl Hinter for OtterHelper {
                         None
                     }
                 })
-                .take(cached_statics(&SUGGESTION_LINES, 1))
-                .collect::<Vec<&str>>();
+                .skip(*hint_benchmark)
+                .take(suggestion_lines)
+                .collect::<Vec<&str>>()
+                .join("\n");
 
-            let agg_line = aggregated_hint_lines.join("\n");
             let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
             let s_spacing = "\n".repeat(cached_statics(&SUGGESTION_SPACING, 0) + 1);
@@ -528,9 +534,22 @@ impl ConditionalEventHandler for ListItemUp {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let mut num = SELECTION_INDEX.lock().unwrap();
-        if *num > 0 {
-            *num -= 1;
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+        let selection_span = SELECTION_SPAN.lock().unwrap();
+        let hint_span = HINT_SPAN.lock().unwrap();
+        let mut selection_index = SELECTION_INDEX.lock().unwrap();
+        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        if *selection_index > 1 {
+            *selection_index -= 1;
+        } else if *selection_index == 1 {
+            if *hint_benchmark == 0 {
+                *selection_index = 0;
+            } else {
+                *hint_benchmark -= 1;
+            }
+        } else if *selection_index == 0 && *hint_benchmark < 1 {
+            *hint_benchmark = *hint_span - suggestion_lines;
+            *selection_index = *selection_span;
         }
         Some(Cmd::Repaint)
     }
@@ -546,9 +565,19 @@ impl ConditionalEventHandler for ListItemDown {
         _ctx: &EventContext,
     ) -> Option<Cmd> {
         let selection_span = SELECTION_SPAN.lock().unwrap();
-        let mut num = SELECTION_INDEX.lock().unwrap();
-        if *num < *selection_span {
-            *num += 1;
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+        let hint_span = HINT_SPAN.lock().unwrap();
+        let mut selection_index = SELECTION_INDEX.lock().unwrap();
+        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        if *selection_index < *selection_span {
+            *selection_index += 1;
+        } else if *selection_index == *selection_span {
+            if *hint_benchmark < *hint_span - suggestion_lines {
+                *hint_benchmark += 1;
+            } else {
+                *hint_benchmark = 0;
+                *selection_index = 0;
+            }
         }
         Some(Cmd::Repaint)
     }
