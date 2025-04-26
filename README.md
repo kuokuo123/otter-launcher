@@ -26,13 +26,14 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 - vi and emacs keybinds
 - tab completion
 - two suggestion modes: list & hint
+- edit prompt in an external editor (vim, emacs, etc.)
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
 - supporting ascii color codes, chafa, sixel or kitty image protocol, etc.
 - loop mode
 - cheat sheet for configured modules
 - able to show any sys info (by scripting interface.header_cmd)
-- callback function (per-module callback and prehook can also be scripted in module.cmd )
+- callback function (per-module callback can be scripted in module.cmd )
 - minimalist, blazingly fast, keyboard-centric
 
 # Installation
@@ -81,6 +82,7 @@ header = """
   \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
 header_concatenate = false # print header and header_cmd output at the same line, default to false
 list_prefix = "     "
+selection_prefix = "   > "
 place_holder = "type and search"
 default_module_message = "" # if set, the text will be shown when the default module is in use
 empty_module_message = "" # the text to show when empty module is in use

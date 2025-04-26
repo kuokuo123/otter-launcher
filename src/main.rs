@@ -30,7 +30,7 @@ use rustyline::{
     highlight::Highlighter,
     hint::{Hint, Hinter},
     history::DefaultHistory,
-    Cmd, Context, EditMode, Editor, EventHandler, KeyEvent, Modifiers,
+    Cmd, Context, EditMode, Editor, EventHandler, KeyCode, KeyEvent, Modifiers, Movement,
 };
 use rustyline::{ConditionalEventHandler, Event, EventContext, RepeatCount};
 use rustyline_derive::{Completer, Helper, Validator};
@@ -80,6 +80,7 @@ struct Interface {
     header_cmd_trimmed_lines: Option<usize>,
     header_concatenate: Option<bool>,
     list_prefix: Option<String>,
+    selection_prefix: Option<String>,
     place_holder: Option<String>,
     default_module_message: Option<String>,
     empty_module_message: Option<String>,
@@ -142,7 +143,10 @@ static DEFAULT_MODULE_MESSAGE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex:
 static SUGGESTION_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static SUGGESTION_SPACING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static PREFIX_PADDING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+static SELECTION_INDEX: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
+static SELECTION_SPAN: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(10));
 static LIST_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static SELECTION_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static PREFIX_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static DESCRIPTION_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static PLACE_HOLDER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
@@ -174,15 +178,44 @@ impl Highlighter for OtterHelper {
         let place_holder = cached_statics(&PLACE_HOLDER, "type and search...".to_string());
         let place_holder_color = cached_statics(&PLACE_HOLDER_COLOR, "\x1b[30m".to_string());
         let hint_color = cached_statics(&HINT_COLOR, "\x1b[30m".to_string());
+        let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
+        let list_prefix = cached_statics(&LIST_PREFIX, "".to_string());
+        let selection_prefix = cached_statics(&SELECTION_PREFIX, ">".to_string());
+        let prefix_color = cached_statics(&PREFIX_COLOR, "".to_string());
+        let prefix_width = cached_statics(&PREFIX_PADDING, 0);
+        let mut selection_index = SELECTION_INDEX.lock().unwrap();
+        let mut selection_span = SELECTION_SPAN.lock().unwrap();
 
-        if cached_statics(&SUGGESTION_MODE, "list".to_string()) == "hint" {
+        *selection_span = hint.lines().count() - 1;
+
+        if *selection_index > *selection_span {
+            *selection_index = *selection_span
+        }
+
+        if suggestion_mode == "hint" {
             format!("{}{}{}{}", "\x1b[0m", hint_color, hint, "\x1b[0m").into()
         } else {
-            let list_prefix = cached_statics(&LIST_PREFIX, "".to_string());
-            let prefix_color = cached_statics(&PREFIX_COLOR, "".to_string());
+            // if suggestion_mode is list
             hint.lines()
-                .map(|line| {
-                    if line == place_holder {
+                .enumerate()
+                .map(|(index, line)| {
+                    if index == *selection_index && *selection_index > 0 {
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        if parts.len() >= 2 {
+                            format!(
+                                "{}{}{:prefix_width$}{} {}{}{}",
+                                selection_prefix,
+                                prefix_color,
+                                parts[0],
+                                "\x1b[0m",
+                                description_color,
+                                parts[1..].join(" "),
+                                "\x1b[0m"
+                            )
+                        } else {
+                            line.to_string()
+                        }
+                    } else if line == place_holder {
                         format!("{}{}{}", place_holder_color, place_holder, "\x1b[0m")
                     } else if (default_module_message.contains(line)
                         || empty_module_message.contains(line))
@@ -191,10 +224,9 @@ impl Highlighter for OtterHelper {
                         line.to_string()
                     } else {
                         let parts: Vec<&str> = line.split_whitespace().collect();
-                        let width = cached_statics(&PREFIX_PADDING, 0);
                         if parts.len() >= 2 {
                             format!(
-                                "{}{}{:width$}{} {}{}{}",
+                                "{}{}{:prefix_width$}{} {}{}{}",
                                 list_prefix,
                                 prefix_color,
                                 parts[0],
@@ -391,14 +423,40 @@ impl Hint for ModuleHint {
     }
     //Text to insert in line when tab or right arrow is pressed
     fn completion(&self) -> Option<&str> {
-        let prfx = self
-            .display
-            .trim_start_matches("\n")
-            .trim_start_matches(&cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string()))
-            .split_whitespace()
-            .next()
-            .unwrap_or("");
-        if prfx.len() > self.completion && self.completion > 0 {
+        let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
+        let mut selection_index = SELECTION_INDEX.lock().unwrap();
+        // set up the prefix to be completed from presented hints based on current suggestion mode
+        let prfx = if suggestion_mode == "hint" && self.completion == 0 {
+            ""
+        } else if !remove_ascii(&self.display).contains(&remove_ascii(&cached_statics(
+            &DEFAULT_MODULE_MESSAGE,
+            "".to_string(),
+        ))) {
+            if *selection_index == 0 && suggestion_mode != "hint" {
+                self.display
+                    .lines()
+                    .nth(1)
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+            } else {
+                self.display
+                    .lines()
+                    .nth(*selection_index)
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+            }
+        } else {
+            ""
+        };
+
+        // reset selection index when completing
+        *selection_index = 0;
+
+        if prfx.len() > self.completion {
             Some(&prfx[self.completion..])
         } else {
             None
@@ -406,9 +464,8 @@ impl Hint for ModuleHint {
     }
 }
 
-// functions to run external editor on keypress
+// functions for keybindings
 struct ExternalEditor;
-
 impl ConditionalEventHandler for ExternalEditor {
     fn handle(
         &self,
@@ -448,7 +505,7 @@ impl ConditionalEventHandler for ExternalEditor {
                 .status();
 
             Some(Cmd::Replace(
-                rustyline::Movement::WholeLine,
+                Movement::WholeLine,
                 Some(
                     fs::read_to_string(&file_path)
                         .unwrap()
@@ -458,6 +515,58 @@ impl ConditionalEventHandler for ExternalEditor {
             ))
         } else {
             None
+        }
+    }
+}
+
+struct ListItemUp;
+impl ConditionalEventHandler for ListItemUp {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        let mut num = SELECTION_INDEX.lock().unwrap();
+        if *num > 0 {
+            *num -= 1;
+        }
+        Some(Cmd::Repaint)
+    }
+}
+
+struct ListItemDown;
+impl ConditionalEventHandler for ListItemDown {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        let selection_span = SELECTION_SPAN.lock().unwrap();
+        let mut num = SELECTION_INDEX.lock().unwrap();
+        if *num < *selection_span {
+            *num += 1;
+        }
+        Some(Cmd::Repaint)
+    }
+}
+
+struct ListItemSelect;
+impl ConditionalEventHandler for ListItemSelect {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if *SELECTION_INDEX.lock().unwrap() == 0 {
+            Some(Cmd::AcceptLine)
+        } else {
+            Some(Cmd::CompleteHint)
         }
     }
 }
@@ -648,6 +757,11 @@ fn main() {
         "".to_string(),
     );
     init_statics(
+        &SELECTION_PREFIX,
+        CONFIG.interface.selection_prefix.clone(),
+        ">".to_string(),
+    );
+    init_statics(
         &PLACE_HOLDER,
         CONFIG.interface.place_holder.clone(),
         "type and search".to_string(),
@@ -702,6 +816,7 @@ fn main() {
     );
 
     // rustyline editor setup
+    *SELECTION_INDEX.lock().unwrap() = 0;
     let mut rl: Editor<OtterHelper, DefaultHistory> = Editor::new().unwrap();
     // set OtterHelper as hint and completion provider
     rl.set_helper(Some(OtterHelper {
@@ -711,6 +826,43 @@ fn main() {
     rl.bind_sequence(
         KeyEvent::new('\t', Modifiers::NONE),
         EventHandler::Simple(Cmd::CompleteHint),
+    );
+    // set keybinds for list item selection
+    rl.bind_sequence(
+        KeyEvent::new('\r', Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListItemSelect)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('\r', Modifiers::CTRL),
+        EventHandler::Simple(Cmd::AcceptLine),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('j', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListItemDown)),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::Down, Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListItemDown)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('k', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListItemUp)),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::Up, Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListItemUp)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('l', Modifiers::CTRL),
+        EventHandler::Simple(Cmd::CompleteHint),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::Right, Modifiers::NONE),
+        EventHandler::Simple(Cmd::CompleteHint),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::Left, Modifiers::NONE),
+        EventHandler::Simple(Cmd::Kill(Movement::BackwardChar(1))),
     );
     // check if vi_mode is on
     if cached_statics(&VI_MODE, false) {
