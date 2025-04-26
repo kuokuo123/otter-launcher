@@ -68,6 +68,7 @@ cheatsheet_entry = "?" # when entered, otter-launcher will show a list of config
 cheatsheet_viewer = "less -R; clear" # the program that otter-launcher will pipe cheatsheet into
 clear_screen_after_execution = false # useful when chafa image flash back after module execution
 loop_mode = false # in loop mode, otter-launcher won't quit after running a module, useful when using scratchpad
+external_editor = "" # if set, pressing ctrl+e (or pressing v in vi normal mode) will edit the input field in the specified program; default to no external editor
 #callback = "" # if set, otter-launcher will run the command after a module is executed; for example, it can call swaymsg to adjust window size
 
 

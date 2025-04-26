@@ -32,8 +32,10 @@ use rustyline::{
     history::DefaultHistory,
     Cmd, Context, EditMode, Editor, EventHandler, KeyEvent, Modifiers,
 };
+use rustyline::{ConditionalEventHandler, Event, EventContext, RepeatCount};
 use rustyline_derive::{Completer, Helper, Validator};
 use serde::Deserialize;
+use std::fs::{self, OpenOptions};
 use std::{
     borrow::Cow,
     env,
@@ -68,6 +70,7 @@ struct General {
     clear_screen_after_execution: Option<bool>,
     loop_mode: Option<bool>,
     callback: Option<String>,
+    external_editor: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -124,6 +127,7 @@ static LOOP_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static CALLBACK: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static CHEATSHEET_ENTRY: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static CHEATSHEET_VIEWER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static EXTERNAL_EDITOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static VI_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static ESC_TO_ABORT: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static CLEAR_SCREEN_AFTER_EXECUTION: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
@@ -402,6 +406,62 @@ impl Hint for ModuleHint {
     }
 }
 
+// functions to run external editor on keypress
+struct ExternalEditor;
+
+impl ConditionalEventHandler for ExternalEditor {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+            || ctx.mode() == rustyline::EditMode::Emacs
+        {
+            let editor = cached_statics(&EXTERNAL_EDITOR, "".to_string());
+            let mut file_path = env::temp_dir();
+            file_path.push("otter-launcher");
+            // Write the current line into the temporary file
+            {
+                let file = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&file_path);
+
+                write!(file.expect("cannot write to temp file"), "{}", ctx.line())
+                    .expect("failed when writing to the temp file");
+            }
+
+            let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+            let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+            let mut shell_cmd = Command::new(cmd_parts[0]);
+            for arg in &cmd_parts[1..] {
+                shell_cmd.arg(arg);
+            }
+
+            let _ = shell_cmd
+                .arg(format!("{} {}", editor, &file_path.display().to_string()))
+                .status();
+
+            Some(Cmd::Replace(
+                rustyline::Movement::WholeLine,
+                Some(
+                    fs::read_to_string(&file_path)
+                        .unwrap()
+                        .trim_end()
+                        .to_string(),
+                ),
+            ))
+        } else {
+            None
+        }
+    }
+}
+
 // function to format vec<hints> according to configured modules, and to provide them to hinter
 fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
     let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, "".to_string());
@@ -529,6 +589,11 @@ fn main() {
         "sh -c".to_string(),
     );
     init_statics(
+        &EXTERNAL_EDITOR,
+        CONFIG.general.external_editor.clone(),
+        "".to_string(),
+    );
+    init_statics(
         &DEFAULT_MODULE,
         CONFIG.general.default_module.clone(),
         "".to_string(),
@@ -649,7 +714,18 @@ fn main() {
     );
     // check if vi_mode is on
     if cached_statics(&VI_MODE, false) {
-        rl.set_edit_mode(EditMode::Vi)
+        rl.set_edit_mode(EditMode::Vi);
+        if !cached_statics(&EXTERNAL_EDITOR, "".to_string()).is_empty() {
+            rl.bind_sequence(
+                KeyEvent::new('v', Modifiers::NONE),
+                EventHandler::Conditional(Box::from(ExternalEditor)),
+            );
+        }
+    } else if !cached_statics(&EXTERNAL_EDITOR, "".to_string()).is_empty() {
+        rl.bind_sequence(
+            KeyEvent::new('e', Modifiers::CTRL),
+            EventHandler::Conditional(Box::from(ExternalEditor)),
+        );
     };
     // check if esc_to_abort is on
     if cached_statics(&ESC_TO_ABORT, true) {
