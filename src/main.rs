@@ -597,6 +597,49 @@ impl ConditionalEventHandler for ListItemSelect {
     }
 }
 
+struct ListPageDown;
+impl ConditionalEventHandler for ListPageDown {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        let hint_span = HINT_SPAN.lock().unwrap();
+        if *hint_span - suggestion_lines > *hint_benchmark {
+            *hint_benchmark += suggestion_lines;
+        } else {
+            *hint_benchmark = *hint_span - suggestion_lines;
+            *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+        }
+        Some(Cmd::Repaint)
+    }
+}
+
+struct ListPageUp;
+impl ConditionalEventHandler for ListPageUp {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        if *hint_benchmark >= suggestion_lines {
+            *hint_benchmark -= suggestion_lines;
+        } else if suggestion_lines >= *hint_benchmark {
+            *hint_benchmark = 0;
+            *SELECTION_INDEX.lock().unwrap() = 0;
+        }
+        Some(Cmd::Repaint)
+    }
+}
+
 // function to format vec<hints> according to configured modules, and to provide them to hinter
 fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
     let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, "".to_string());
@@ -877,6 +920,22 @@ fn main() {
     rl.bind_sequence(
         KeyEvent(KeyCode::Up, Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListItemUp)),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::PageDown, Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListPageDown)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('f', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListPageDown)),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::PageUp, Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListPageUp)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('b', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListPageUp)),
     );
     rl.bind_sequence(
         KeyEvent::new('l', Modifiers::CTRL),
