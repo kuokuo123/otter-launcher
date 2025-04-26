@@ -430,33 +430,30 @@ impl Hint for ModuleHint {
     //Text to insert in line when tab or right arrow is pressed
     fn completion(&self) -> Option<&str> {
         let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
+        let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
         let mut selection_index = SELECTION_INDEX.lock().unwrap();
         // set up the prefix to be completed from presented hints based on current suggestion mode
-        let prfx = if suggestion_mode == "hint" && self.completion == 0 {
+        let prfx = if suggestion_mode == "hint" && self.completion == 0
+            || remove_ascii(&self.display).contains(&remove_ascii(&default_module_message))
+                && !default_module_message.is_empty()
+        {
             ""
-        } else if !remove_ascii(&self.display).contains(&remove_ascii(&cached_statics(
-            &DEFAULT_MODULE_MESSAGE,
-            "".to_string(),
-        ))) {
-            if *selection_index == 0 && suggestion_mode != "hint" {
-                self.display
-                    .lines()
-                    .nth(1)
-                    .unwrap_or("")
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-            } else {
-                self.display
-                    .lines()
-                    .nth(*selection_index)
-                    .unwrap_or("")
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-            }
+        } else if *selection_index == 0 && suggestion_mode != "hint" {
+            self.display
+                .lines()
+                .nth(1)
+                .unwrap_or("")
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
         } else {
-            ""
+            self.display
+                .lines()
+                .nth(*selection_index)
+                .unwrap_or("")
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
         };
 
         // reset selection index when completing
