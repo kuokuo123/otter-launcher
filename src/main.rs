@@ -750,6 +750,61 @@ impl ConditionalEventHandler for ListGEnd {
     }
 }
 
+struct ListCtrlU;
+impl ConditionalEventHandler for ListCtrlU {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+        {
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+            if *hint_benchmark >= suggestion_lines {
+                *hint_benchmark -= suggestion_lines;
+            } else if suggestion_lines >= *hint_benchmark {
+                *hint_benchmark = 0;
+                *SELECTION_INDEX.lock().unwrap() = 0;
+            }
+            Some(Cmd::Repaint)
+        } else {
+            None
+        }
+    }
+}
+
+struct ListCtrlD;
+impl ConditionalEventHandler for ListCtrlD {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+        {
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+            let hint_span = HINT_SPAN.lock().unwrap();
+            if *hint_span - suggestion_lines > *hint_benchmark {
+                *hint_benchmark += suggestion_lines;
+            } else {
+                *hint_benchmark = *hint_span - suggestion_lines;
+                *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+            }
+            Some(Cmd::Repaint)
+        } else {
+            None
+        }
+    }
+}
+
 struct ListPageDown;
 impl ConditionalEventHandler for ListPageDown {
     fn handle(
@@ -1114,12 +1169,20 @@ fn main() {
         EventHandler::Conditional(Box::from(ListPageDown)),
     );
     rl.bind_sequence(
+        KeyEvent::new('d', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListCtrlD)),
+    );
+    rl.bind_sequence(
         KeyEvent(KeyCode::PageUp, Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListPageUp)),
     );
     rl.bind_sequence(
         KeyEvent::new('b', Modifiers::CTRL),
         EventHandler::Conditional(Box::from(ListPageUp)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('u', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListCtrlU)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::CTRL),
