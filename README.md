@@ -1,6 +1,6 @@
 # otter-launcher
 
-![Chafa-text Config](./assets/chafa-text.png)
+![Chafa-text Config](./assets/cover_pic.png)
 
 ![Prinny Config](./assets/prinny.png)
 

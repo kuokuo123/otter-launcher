@@ -86,7 +86,6 @@ struct Interface {
     empty_module_message: Option<String>,
     suggestion_mode: Option<String>,
     suggestion_lines: Option<usize>,
-    suggestion_spacing: Option<usize>,
     indicator_no_arg_module: Option<String>,
     indicator_with_arg_module: Option<String>,
     prefix_padding: Option<usize>,
@@ -116,7 +115,6 @@ static CONFIG: Lazy<Config> = Lazy::new(|| {
         "/etc/otter-launcher/config.toml"
     };
     let contents = std::fs::read_to_string(config_file).unwrap_or_else(|_| String::new());
-    //.expect("Cannot read from config.toml. Please create a config.toml in either $HOME/.config/otter-launcher/ or /etc/otter-launcher/ In fact, copy one that comes with user mannual from the otter-launcher repo.");
 
     toml::from_str(&contents).expect("cannot read contents from config_file")
 });
@@ -141,7 +139,6 @@ static EMPTY_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None)
 static EMPTY_MODULE_MESSAGE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static DEFAULT_MODULE_MESSAGE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static SUGGESTION_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static SUGGESTION_SPACING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static PREFIX_PADDING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static SELECTION_INDEX: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 static SELECTION_SPAN: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
@@ -348,7 +345,6 @@ impl Hinter for OtterHelper {
 
             let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
-            let s_spacing = "\n".repeat(cached_statics(&SUGGESTION_SPACING, 0) + 1);
 
             if line.is_empty() {
                 // if nothing has been typed
@@ -363,11 +359,11 @@ impl Hinter for OtterHelper {
                                 if agg_line.is_empty() {
                                     "".to_string()
                                 } else {
-                                    format!("{}{}", s_spacing, agg_line)
+                                    format!("\n{}", agg_line)
                                 }
                             } else {
                                 // if empty module is set
-                                format!("{}{}", s_spacing, e_module)
+                                format!("\n{}", e_module)
                             },
                         ),
                         completion: pos,
@@ -381,8 +377,8 @@ impl Hinter for OtterHelper {
                     ModuleHint {
                         display: (if line == cheatsheet_entry {
                             format!(
-                                "{}{} {} {}",
-                                s_spacing, cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
+                                "\n{} {} {}",
+                                cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
                             )
                         // if no module is matched
                         } else if agg_line.is_empty() {
@@ -390,11 +386,11 @@ impl Hinter for OtterHelper {
                             if d_module.is_empty() {
                                 "\x1b[0m".to_string()
                             } else {
-                                format!("{}{}", s_spacing, d_module)
+                                format!("\n{}", d_module)
                             }
                         // if some module is matched
                         } else {
-                            format!("{}{}", s_spacing, agg_line)
+                            format!("\n{}", agg_line)
                         })
                         .to_string(),
                         completion: pos,
@@ -544,9 +540,6 @@ impl ConditionalEventHandler for ListItemUp {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-        let selection_span = SELECTION_SPAN.lock().unwrap();
-        let hint_span = HINT_SPAN.lock().unwrap();
         let mut selection_index = SELECTION_INDEX.lock().unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
 
@@ -557,14 +550,6 @@ impl ConditionalEventHandler for ListItemUp {
                 *selection_index = 0;
             } else {
                 *hint_benchmark -= 1;
-            }
-        } else if *selection_index == 0 {
-            if suggestion_lines > *selection_span && *hint_benchmark == 0 {
-                *hint_benchmark = 0;
-                *selection_index = *selection_span;
-            } else {
-                *hint_benchmark = *hint_span - suggestion_lines;
-                *selection_index = *selection_span;
             }
         }
         Some(Cmd::Repaint)
@@ -593,17 +578,9 @@ impl ConditionalEventHandler for ListItemDown {
                 } else if *selection_index == *selection_span {
                     *hint_benchmark += 1;
                 }
-            } else {
-                if *selection_index < *selection_span {
-                    *selection_index += 1;
-                } else if *selection_index == *selection_span {
-                    *selection_index = 0;
-                    *hint_benchmark = 0;
-                }
+            } else if *selection_index < *selection_span {
+                *selection_index += 1;
             }
-        } else {
-            *selection_index = 0;
-            *hint_benchmark = 0;
         }
         Some(Cmd::Repaint)
     }
@@ -673,8 +650,6 @@ impl ConditionalEventHandler for ListPageUp {
 fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
     let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, "".to_string());
     let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
-    *SELECTION_INDEX.lock().unwrap() = 0;
-    *HINT_BENCHMARK.lock().unwrap() = 0;
 
     let set = CONFIG
         .modules
@@ -882,7 +857,6 @@ fn main() {
         "list".to_string(),
     );
     init_statics(&SUGGESTION_LINES, CONFIG.interface.suggestion_lines, 1);
-    init_statics(&SUGGESTION_SPACING, CONFIG.interface.suggestion_spacing, 0);
     init_statics(
         &DEFAULT_MODULE_MESSAGE,
         CONFIG.interface.default_module_message.clone(),
@@ -945,11 +919,19 @@ fn main() {
         EventHandler::Conditional(Box::from(ListItemDown)),
     );
     rl.bind_sequence(
+        KeyEvent(KeyCode::Down, Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListItemDown)),
+    );
+    rl.bind_sequence(
         KeyEvent::new('k', Modifiers::CTRL),
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Up, Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListItemUp)),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::Up, Modifiers::CTRL),
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
@@ -969,16 +951,20 @@ fn main() {
         EventHandler::Conditional(Box::from(ListPageUp)),
     );
     rl.bind_sequence(
+        KeyEvent(KeyCode::Right, Modifiers::CTRL),
+        EventHandler::Simple(Cmd::CompleteHint),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::Left, Modifiers::CTRL),
+        EventHandler::Simple(Cmd::Kill(Movement::BackwardChar(1))),
+    );
+    rl.bind_sequence(
         KeyEvent::new('l', Modifiers::CTRL),
         EventHandler::Simple(Cmd::CompleteHint),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::NONE),
-        EventHandler::Simple(Cmd::CompleteHint),
-    );
-    rl.bind_sequence(
-        KeyEvent(KeyCode::Left, Modifiers::NONE),
-        EventHandler::Simple(Cmd::Kill(Movement::BackwardChar(1))),
+        EventHandler::Simple(Cmd::Move(Movement::ForwardChar(1))),
     );
     // check if vi_mode is on
     if cached_statics(&VI_MODE, false) {
