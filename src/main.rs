@@ -192,15 +192,15 @@ impl Highlighter for OtterHelper {
         if suggestion_mode == "hint" {
             format!("{}{}{}{}", "\x1b[0m", hint_color, hint, "\x1b[0m").into()
         } else {
-            *selection_span = if *filtered_hint_count < suggestion_lines {
-                *filtered_hint_count
+            if *filtered_hint_count < suggestion_lines || *filtered_hint_count < *selection_index {
+                *selection_span = *filtered_hint_count;
             } else {
-                cached_statics(&SUGGESTION_LINES, 0)
-            };
+                *selection_span = cached_statics(&SUGGESTION_LINES, 0);
+            }
 
-            if *hint_benchmark > *filtered_hint_count {
-                *selection_index = 0;
+            if *hint_benchmark > *filtered_hint_count || *selection_index > *filtered_hint_count {
                 *hint_benchmark = 0;
+                *selection_index = 0;
             }
             // if suggestion_mode is list
             hint.lines()
@@ -588,6 +588,75 @@ impl ConditionalEventHandler for ListItemDown {
     }
 }
 
+struct ListItemJ;
+impl ConditionalEventHandler for ListItemJ {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+        {
+            let selection_span = SELECTION_SPAN.lock().unwrap();
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+            let hint_span = HINT_SPAN.lock().unwrap();
+            let mut selection_index = SELECTION_INDEX.lock().unwrap();
+            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+
+            if *hint_benchmark < *hint_span - suggestion_lines {
+                if suggestion_lines == *selection_span {
+                    if *selection_index < *selection_span {
+                        *selection_index += 1;
+                    } else if *selection_index == *selection_span {
+                        *hint_benchmark += 1;
+                    }
+                } else if *selection_index < *selection_span {
+                    *selection_index += 1;
+                }
+            } else if *hint_benchmark < *hint_span && *selection_index < *selection_span {
+                *selection_index += 1;
+            }
+            Some(Cmd::Repaint)
+        } else {
+            None
+        }
+    }
+}
+
+struct ListItemK;
+impl ConditionalEventHandler for ListItemK {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+        {
+            let mut selection_index = SELECTION_INDEX.lock().unwrap();
+            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+
+            if *selection_index > 1 {
+                *selection_index -= 1;
+            } else if *selection_index == 1 {
+                if *hint_benchmark == 0 {
+                    *selection_index = 0;
+                } else {
+                    *hint_benchmark -= 1;
+                }
+            }
+            Some(Cmd::Repaint)
+        } else {
+            None
+        }
+    }
+}
+
 struct ListItemSelect;
 impl ConditionalEventHandler for ListItemSelect {
     fn handle(
@@ -635,6 +704,49 @@ impl ConditionalEventHandler for ListEnd {
         *hint_benchmark = *hint_span - suggestion_lines;
         *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
         Some(Cmd::Repaint)
+    }
+}
+
+struct ListGgHome;
+impl ConditionalEventHandler for ListGgHome {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+        {
+            *SELECTION_INDEX.lock().unwrap() = 0;
+            *HINT_BENCHMARK.lock().unwrap() = 0;
+            Some(Cmd::Repaint)
+        } else {
+            None
+        }
+    }
+}
+
+struct ListGEnd;
+impl ConditionalEventHandler for ListGEnd {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+        {
+            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+            *hint_benchmark = *HINT_SPAN.lock().unwrap() - cached_statics(&SUGGESTION_LINES, 0);
+            *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+            Some(Cmd::Repaint)
+        } else {
+            None
+        }
     }
 }
 
@@ -944,6 +1056,22 @@ fn main() {
     rl.bind_sequence(
         KeyEvent::new('\r', Modifiers::CTRL),
         EventHandler::Simple(Cmd::AcceptLine),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('G', Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListGEnd)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('g', Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListGgHome)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('j', Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListItemJ)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('k', Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListItemK)),
     );
     rl.bind_sequence(
         KeyEvent::new('j', Modifiers::CTRL),
