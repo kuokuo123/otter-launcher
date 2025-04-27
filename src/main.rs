@@ -581,6 +581,8 @@ impl ConditionalEventHandler for ListItemDown {
             } else if *selection_index < *selection_span {
                 *selection_index += 1;
             }
+        } else if *hint_benchmark < *hint_span && *selection_index < *selection_span {
+            *selection_index += 1;
         }
         Some(Cmd::Repaint)
     }
@@ -600,6 +602,39 @@ impl ConditionalEventHandler for ListItemSelect {
         } else {
             Some(Cmd::CompleteHint)
         }
+    }
+}
+
+struct ListHome;
+impl ConditionalEventHandler for ListHome {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        *SELECTION_INDEX.lock().unwrap() = 0;
+        *HINT_BENCHMARK.lock().unwrap() = 0;
+        Some(Cmd::Repaint)
+    }
+}
+
+struct ListEnd;
+impl ConditionalEventHandler for ListEnd {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        let hint_span = HINT_SPAN.lock().unwrap();
+        *hint_benchmark = *hint_span - suggestion_lines;
+        *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+        Some(Cmd::Repaint)
     }
 }
 
@@ -933,6 +968,14 @@ fn main() {
     rl.bind_sequence(
         KeyEvent(KeyCode::Up, Modifiers::CTRL),
         EventHandler::Conditional(Box::from(ListItemUp)),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::Home, Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListHome)),
+    );
+    rl.bind_sequence(
+        KeyEvent(KeyCode::End, Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListEnd)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::PageDown, Modifiers::NONE),

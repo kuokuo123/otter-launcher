@@ -1,6 +1,5 @@
-# otter-launcher
 
-![Chafa-text Config](./assets/cover_pic.png)
+# otter-launcher
 
 ![Prinny Config](./assets/prinny.png)
 
@@ -14,11 +13,13 @@ The core concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
+![Chafa-text Config](./assets/cover_pic.png)
+
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) as a module to launch desktop apps. Use your wm's window rules to control its window size.
 
+Below is a demo for a workflow integrating several tui programs with otter-launcher.
 
 ![Demo Gif](./assets/demo.gif)
-
 
 # Features
 
