@@ -156,6 +156,7 @@ static PLACE_HOLDER_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new
 static HINT_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static INDICATOR_WITH_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static INDICATOR_NO_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static FILTERED_HINT_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 
 // Define the helper that provide hints, highlights to the rustyline editor
 #[derive(Completer, Helper, Validator)]
@@ -185,17 +186,25 @@ impl Highlighter for OtterHelper {
         let selection_prefix = cached_statics(&SELECTION_PREFIX, ">".to_string());
         let prefix_color = cached_statics(&PREFIX_COLOR, "".to_string());
         let prefix_width = cached_statics(&PREFIX_PADDING, 0);
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
         let mut selection_index = SELECTION_INDEX.lock().unwrap();
         let mut selection_span = SELECTION_SPAN.lock().unwrap();
-
-        *selection_span = cached_statics(&SUGGESTION_LINES, 0);
-        if *selection_index > *selection_span {
-            *selection_index = *selection_span
-        }
+        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
 
         if suggestion_mode == "hint" {
             format!("{}{}{}{}", "\x1b[0m", hint_color, hint, "\x1b[0m").into()
         } else {
+            *selection_span = if *filtered_hint_count < suggestion_lines {
+                *filtered_hint_count
+            } else {
+                cached_statics(&SUGGESTION_LINES, 0)
+            };
+
+            if *hint_benchmark > *filtered_hint_count {
+                *selection_index = 0;
+                *hint_benchmark = 0;
+            }
             // if suggestion_mode is list
             hint.lines()
                 .enumerate()
@@ -258,9 +267,8 @@ impl Hinter for OtterHelper {
         let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, "?".to_string());
         let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, 1);
-        let hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-        let mut hint_span = HINT_SPAN.lock().unwrap();
-        *hint_span = self.hints.len();
+
+        *HINT_SPAN.lock().unwrap() = self.hints.len();
 
         if suggestion_mode == "hint" {
             if line.is_empty() {
@@ -311,6 +319,7 @@ impl Hinter for OtterHelper {
                 )
             }
         } else {
+            *FILTERED_HINT_COUNT.lock().unwrap() = 0;
             let agg_line = self
                 .hints
                 .iter()
@@ -326,12 +335,13 @@ impl Hinter for OtterHelper {
                     };
 
                     if remove_ascii(&i.display).starts_with(&adjusted_line) {
+                        *FILTERED_HINT_COUNT.lock().unwrap() += 1;
                         Some(i.display.as_str())
                     } else {
                         None
                     }
                 })
-                .skip(*hint_benchmark)
+                .skip(*HINT_BENCHMARK.lock().unwrap())
                 .take(suggestion_lines)
                 .collect::<Vec<&str>>()
                 .join("\n");
@@ -432,6 +442,8 @@ impl Hint for ModuleHint {
         let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
         let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
         let mut selection_index = SELECTION_INDEX.lock().unwrap();
+        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+
         // set up the prefix to be completed from presented hints based on current suggestion mode
         let prfx = if suggestion_mode == "hint" && self.completion == 0
             || remove_ascii(&self.display).contains(&remove_ascii(&default_module_message))
@@ -458,6 +470,7 @@ impl Hint for ModuleHint {
 
         // reset selection index when completing
         *selection_index = 0;
+        *hint_benchmark = 0;
 
         if prfx.len() > self.completion {
             Some(&prfx[self.completion..])
@@ -536,6 +549,7 @@ impl ConditionalEventHandler for ListItemUp {
         let hint_span = HINT_SPAN.lock().unwrap();
         let mut selection_index = SELECTION_INDEX.lock().unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+
         if *selection_index > 1 {
             *selection_index -= 1;
         } else if *selection_index == 1 {
@@ -544,9 +558,14 @@ impl ConditionalEventHandler for ListItemUp {
             } else {
                 *hint_benchmark -= 1;
             }
-        } else if *selection_index == 0 && *hint_benchmark < 1 {
-            *hint_benchmark = *hint_span - suggestion_lines;
-            *selection_index = *selection_span;
+        } else if *selection_index == 0 {
+            if suggestion_lines > *selection_span && *hint_benchmark == 0 {
+                *hint_benchmark = 0;
+                *selection_index = *selection_span;
+            } else {
+                *hint_benchmark = *hint_span - suggestion_lines;
+                *selection_index = *selection_span;
+            }
         }
         Some(Cmd::Repaint)
     }
@@ -566,15 +585,25 @@ impl ConditionalEventHandler for ListItemDown {
         let hint_span = HINT_SPAN.lock().unwrap();
         let mut selection_index = SELECTION_INDEX.lock().unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-        if *selection_index < *selection_span {
-            *selection_index += 1;
-        } else if *selection_index == *selection_span {
-            if *hint_benchmark < *hint_span - suggestion_lines {
-                *hint_benchmark += 1;
+
+        if *hint_benchmark < *hint_span - suggestion_lines {
+            if suggestion_lines == *selection_span {
+                if *selection_index < *selection_span {
+                    *selection_index += 1;
+                } else if *selection_index == *selection_span {
+                    *hint_benchmark += 1;
+                }
             } else {
-                *hint_benchmark = 0;
-                *selection_index = 0;
+                if *selection_index < *selection_span {
+                    *selection_index += 1;
+                } else if *selection_index == *selection_span {
+                    *selection_index = 0;
+                    *hint_benchmark = 0;
+                }
             }
+        } else {
+            *selection_index = 0;
+            *hint_benchmark = 0;
         }
         Some(Cmd::Repaint)
     }
@@ -644,6 +673,8 @@ impl ConditionalEventHandler for ListPageUp {
 fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
     let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, "".to_string());
     let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
+    *SELECTION_INDEX.lock().unwrap() = 0;
+    *HINT_BENCHMARK.lock().unwrap() = 0;
 
     let set = CONFIG
         .modules
