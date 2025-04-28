@@ -21,7 +21,7 @@ Below is a demo for a workflow integrating several tui programs with otter-launc
 
 ![Demo Gif](./assets/demo.gif)
 
-Below is a demo for list selection.
+Below is a demo for list selection and external editor.
 
 ![Menu Demo](./assets/demo_menu.gif)
 
