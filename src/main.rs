@@ -1151,6 +1151,10 @@ fn main() {
         EventHandler::Conditional(Box::from(ListItemDown)),
     );
     rl.bind_sequence(
+        KeyEvent::new('n', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListItemDown)),
+    );
+    rl.bind_sequence(
         KeyEvent(KeyCode::Down, Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListItemDown)),
     );
@@ -1163,6 +1167,10 @@ fn main() {
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
+        KeyEvent::new('p', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListItemUp)),
+    );
+    rl.bind_sequence(
         KeyEvent(KeyCode::Up, Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
@@ -1171,11 +1179,11 @@ fn main() {
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
-        KeyEvent(KeyCode::Home, Modifiers::NONE),
+        KeyEvent::new('<', Modifiers::ALT),
         EventHandler::Conditional(Box::from(ListHome)),
     );
     rl.bind_sequence(
-        KeyEvent(KeyCode::End, Modifiers::NONE),
+        KeyEvent::new('>', Modifiers::ALT),
         EventHandler::Conditional(Box::from(ListEnd)),
     );
     rl.bind_sequence(
@@ -1184,6 +1192,10 @@ fn main() {
     );
     rl.bind_sequence(
         KeyEvent::new('f', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListPageDown)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('v', Modifiers::CTRL),
         EventHandler::Conditional(Box::from(ListPageDown)),
     );
     rl.bind_sequence(
@@ -1196,6 +1208,10 @@ fn main() {
     );
     rl.bind_sequence(
         KeyEvent::new('b', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListPageUp)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('v', Modifiers::ALT),
         EventHandler::Conditional(Box::from(ListPageUp)),
     );
     rl.bind_sequence(
