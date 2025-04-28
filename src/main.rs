@@ -17,6 +17,10 @@
 // Source Code: https://github.com/kuokuo123/otter-launcher
 // GPL 3.0
 
+//░█▀▀░█▀▄░█▀█░▀█▀░█▀▀░█▀▀
+//░█░░░█▀▄░█▀█░░█░░█▀▀░▀▀█
+//░▀▀▀░▀░▀░▀░▀░░▀░░▀▀▀░▀▀▀
+
 extern crate regex;
 extern crate rustyline;
 extern crate rustyline_derive;
@@ -30,16 +34,16 @@ use rustyline::{
     highlight::Highlighter,
     hint::{Hint, Hinter},
     history::DefaultHistory,
-    Cmd, Context, EditMode, Editor, EventHandler, KeyCode, KeyEvent, Modifiers, Movement,
+    Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
+    KeyCode, KeyEvent, Modifiers, Movement, RepeatCount,
 };
-use rustyline::{ConditionalEventHandler, Event, EventContext, RepeatCount};
 use rustyline_derive::{Completer, Helper, Validator};
 use serde::Deserialize;
-use std::fs::{self, OpenOptions};
 use std::{
     borrow::Cow,
     env,
     error::Error,
+    fs::{self, OpenOptions},
     io::Write,
     path::Path,
     process,
@@ -48,6 +52,10 @@ use std::{
     sync::Mutex,
 };
 use urlencoding::encode;
+
+//░█▀▀░█▀█░█▀█░█▀▀░▀█▀░█▀▀░░░█▀▀░▀█▀░█▀▄░█░█░█▀▀░▀█▀░█░█░█▀▄░█▀▀
+//░█░░░█░█░█░█░█▀▀░░█░░█░█░░░▀▀█░░█░░█▀▄░█░█░█░░░░█░░█░█░█▀▄░█▀▀
+//░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀░░░▀▀▀░░▀░░▀░▀░▀▀▀░▀▀▀░░▀░░▀▀▀░▀░▀░▀▀▀
 
 // Define config structure
 #[derive(Deserialize, Default)]
@@ -155,6 +163,10 @@ static INDICATOR_WITH_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mut
 static INDICATOR_NO_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static FILTERED_HINT_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 
+//░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
+//░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
+//░▀░▀░▀▀▀░▀░▀░░▀░░░░░▀▀░░░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀
+
 // Define the helper that provide hints, highlights to the rustyline editor
 #[derive(Completer, Helper, Validator)]
 struct OtterHelper {
@@ -192,14 +204,15 @@ impl Highlighter for OtterHelper {
         if suggestion_mode == "hint" {
             format!("{}{}{}{}", "\x1b[0m", hint_color, hint, "\x1b[0m").into()
         } else {
-            // shrink selection span following filtered_hint_count shrinking
+            // shrink selection span if filtered_hint_count shrinks
             if suggestion_lines > *filtered_hint_count {
                 *selection_span = *filtered_hint_count;
             } else {
+                // or set it the same as the page length
                 *selection_span = suggestion_lines;
             }
 
-            // set selection index back to 0 if out of the range of filtered items
+            // set selection index back to 0 if it is beyond the range of filtered items
             if *hint_benchmark > *filtered_hint_count || *selection_index > *filtered_hint_count {
                 *hint_benchmark = 0;
                 *selection_index = 0;
@@ -319,8 +332,6 @@ impl Hinter for OtterHelper {
                 )
             }
         } else {
-            *FILTERED_HINT_COUNT.lock().unwrap() = 0;
-
             let filtered_items: Vec<&str> = self
                 .hints
                 .iter()
@@ -336,7 +347,6 @@ impl Hinter for OtterHelper {
                     };
 
                     if remove_ascii(&i.display).starts_with(&adjusted_line) {
-                        *FILTERED_HINT_COUNT.lock().unwrap() += 1;
                         Some(i.display.as_str())
                     } else {
                         None
@@ -344,22 +354,26 @@ impl Hinter for OtterHelper {
                 })
                 .collect();
 
+            // make the number of filtered items globally accessible
+            *FILTERED_HINT_COUNT.lock().unwrap() = filtered_items.len();
+
             // Check if there are enough filtered items after the skip
-            let agg_line = if hint_benchmark + suggestion_lines > filtered_items.len() {
-                // If not enough, default to taking from the start
-                let join_range =
-                    &filtered_items[..usize::min(suggestion_lines, filtered_items.len())];
-                join_range.join("\n")
-            } else {
-                // If there are enough to take
-                let join_range = filtered_items
-                    .iter()
-                    .skip(hint_benchmark)
-                    .take(suggestion_lines)
-                    .copied()
-                    .collect::<Vec<_>>();
-                join_range.join("\n")
-            };
+            let agg_line =
+                if hint_benchmark + suggestion_lines > *FILTERED_HINT_COUNT.lock().unwrap() {
+                    // If not enough, default to taking from the start
+                    let join_range = &filtered_items
+                        [..usize::min(suggestion_lines, *FILTERED_HINT_COUNT.lock().unwrap())];
+                    join_range.join("\n")
+                } else {
+                    // If there are enough to take
+                    let join_range = filtered_items
+                        .iter()
+                        .skip(hint_benchmark)
+                        .take(suggestion_lines)
+                        .copied()
+                        .collect::<Vec<_>>();
+                    join_range.join("\n")
+                };
 
             let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
@@ -486,6 +500,7 @@ impl Hint for ModuleHint {
         *selection_index = 0;
         *hint_benchmark = 0;
 
+        // insert the hints
         if prfx.len() > self.completion {
             Some(&prfx[self.completion..])
         } else {
@@ -493,6 +508,10 @@ impl Hint for ModuleHint {
         }
     }
 }
+
+//░█░█░█▀▀░█░█░█▀▄░▀█▀░█▀█░█▀▄░▀█▀░█▀█░█▀▀░█▀▀
+//░█▀▄░█▀▀░░█░░█▀▄░░█░░█░█░█░█░░█░░█░█░█░█░▀▀█
+//░▀░▀░▀▀▀░░▀░░▀▀░░▀▀▀░▀░▀░▀▀░░▀▀▀░▀░▀░▀▀▀░▀▀▀
 
 // functions for keybindings
 struct ExternalEditor;
@@ -606,8 +625,8 @@ impl ConditionalEventHandler for ListItemDown {
     }
 }
 
-struct ListItemJ;
-impl ConditionalEventHandler for ListItemJ {
+struct ViListItemJ;
+impl ConditionalEventHandler for ViListItemJ {
     fn handle(
         &self,
         _evt: &Event,
@@ -644,8 +663,8 @@ impl ConditionalEventHandler for ListItemJ {
     }
 }
 
-struct ListItemK;
-impl ConditionalEventHandler for ListItemK {
+struct ViListItemK;
+impl ConditionalEventHandler for ViListItemK {
     fn handle(
         &self,
         _evt: &Event,
@@ -725,8 +744,8 @@ impl ConditionalEventHandler for ListEnd {
     }
 }
 
-struct ListGgHome;
-impl ConditionalEventHandler for ListGgHome {
+struct ViListGgHome;
+impl ConditionalEventHandler for ViListGgHome {
     fn handle(
         &self,
         _evt: &Event,
@@ -746,8 +765,8 @@ impl ConditionalEventHandler for ListGgHome {
     }
 }
 
-struct ListGEnd;
-impl ConditionalEventHandler for ListGEnd {
+struct ViListGEnd;
+impl ConditionalEventHandler for ViListGEnd {
     fn handle(
         &self,
         _evt: &Event,
@@ -768,58 +787,46 @@ impl ConditionalEventHandler for ListGEnd {
     }
 }
 
-struct ListCtrlU;
-impl ConditionalEventHandler for ListCtrlU {
+struct ViListCtrlU;
+impl ConditionalEventHandler for ViListCtrlU {
     fn handle(
         &self,
         _evt: &Event,
         _n: RepeatCount,
         _positive: bool,
-        ctx: &EventContext,
+        _ctx: &EventContext,
     ) -> Option<Cmd> {
-        if ctx.mode() == rustyline::EditMode::Vi
-            && ctx.input_mode() == rustyline::InputMode::Command
-        {
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-            if *hint_benchmark >= suggestion_lines {
-                *hint_benchmark -= suggestion_lines;
-            } else if suggestion_lines >= *hint_benchmark {
-                *hint_benchmark = 0;
-                *SELECTION_INDEX.lock().unwrap() = 0;
-            }
-            Some(Cmd::Repaint)
-        } else {
-            None
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        if *hint_benchmark >= suggestion_lines {
+            *hint_benchmark -= suggestion_lines / 2;
+        } else if suggestion_lines >= *hint_benchmark {
+            *hint_benchmark = 0;
+            *SELECTION_INDEX.lock().unwrap() = 0;
         }
+        Some(Cmd::Repaint)
     }
 }
 
-struct ListCtrlD;
-impl ConditionalEventHandler for ListCtrlD {
+struct ViListCtrlD;
+impl ConditionalEventHandler for ViListCtrlD {
     fn handle(
         &self,
         _evt: &Event,
         _n: RepeatCount,
         _positive: bool,
-        ctx: &EventContext,
+        _ctx: &EventContext,
     ) -> Option<Cmd> {
-        if ctx.mode() == rustyline::EditMode::Vi
-            && ctx.input_mode() == rustyline::InputMode::Command
-        {
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-            let hint_span = HINT_SPAN.lock().unwrap();
-            if *hint_span - suggestion_lines > *hint_benchmark {
-                *hint_benchmark += suggestion_lines;
-            } else {
-                *hint_benchmark = *hint_span - suggestion_lines;
-                *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
-            }
-            Some(Cmd::Repaint)
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        let hint_span = HINT_SPAN.lock().unwrap();
+        if *hint_span - suggestion_lines > *hint_benchmark {
+            *hint_benchmark += suggestion_lines / 2;
         } else {
-            None
+            *hint_benchmark = *hint_span - suggestion_lines;
+            *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
         }
+        Some(Cmd::Repaint)
     }
 }
 
@@ -866,6 +873,26 @@ impl ConditionalEventHandler for ListPageUp {
     }
 }
 
+//░█▀▀░█░█░█▀█░█▀▀░▀█▀░▀█▀░█▀█░█▀█░█▀▀
+//░█▀▀░█░█░█░█░█░░░░█░░░█░░█░█░█░█░▀▀█
+//░▀░░░▀▀▀░▀░▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀░▀▀▀
+
+// function to initialize a lazy mutex as per the config file
+fn init_statics<T: Clone>(
+    lazy_value: &Lazy<Mutex<Option<T>>>,
+    config_value: Option<T>,
+    default_value: T,
+) {
+    let value = config_value.unwrap_or(default_value);
+    let mut lock = lazy_value.lock().unwrap();
+    *lock = Some(value);
+}
+// function to retrieve a cached value with a default
+fn cached_statics<T: Clone>(lazy_value: &Lazy<Mutex<Option<T>>>, default_value: T) -> T {
+    let lock = lazy_value.lock().unwrap();
+    lock.clone().unwrap_or(default_value)
+}
+
 // function to format vec<hints> according to configured modules, and to provide them to hinter
 fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
     let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, "".to_string());
@@ -891,22 +918,6 @@ fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
         })
         .collect::<Vec<_>>();
     Ok(set)
-}
-
-// function to initialize a lazy mutex with a configuration value
-fn init_statics<T: Clone>(
-    lazy_value: &Lazy<Mutex<Option<T>>>,
-    config_value: Option<T>,
-    default_value: T,
-) {
-    let value = config_value.unwrap_or(default_value);
-    let mut lock = lazy_value.lock().unwrap();
-    *lock = Some(value);
-}
-// function to retrieve a cached value with a default
-fn cached_statics<T: Clone>(lazy_value: &Lazy<Mutex<Option<T>>>, default_value: T) -> T {
-    let lock = lazy_value.lock().unwrap();
-    lock.clone().unwrap_or(default_value)
 }
 
 // function to remove ascii color code from &str
@@ -984,9 +995,13 @@ fn general_callback() {
     }
 }
 
+//░█▀▀░█░░░█▀█░█░█░░░█▀▀░█▀█░█▀█░▀█▀░█▀▄░█▀█░█░░
+//░█▀▀░█░░░█░█░█▄█░░░█░░░█░█░█░█░░█░░█▀▄░█░█░█░░
+//░▀░░░▀▀▀░▀▀▀░▀░▀░░░▀▀▀░▀▀▀░▀░▀░░▀░░▀░▀░▀▀▀░▀▀▀
+
 // main function
 fn main() {
-    //initializing static variables
+    //initializing global variables
     init_statics(
         &EXEC_CMD,
         CONFIG.general.exec_cmd.clone(),
@@ -1116,12 +1131,96 @@ fn main() {
     rl.set_helper(Some(OtterHelper {
         hints: map_hints().expect("failed to provide hints"),
     }));
-    // set tab as completion trigger
+
+    // check if esc_to_abort is on
+    if cached_statics(&ESC_TO_ABORT, true) {
+        rl.bind_sequence(
+            KeyEvent::new('\x1b', Modifiers::NONE),
+            EventHandler::Simple(Cmd::Interrupt),
+        );
+    }
+
+    // check if vi_mode is on, and set up keybinds accordingly
+    if cached_statics(&VI_MODE, false) {
+        rl.set_edit_mode(EditMode::Vi);
+        // set vi bindings
+        rl.bind_sequence(
+            KeyEvent::new('G', Modifiers::NONE),
+            EventHandler::Conditional(Box::from(ViListGEnd)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('g', Modifiers::NONE),
+            EventHandler::Conditional(Box::from(ViListGgHome)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('j', Modifiers::NONE),
+            EventHandler::Conditional(Box::from(ViListItemJ)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('k', Modifiers::NONE),
+            EventHandler::Conditional(Box::from(ViListItemK)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('f', Modifiers::CTRL),
+            EventHandler::Conditional(Box::from(ListPageDown)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('d', Modifiers::CTRL),
+            EventHandler::Conditional(Box::from(ViListCtrlD)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('b', Modifiers::CTRL),
+            EventHandler::Conditional(Box::from(ListPageUp)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('u', Modifiers::CTRL),
+            EventHandler::Conditional(Box::from(ViListCtrlU)),
+        );
+        if !cached_statics(&EXTERNAL_EDITOR, "".to_string()).is_empty() {
+            rl.bind_sequence(
+                KeyEvent::new('v', Modifiers::NONE),
+                EventHandler::Conditional(Box::from(ExternalEditor)),
+            );
+        }
+    } else {
+        // emacs bindings
+        rl.bind_sequence(
+            KeyEvent::new('n', Modifiers::CTRL),
+            EventHandler::Conditional(Box::from(ListItemDown)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('p', Modifiers::CTRL),
+            EventHandler::Conditional(Box::from(ListItemUp)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('<', Modifiers::ALT),
+            EventHandler::Conditional(Box::from(ListHome)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('>', Modifiers::ALT),
+            EventHandler::Conditional(Box::from(ListEnd)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('v', Modifiers::CTRL),
+            EventHandler::Conditional(Box::from(ListPageDown)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('v', Modifiers::ALT),
+            EventHandler::Conditional(Box::from(ListPageUp)),
+        );
+        if !cached_statics(&EXTERNAL_EDITOR, "".to_string()).is_empty() {
+            rl.bind_sequence(
+                KeyEvent::new('e', Modifiers::CTRL),
+                EventHandler::Conditional(Box::from(ExternalEditor)),
+            );
+        }
+    };
+
+    // set shared keybinds (both vi and emacs) for list item selection
     rl.bind_sequence(
         KeyEvent::new('\t', Modifiers::NONE),
         EventHandler::Simple(Cmd::CompleteHint),
     );
-    // set keybinds for list item selection
     rl.bind_sequence(
         KeyEvent::new('\r', Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListItemSelect)),
@@ -1131,27 +1230,7 @@ fn main() {
         EventHandler::Simple(Cmd::AcceptLine),
     );
     rl.bind_sequence(
-        KeyEvent::new('G', Modifiers::NONE),
-        EventHandler::Conditional(Box::from(ListGEnd)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('g', Modifiers::NONE),
-        EventHandler::Conditional(Box::from(ListGgHome)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('j', Modifiers::NONE),
-        EventHandler::Conditional(Box::from(ListItemJ)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('k', Modifiers::NONE),
-        EventHandler::Conditional(Box::from(ListItemK)),
-    );
-    rl.bind_sequence(
         KeyEvent::new('j', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListItemDown)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('n', Modifiers::CTRL),
         EventHandler::Conditional(Box::from(ListItemDown)),
     );
     rl.bind_sequence(
@@ -1167,10 +1246,6 @@ fn main() {
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
-        KeyEvent::new('p', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListItemUp)),
-    );
-    rl.bind_sequence(
         KeyEvent(KeyCode::Up, Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
@@ -1179,44 +1254,12 @@ fn main() {
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
-        KeyEvent::new('<', Modifiers::ALT),
-        EventHandler::Conditional(Box::from(ListHome)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('>', Modifiers::ALT),
-        EventHandler::Conditional(Box::from(ListEnd)),
-    );
-    rl.bind_sequence(
         KeyEvent(KeyCode::PageDown, Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListPageDown)),
     );
     rl.bind_sequence(
-        KeyEvent::new('f', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListPageDown)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('v', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListPageDown)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('d', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListCtrlD)),
-    );
-    rl.bind_sequence(
         KeyEvent(KeyCode::PageUp, Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListPageUp)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('b', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListPageUp)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('v', Modifiers::ALT),
-        EventHandler::Conditional(Box::from(ListPageUp)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('u', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListCtrlU)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::CTRL),
@@ -1234,30 +1277,10 @@ fn main() {
         KeyEvent(KeyCode::Right, Modifiers::NONE),
         EventHandler::Simple(Cmd::Move(Movement::ForwardChar(1))),
     );
-    // check if vi_mode is on
-    if cached_statics(&VI_MODE, false) {
-        rl.set_edit_mode(EditMode::Vi);
-        if !cached_statics(&EXTERNAL_EDITOR, "".to_string()).is_empty() {
-            rl.bind_sequence(
-                KeyEvent::new('v', Modifiers::NONE),
-                EventHandler::Conditional(Box::from(ExternalEditor)),
-            );
-        }
-    } else if !cached_statics(&EXTERNAL_EDITOR, "".to_string()).is_empty() {
-        rl.bind_sequence(
-            KeyEvent::new('e', Modifiers::CTRL),
-            EventHandler::Conditional(Box::from(ExternalEditor)),
-        );
-    };
-    // check if esc_to_abort is on
-    if cached_statics(&ESC_TO_ABORT, true) {
-        rl.bind_sequence(
-            KeyEvent::new('\x1b', Modifiers::NONE),
-            EventHandler::Simple(Cmd::Interrupt),
-        );
-    }
+
+    // start the flow
     loop {
-        // print header
+        // print from header commands
         let header_cmd = cached_statics(&HEADER_CMD, "".to_string());
         // format exec_cmd
         let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
@@ -1280,6 +1303,7 @@ fn main() {
         } else {
             &"not enough lines of header_cmd output to be trimmed".to_string()
         };
+        // check if header_cmd and header should be concatenated, form header content accordingly
         let concatenated_header = format!(
             "{}{}{}",
             remaining_lines,
@@ -1290,6 +1314,7 @@ fn main() {
             },
             cached_statics(&HEADER, "".to_string())
         );
+
         // run rustyline with configured header
         let prompt = rl.readline(&concatenated_header);
         match prompt {

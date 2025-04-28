@@ -24,7 +24,7 @@ Below is a demo for a workflow integrating several tui programs with otter-launc
 # Features
 
 - modularized to run different commands (via configuration)
-- vi and emacs keybinds, with vi motions for list selection
+- vi and emacs keybinds, with their motions for list selection
 - two suggestion modes: list & hint
 - tab completion
 - edit prompt in an external editor (vim, emacs, etc.)
