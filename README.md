@@ -21,6 +21,10 @@ Below is a demo for a workflow integrating several tui programs with otter-launc
 
 ![Demo Gif](./assets/demo.gif)
 
+Below is a demo for list selection.
+
+![Menu Demo](./assets/demo_menu.gif)
+
 # Features
 
 - modularized to run different commands (via configuration)
