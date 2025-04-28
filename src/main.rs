@@ -192,12 +192,14 @@ impl Highlighter for OtterHelper {
         if suggestion_mode == "hint" {
             format!("{}{}{}{}", "\x1b[0m", hint_color, hint, "\x1b[0m").into()
         } else {
-            if *filtered_hint_count < suggestion_lines || *filtered_hint_count < *selection_index {
+            // shrink selection span following filtered_hint_count shrinking
+            if suggestion_lines > *filtered_hint_count {
                 *selection_span = *filtered_hint_count;
             } else {
-                *selection_span = cached_statics(&SUGGESTION_LINES, 0);
+                *selection_span = suggestion_lines;
             }
 
+            // set selection index back to 0 if out of the range of filtered items
             if *hint_benchmark > *filtered_hint_count || *selection_index > *filtered_hint_count {
                 *hint_benchmark = 0;
                 *selection_index = 0;
@@ -264,6 +266,7 @@ impl Hinter for OtterHelper {
         let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, "?".to_string());
         let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, 1);
+        let hint_benchmark = *HINT_BENCHMARK.lock().unwrap();
 
         *HINT_SPAN.lock().unwrap() = self.hints.len();
 
@@ -317,7 +320,8 @@ impl Hinter for OtterHelper {
             }
         } else {
             *FILTERED_HINT_COUNT.lock().unwrap() = 0;
-            let agg_line = self
+
+            let filtered_items: Vec<&str> = self
                 .hints
                 .iter()
                 .filter_map(|i| {
@@ -338,10 +342,24 @@ impl Hinter for OtterHelper {
                         None
                     }
                 })
-                .skip(*HINT_BENCHMARK.lock().unwrap())
-                .take(suggestion_lines)
-                .collect::<Vec<&str>>()
-                .join("\n");
+                .collect();
+
+            // Check if there are enough filtered items after the skip
+            let agg_line = if hint_benchmark + suggestion_lines > filtered_items.len() {
+                // If not enough, default to taking from the start
+                let join_range =
+                    &filtered_items[..usize::min(suggestion_lines, filtered_items.len())];
+                join_range.join("\n")
+            } else {
+                // If there are enough to take
+                let join_range = filtered_items
+                    .iter()
+                    .skip(hint_benchmark)
+                    .take(suggestion_lines)
+                    .copied()
+                    .collect::<Vec<_>>();
+                join_range.join("\n")
+            };
 
             let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
