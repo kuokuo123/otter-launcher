@@ -1,7 +1,7 @@
 
 # otter-launcher
 
-![Prinny Config](./assets/prinny.png)
+![cover_pic Config](./assets/cover_pic.png)
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
@@ -13,15 +13,13 @@ The core concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-![Chafa-text Config](./assets/cover_pic.png)
-
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) as a module to launch desktop apps. Use your wm's window rules to control its window size.
 
-Below is a demo for a workflow integrating several tui programs with otter-launcher.
+Demo for a integrated workflow with tui programs:
 
 ![Demo Gif](./assets/demo.gif)
 
-Below is a demo for list selection and external editor.
+Demo for list selection and external editor:
 
 ![Menu Demo](./assets/demo_menu.gif)
 
@@ -93,7 +91,6 @@ default_module_message = "" # if set, the text will be shown when the default mo
 empty_module_message = "" # the text to show when empty module is in use
 suggestion_mode = "list" # available options: list, hint
 suggestion_lines = 1 # length of the suggestion list, set to 0 to disable suggestions and tab completion
-suggestion_spacing = 0 # spacing between input field and suggestions
 indicator_with_arg_module = "" # a sign showing whether the module should run with an argument
 indicator_no_arg_module = ""
 prefix_padding = 0 # format prefixes to have a unified width; prefixes will be padded with spaces to have a least specified number of chars
