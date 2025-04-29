@@ -205,7 +205,7 @@ impl Highlighter for OtterHelper {
             format!("{}{}{}{}", "\x1b[0m", hint_color, hint, "\x1b[0m").into()
         } else {
             // shrink selection span if filtered_hint_count shrinks
-            if suggestion_lines > *filtered_hint_count {
+            if suggestion_lines >= *filtered_hint_count {
                 *selection_span = *filtered_hint_count;
             } else {
                 // or set it the same as the page length
@@ -607,13 +607,16 @@ impl ConditionalEventHandler for ListItemDown {
         let hint_span = HINT_SPAN.lock().unwrap();
         let mut selection_index = SELECTION_INDEX.lock().unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
 
         if *hint_benchmark < *hint_span - suggestion_lines {
             if suggestion_lines == *selection_span {
                 if *selection_index < *selection_span {
                     *selection_index += 1;
                 } else if *selection_index == *selection_span {
-                    *hint_benchmark += 1;
+                    if *hint_benchmark < *filtered_hint_count - suggestion_lines {
+                        *hint_benchmark += 1;
+                    }
                 }
             } else if *selection_index < *selection_span {
                 *selection_index += 1;
@@ -642,13 +645,16 @@ impl ConditionalEventHandler for ViListItemJ {
             let hint_span = HINT_SPAN.lock().unwrap();
             let mut selection_index = SELECTION_INDEX.lock().unwrap();
             let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+            let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
 
             if *hint_benchmark < *hint_span - suggestion_lines {
                 if suggestion_lines == *selection_span {
                     if *selection_index < *selection_span {
                         *selection_index += 1;
                     } else if *selection_index == *selection_span {
-                        *hint_benchmark += 1;
+                        if *hint_benchmark < *filtered_hint_count - suggestion_lines {
+                            *hint_benchmark += 1;
+                        }
                     }
                 } else if *selection_index < *selection_span {
                     *selection_index += 1;

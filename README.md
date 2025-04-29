@@ -28,7 +28,7 @@ Below is a demo for list selection and external editor.
 # Features
 
 - modularized to run different commands (via configuration)
-- vi and emacs keybinds, with their motions for list selection
+- vi and emacs keybinds, with motions for list selection
 - two suggestion modes: list & hint
 - tab completion
 - edit prompt in an external editor (vim, emacs, etc.)
