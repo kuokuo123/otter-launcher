@@ -800,17 +800,23 @@ impl ConditionalEventHandler for ViListCtrlU {
         _evt: &Event,
         _n: RepeatCount,
         _positive: bool,
-        _ctx: &EventContext,
+        ctx: &EventContext,
     ) -> Option<Cmd> {
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-        if *hint_benchmark >= suggestion_lines {
-            *hint_benchmark -= suggestion_lines / 2;
-        } else if suggestion_lines >= *hint_benchmark {
-            *hint_benchmark = 0;
-            *SELECTION_INDEX.lock().unwrap() = 0;
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+        {
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+            if *hint_benchmark >= suggestion_lines {
+                *hint_benchmark -= suggestion_lines / 2;
+            } else if suggestion_lines >= *hint_benchmark {
+                *hint_benchmark = 0;
+                *SELECTION_INDEX.lock().unwrap() = 0;
+            }
+            Some(Cmd::Repaint)
+        } else {
+            None
         }
-        Some(Cmd::Repaint)
     }
 }
 
@@ -821,18 +827,24 @@ impl ConditionalEventHandler for ViListCtrlD {
         _evt: &Event,
         _n: RepeatCount,
         _positive: bool,
-        _ctx: &EventContext,
+        ctx: &EventContext,
     ) -> Option<Cmd> {
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-        let hint_span = HINT_SPAN.lock().unwrap();
-        if *hint_span - suggestion_lines > *hint_benchmark {
-            *hint_benchmark += suggestion_lines / 2;
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+        {
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+            let hint_span = HINT_SPAN.lock().unwrap();
+            if *hint_span - suggestion_lines > *hint_benchmark {
+                *hint_benchmark += suggestion_lines / 2;
+            } else {
+                *hint_benchmark = *hint_span - suggestion_lines;
+                *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+            }
+            Some(Cmd::Repaint)
         } else {
-            *hint_benchmark = *hint_span - suggestion_lines;
-            *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+            None
         }
-        Some(Cmd::Repaint)
     }
 }
 
