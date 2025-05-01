@@ -579,6 +579,9 @@ impl ConditionalEventHandler for ListItemUp {
     ) -> Option<Cmd> {
         let mut selection_index = SELECTION_INDEX.lock().unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        let selection_span = SELECTION_SPAN.lock().unwrap();
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+        let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
 
         if *selection_index > 1 {
             *selection_index -= 1;
@@ -587,6 +590,13 @@ impl ConditionalEventHandler for ListItemUp {
                 *selection_index = 0;
             } else {
                 *hint_benchmark -= 1;
+            }
+        } else if *selection_index == 0 {
+            if *filtered_hint_count > suggestion_lines {
+                *selection_index = *selection_span;
+                *hint_benchmark = *filtered_hint_count - suggestion_lines;
+            } else {
+                *selection_index = *selection_span;
             }
         }
         Some(Cmd::Repaint)
@@ -616,13 +626,20 @@ impl ConditionalEventHandler for ListItemDown {
                 } else if *selection_index == *selection_span {
                     if *hint_benchmark < *filtered_hint_count - suggestion_lines {
                         *hint_benchmark += 1;
+                    } else {
+                        *hint_benchmark = 0;
+                        *selection_index = 0;
                     }
                 }
             } else if *selection_index < *selection_span {
                 *selection_index += 1;
+            } else if *selection_index == *selection_span {
+                *selection_index = 0;
+                *hint_benchmark = 0;
             }
-        } else if *hint_benchmark < *hint_span && *selection_index < *selection_span {
-            *selection_index += 1;
+        } else if *hint_benchmark == *hint_span - suggestion_lines {
+            *selection_index = 0;
+            *hint_benchmark = 0;
         }
         Some(Cmd::Repaint)
     }
@@ -654,13 +671,20 @@ impl ConditionalEventHandler for ViListItemJ {
                     } else if *selection_index == *selection_span {
                         if *hint_benchmark < *filtered_hint_count - suggestion_lines {
                             *hint_benchmark += 1;
+                        } else {
+                            *hint_benchmark = 0;
+                            *selection_index = 0;
                         }
                     }
                 } else if *selection_index < *selection_span {
                     *selection_index += 1;
+                } else if *selection_index == *selection_span {
+                    *selection_index = 0;
+                    *hint_benchmark = 0;
                 }
-            } else if *hint_benchmark < *hint_span && *selection_index < *selection_span {
-                *selection_index += 1;
+            } else if *hint_benchmark == *hint_span - suggestion_lines {
+                *selection_index = 0;
+                *hint_benchmark = 0;
             }
             Some(Cmd::Repaint)
         } else {
@@ -683,6 +707,9 @@ impl ConditionalEventHandler for ViListItemK {
         {
             let mut selection_index = SELECTION_INDEX.lock().unwrap();
             let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+            let selection_span = SELECTION_SPAN.lock().unwrap();
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
+            let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
 
             if *selection_index > 1 {
                 *selection_index -= 1;
@@ -691,6 +718,13 @@ impl ConditionalEventHandler for ViListItemK {
                     *selection_index = 0;
                 } else {
                     *hint_benchmark -= 1;
+                }
+            } else if *selection_index == 0 {
+                if *filtered_hint_count > suggestion_lines {
+                    *selection_index = *selection_span;
+                    *hint_benchmark = *filtered_hint_count - suggestion_lines;
+                } else {
+                    *selection_index = *selection_span;
                 }
             }
             Some(Cmd::Repaint)
