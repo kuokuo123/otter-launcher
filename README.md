@@ -15,28 +15,24 @@ The core concept is making these behaviours possible:
 
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) as a module to launch desktop apps. Use your wm's window rules to control its window size.
 
-Demo for integrated workflow with tui programs:
+# Demo
 
 ![Demo Gif](./assets/demo.gif)
-
-Demo for list selection and external editor:
 
 ![Menu Demo](./assets/demo_menu.gif)
 
 # Features
 
-- modularized to run different commands (via configuration)
-- vi and emacs keybinds, with motions for list selection
+- modularized to run different commands
+- vi and emacs keybinds
 - two suggestion modes: list & hint
 - tab completion
 - edit prompt in an external editor (vim, emacs, etc.)
-- customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - url encoding for web searching
 - supporting ascii color codes, chafa, sixel or kitty image protocol, etc.
-- loop mode
-- cheat sheet for configured modules
-- able to show any sys info (by scripting interface.header_cmd)
-- callback function (per-module callback can be scripted in module.cmd )
+- cheat sheet
+- callback function
+- customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - minimalist, blazingly fast, keyboard-centric
 
 # Installation
