@@ -180,7 +180,7 @@ place_holder_color = "\u001B[30m"
 ```
 [interface]
 header_cmd = """
-chafa --fit-width /home/kkoala/.config/otter-launcher/waterways_and_otterways.jpg;
+chafa --fit-width $HOME/.config/otter-launcher/waterways_and_otterways.jpg;
 echo -e "  \u001B[34;1m   󱎘\u001B[0m $USER@$HOSTNAME       \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
 """
 header_cmd_trimmed_lines = 0
@@ -223,7 +223,7 @@ echo -e ""
 # pad two spaces to the left of the image
 printf "\u001B[2G"
 # print the image using chafa
-chafa -s 19x8 /home/kkoala/.config/otter-launcher/nu-gundam.png
+chafa -s 19x8 $HOME/.config/otter-launcher/nu-gundam.png
 # move cursor up 7 lines to print texts higher
 printf "\u001B[7A"
 # move cursor right 20 chars to print texts next to the image
