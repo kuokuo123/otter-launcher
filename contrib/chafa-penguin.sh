@@ -4,7 +4,7 @@
 # Modify $printed_lines, $image_file, $image_width, $image_height, image_padding_top, image_padding_left, text_padding to your liking, and run the script to test the printed result.
 
 # The path of the image to be displayed
-image_file="$HOME/.config/otter-launcher/ascii/prinny-raisehand.png"
+image_file="$HOME/.config/otter-launcher/prinny.png"
 # Set the image's width and height, which decide the position of printed texts
 image_width=30
 image_height=8

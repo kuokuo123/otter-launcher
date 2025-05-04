@@ -17,7 +17,11 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 
 # Demo
 
+Workflow
+
 ![Demo Gif](./assets/demo.gif)
+
+External Editor & List Selection
 
 ![Menu Demo](./assets/demo_menu.gif)
 
@@ -167,26 +171,6 @@ description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
 ```
 
-## Fastfetch & Krabby
-
-![Quilava Config](./assets/quilava.png)
-
-```
-[interface]
-header_cmd = "fastfetch --structure break:break:colors:break:os:shell:wm:kernel:uptime:break --key-type icon --logo-type data --logo \"$(krabby name quilava --no-title)\""
-header_cmd_trimmed_lines = 1
-header = "  \u001B[31m󰐝\u001B[0m  search \u001B[31m>\u001B[0m "
-list_prefix = "     "
-place_holder = "type the keyword"
-suggestion_mode = "list"
-suggestion_lines = 1
-indicator_with_arg_module = ""
-indicator_no_arg_module = ""
-prefix_color = "\u001B[33m"
-description_color = "\u001B[38m"
-place_holder_color = "\u001B[30m"
-```
-
 ## Image Protocol with CPU & MEM Indicators
 
 ![Foot Config](./assets/foot.png)
@@ -196,44 +180,75 @@ place_holder_color = "\u001B[30m"
 ```
 [interface]
 header_cmd = """
-chafa --fit-width $HOME/.config/otter-launcher/waterways_and_otterways.jpg;
-echo -e "   \u001B[34m  >\u001B[0m $USER@$HOSTNAME         \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
+chafa --fit-width /home/kkoala/.config/otter-launcher/waterways_and_otterways.jpg;
+echo -e "  \u001B[34;1m   󱎘\u001B[0m $USER@$HOSTNAME       \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
 """
 header_cmd_trimmed_lines = 0
-header = "      \u001B[34;1m>\u001B[0;1m "
-list_prefix = "        "
+header = """     \u001B[34;1m󱎘\u001B[0;1m """
+list_prefix = "       "
+selection_prefix = "     \u001B[31;1m> "
 place_holder = "type and search..."
-indicator_with_arg_module = "\u001B[31m^\u001B[0m "
-indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 default_module_message = """
-        \u001B[35msearch\u001B[0m the internet"""
+       \u001B[35msearch\u001B[0m on the internet"""
+empty_module_message = """"""
 suggestion_mode = "list"
 suggestion_lines = 3
+suggestion_spacing = 0
 prefix_padding = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
+hint_color = "\u001B[90m"
 ```
 
 ## Image to the Left
 
-![Chafa-text Config](./assets/chafa-text.png)
+![Chafa-text Config](./assets/cover_pic.png)
 
-This config uses a hackable [bash script](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-text.sh) to display an [image of shocked otters](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp) and format the layout. Otter-launcher call the script in header_cmd with a line containing system info widges printed beneath the script output.
+This config involves 3 main steps to render otter-launcher to the right of a chafa image:
 
+1. Using ascii codes to render chafa image at the desired position.
+2. Using ascii codes (\u001B[{number}A & \u001B[{number}G) to render interface.header_cmd to the right of the image.
+3. Concatenating interface.header_cmd and interface.header .
+3. Adding ascii codes (\u001B[{number}G) to interface.list_prefix and interface.selection_prefix to move listed items to the right.
+
+Below follows the details:
 
 ```
 [interface]
+
 header_cmd = """
-$HOME/.config/otter-launcher/scripts/chafa-text.sh;
-echo -e "\n    \u001B[31;1m#\u001B[0m $USER@$HOSTNAME           \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
+# pad an empty line to the top of the image
+echo -e ""
+# pad two spaces to the left of the image
+printf "\u001B[2G"
+# print the image using chafa
+chafa -s 19x8 /home/kkoala/.config/otter-launcher/nu-gundam.png
+# move cursor up 7 lines to print texts higher
+printf "\u001B[7A"
+# move cursor right 20 chars to print texts next to the image
+printf "\u001B[20G"
+# print a line showing system info
+echo -e "\u001B[34;1m\u001B[0m $USER@$HOSTNAME    \u001B[35m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
+# move cursor right 20 chars to start the input field at the right position
+echo -e "\u001B[20G$(printf %19s)\u001B[20G"
 """
-header_cmd_trimmed_lines = 0
-header = "    \u001B[31;1m>\u001B[0;1m "
-indicator_with_arg_module = "^ "
-indicator_no_arg_module = "$ "
-place_holder = "type and search..."
-suggestion_mode = "hint"
+
+header = "\u001B[90;1m\u001B[0;1m "
+
+# putting header_cmd and header in the same line
+header_concatenate = true
+
+# move listed item to the right "\u001B[21G" means moving them right 21 character width
+list_prefix = "\u001B[21G "
+selection_prefix = "\u001B[20G\u001B[31;1m> "
+default_module_message = "\u001B[21G \u001B[33msearch\u001B[0m the internet"
+
+suggestion_mode = "list"
+suggestion_lines = 4
+
+place_holder = "type and search"
+prefix_padding = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
