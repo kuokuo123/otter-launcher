@@ -3,6 +3,8 @@
 
 ![cover_pic Config](./assets/cover_pic.png)
 
+[Image Source: artemidadada](https://www.reddit.com/r/PixelArt/comments/cqmw4i/otter_and_carp_koi/)
+
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
 The core concept is making these behaviours possible:
@@ -220,21 +222,21 @@ Below follows the details:
 header_cmd = """
 # pad an empty line to the top of the image
 echo -e ""
-# pad two spaces to the left of the image
-printf "\u001B[2G"
+# pad 3 spaces to the left of the image
+printf "\u001B[3G"
 # print the image using chafa
-chafa -s 19x8 $HOME/.config/otter-launcher/nu-gundam.png
+chafa -s 22x8 $HOME/.config/otter-launcher/chinatown_otter.png
 # move cursor up 7 lines to print texts higher
 printf "\u001B[7A"
 # move cursor right 20 chars to print texts next to the image
 printf "\u001B[20G"
 # print a line showing system info
-echo -e "\u001B[34;1m\u001B[0m $USER@$HOSTNAME    \u001B[35m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
+echo -e "\u001B[1mthe otter's saying:"
 # move cursor right 20 chars to start the input field at the right position
 echo -e "\u001B[20G$(printf %19s)\u001B[20G"
 """
 
-header = "\u001B[90;1m\u001B[0;1m "
+header = ""
 
 # putting header_cmd and header in the same line
 header_concatenate = true
