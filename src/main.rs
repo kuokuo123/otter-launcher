@@ -1351,9 +1351,9 @@ fn main() {
         let stdout = from_utf8(&output.stdout).unwrap();
         let lines: Vec<&str> = stdout.lines().collect();
         let remaining_lines = if lines.len() >= remove_lines_count {
-            &lines[..lines.len() - remove_lines_count].join("\x1b[?25h\n")
+            lines[..lines.len() - remove_lines_count].join("\n") + "\x1b[?25h"
         } else {
-            &"not enough lines of header_cmd output to be trimmed".to_string()
+            "not enough lines of header_cmd output to be trimmed".to_string()
         };
         // check if header_cmd and header should be concatenated, form header content accordingly
         let concatenated_header = format!(

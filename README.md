@@ -233,7 +233,7 @@ printf "\u001B[20G"
 # print a line showing system info
 echo -e "\u001B[1mthe otter's saying:"
 # move cursor right 20 chars to start the input field at the right position
-echo -e "\u001B[20G$(printf %19s)\u001B[20G"
+echo -e "\u001B[20G$(printf %16s)\u001B[20G"
 """
 
 header = ""
