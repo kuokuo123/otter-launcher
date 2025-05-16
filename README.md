@@ -3,6 +3,8 @@
 
 ![cover_pic](./assets/soothing.png)
 
+[Image Source: OlgaFinist](https://www.deviantart.com/olgafinist/art/Otter-975252509)
+
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
 The core concept is making these behaviours possible:
