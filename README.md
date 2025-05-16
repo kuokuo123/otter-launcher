@@ -1,9 +1,7 @@
 
 # otter-launcher
 
-![cover_pic Config](./assets/cover_pic.png)
-
-[Image Source: artemidadada](https://www.reddit.com/r/PixelArt/comments/cqmw4i/otter_and_carp_koi/)
+![cover_pic](./assets/soothing.png)
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
@@ -207,6 +205,8 @@ hint_color = "\u001B[90m"
 
 ![Chafa-text Config](./assets/cover_pic.png)
 
+[Image Source: artemidadada](https://www.reddit.com/r/PixelArt/comments/cqmw4i/otter_and_carp_koi/)
+
 This config involves 3 main steps to render otter-launcher to the right of a chafa image:
 
 1. Using ascii codes to render chafa image at the desired position.
@@ -256,6 +256,33 @@ description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
+
+
+## Full Window Image
+
+![Full Window Image](./assets/soothing.png)
+
+Hard to explain. Use [chafa-text.sh](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-text.sh).
+
+```
+[interface]
+
+header_cmd = "$HOME/.config/otter-launcher/scripts/chafa-text.sh"
+header = "\u001B[34;1m\u001B[0;1m "
+header_concatenate = true
+list_prefix = "\u001B[27G "
+selection_prefix = "\u001B[26G\u001B[31;1m> "
+place_holder = "keywords"
+default_module_message = "\u001B[27G \u001B[33msearch\u001B[0m online"
+suggestion_mode = "list"
+suggestion_lines = 4
+prefix_color = "\u001B[33m"
+prefix_padding = 3
+description_color = "\u001B[38m"
+place_holder_color = "\u001B[90m"
+hint_color = "\u001B[90m"
+```
+
 
 ## Image to the Right
 
