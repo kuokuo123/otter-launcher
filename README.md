@@ -3,8 +3,6 @@
 
 ![cover_pic](./assets/soothing.png)
 
-[Image Source: Cyrrior](https://www.reddit.com/r/PixelArt/comments/11hqq1c/small_little_otter_fella/)
-
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
 The core concept is making these behaviours possible:
