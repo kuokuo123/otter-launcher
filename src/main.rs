@@ -30,6 +30,7 @@ extern crate urlencoding;
 
 use once_cell::sync::Lazy;
 use rustyline::{
+    completion::{Completer, Pair},
     config::Configurer,
     highlight::Highlighter,
     hint::{Hint, Hinter},
@@ -37,7 +38,7 @@ use rustyline::{
     Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
     KeyCode, KeyEvent, Modifiers, Movement, RepeatCount,
 };
-use rustyline_derive::{Completer, Helper, Validator};
+use rustyline_derive::{Helper, Validator};
 use serde::Deserialize;
 use std::{
     borrow::Cow,
@@ -162,13 +163,14 @@ static HINT_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static INDICATOR_WITH_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static INDICATOR_NO_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static FILTERED_HINT_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
+static COM_CANDIDATE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
 //░▀░▀░▀▀▀░▀░▀░░▀░░░░░▀▀░░░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀
 
 // Define the helper that provide hints, highlights to the rustyline editor
-#[derive(Completer, Helper, Validator)]
+#[derive(Helper, Validator)]
 struct OtterHelper {
     hints: Vec<ModuleHint>,
 }
@@ -180,7 +182,55 @@ struct ModuleHint {
     completion: usize,
     w_arg: Option<bool>,
 }
-
+impl Completer for OtterHelper {
+    type Candidate = Pair;
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        _ctx: &rustyline::Context<'_>,
+    ) -> rustyline::Result<(usize, Vec<Pair>)> {
+        let com_candidate = cached_statics(&COM_CANDIDATE, "".to_string());
+        if cached_statics(&SUGGESTION_MODE, "".to_string()) == "hint".to_string() {
+            if pos <= com_candidate.len() && pos > 0 {
+                let cand = vec![Pair {
+                    display: "".to_string(),
+                    replacement: com_candidate.to_string() + " ",
+                }];
+                Ok((0, cand))
+            } else {
+                let cand = vec![Pair {
+                    display: "".to_string(),
+                    replacement: "".to_string(),
+                }];
+                Ok((pos, cand))
+            }
+        } else {
+            if line.is_empty() && *SELECTION_INDEX.lock().unwrap() == 0 {
+                let cand = vec![Pair {
+                    display: "".to_string(),
+                    replacement: cached_statics(&EMPTY_MODULE, "".to_string()) + " ",
+                }];
+                *SELECTION_INDEX.lock().unwrap() = 0;
+                Ok((0, cand))
+            } else if com_candidate == " " {
+                let cand = vec![Pair {
+                    display: "".to_string(),
+                    replacement: cached_statics(&DEFAULT_MODULE, "".to_string()) + " ",
+                }];
+                *SELECTION_INDEX.lock().unwrap() = 0;
+                Ok((0, cand))
+            } else {
+                let cand = vec![Pair {
+                    display: "".to_string(),
+                    replacement: com_candidate,
+                }];
+                *SELECTION_INDEX.lock().unwrap() = 0;
+                Ok((0, cand))
+            }
+        }
+    }
+}
 // The coloring functionality of OtterHelper
 impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
@@ -285,24 +335,23 @@ impl Hinter for OtterHelper {
 
         if suggestion_mode == "hint" {
             if line.is_empty() {
+                *COM_CANDIDATE.lock().unwrap() = None;
                 Some(ModuleHint {
                     display: place_holder,
                     completion: 0,
                     w_arg: None,
                 })
-            } else if line == cheatsheet_entry {
-                Some(
-                    ModuleHint {
-                        display: format!(
-                            "{} {}{}",
-                            cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
-                        )
-                        .to_string(),
-                        completion: pos,
-                        w_arg: None,
-                    }
-                    .suffix(pos),
-                )
+            } else if line.trim_end() == cheatsheet_entry {
+                *COM_CANDIDATE.lock().unwrap() = None;
+                Some(ModuleHint {
+                    display: format!(
+                        "{} {}{}",
+                        cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
+                    )
+                    .to_string(),
+                    completion: pos,
+                    w_arg: None,
+                })
             } else {
                 Some(
                     self.hints
@@ -314,25 +363,27 @@ impl Hinter for OtterHelper {
                                 &line.replace(" ", "\n")
                             };
 
-                            if remove_ascii(&i.display).starts_with(adjusted_line) {
+                            if !adjusted_line.trim_end().is_empty()
+                                && remove_ascii(&i.display).starts_with(adjusted_line.trim_end())
+                            {
+                                *COM_CANDIDATE.lock().unwrap() =
+                                    Some(i.display.split_whitespace().next()?.to_string());
                                 Some(i.suffix(pos))
                             } else {
+                                *COM_CANDIDATE.lock().unwrap() = None;
                                 None
                             }
                         })
                         .next()
-                        .unwrap_or(
-                            ModuleHint {
-                                display: "\x1b[0m".to_string(),
-                                completion: 0,
-                                w_arg: None,
-                            }
-                            .suffix(0),
-                        ),
+                        .unwrap_or(ModuleHint {
+                            display: "\x1b[0m".to_string(),
+                            completion: 0,
+                            w_arg: None,
+                        }),
                 )
             }
         } else {
-            let filtered_items: Vec<&str> = self
+            let aggragated_lines = self
                 .hints
                 .iter()
                 .filter_map(|i| {
@@ -346,13 +397,21 @@ impl Hinter for OtterHelper {
                         line.replace(" ", "\n")
                     };
 
-                    if remove_ascii(&i.display).starts_with(&adjusted_line) {
+                    if remove_ascii(&i.display).contains(&adjusted_line.trim_end()) {
                         Some(i.display.as_str())
                     } else {
                         None
                     }
                 })
-                .collect();
+                // Partition into those that start with input texts and others
+                .partition::<Vec<_>, _>(|display| {
+                    display.starts_with(&line.split_whitespace().next().unwrap_or(""))
+                });
+
+            // Hints that start with input texts
+            let mut filtered_items = aggragated_lines.0;
+            // Followed by hints that only contain input texts
+            filtered_items.extend(aggragated_lines.1);
 
             // make the number of filtered items globally accessible
             *FILTERED_HINT_COUNT.lock().unwrap() = filtered_items.len();
@@ -377,59 +436,76 @@ impl Hinter for OtterHelper {
 
             let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
+            let selection_index = SELECTION_INDEX.lock().unwrap();
+
+            *COM_CANDIDATE.lock().unwrap() = Some(if *selection_index == 0 {
+                agg_line
+                    .lines()
+                    .nth(0)
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+                    + " "
+            } else {
+                agg_line
+                    .lines()
+                    .nth(*selection_index - 1)
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+                    + " "
+            });
 
             if line.is_empty() {
                 // if nothing has been typed
-                Some(
-                    ModuleHint {
-                        display: format!(
-                            "{}{}",
-                            // show place holder first
-                            place_holder,
-                            // if empty module is not set
-                            if e_module.is_empty() {
-                                if agg_line.is_empty() {
-                                    "".to_string()
-                                } else {
-                                    format!("\n{}", agg_line)
-                                }
+                Some(ModuleHint {
+                    display: format!(
+                        "{}{}",
+                        // show place holder first
+                        place_holder,
+                        // if empty module is not set
+                        if e_module.is_empty() {
+                            if agg_line.is_empty() {
+                                "".to_string()
                             } else {
-                                // if empty module is set
-                                format!("\n{}", e_module)
-                            },
-                        ),
-                        completion: pos,
-                        w_arg: None,
-                    }
-                    .suffix(pos),
-                )
+                                format!("\n{}", agg_line)
+                            }
+                        } else {
+                            // if empty module is set
+                            format!("\n{}", e_module)
+                        },
+                    ),
+                    completion: pos,
+                    w_arg: None,
+                })
             } else {
                 // if something is typed
-                Some(
-                    ModuleHint {
-                        display: (if line == cheatsheet_entry {
-                            format!(
-                                "\n{} {} {}",
-                                cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
-                            )
-                        // if no module is matched
-                        } else if agg_line.is_empty() {
-                            // check if default module message is set
-                            if d_module.is_empty() {
-                                "\x1b[0m".to_string()
-                            } else {
-                                format!("\n{}", d_module)
-                            }
-                        // if some module is matched
+                Some(ModuleHint {
+                    display: (if line == cheatsheet_entry {
+                        format!(
+                            "\n{} {} {}",
+                            cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
+                        )
+                    // if no module is matched
+                    } else if agg_line.is_empty() {
+                        // check if default module message is set
+                        if d_module.is_empty() {
+                            "\x1b[0m".to_string()
                         } else {
-                            format!("\n{}", agg_line)
-                        })
-                        .to_string(),
-                        completion: pos,
-                        w_arg: None,
-                    }
-                    .suffix(pos),
-                )
+                            format!("\n{}", d_module)
+                        }
+                    // if some module is matched
+                    } else {
+                        format!("\n{}", agg_line)
+                    })
+                    .to_string(),
+                    completion: pos,
+                    w_arg: None,
+                })
             }
         }
     }
@@ -442,7 +518,7 @@ impl ModuleHint {
         Self {
             display: text.into(),
             completion: completion.len(),
-            w_arg,
+            w_arg: w_arg,
         }
     }
     fn suffix(&self, strip_chars: usize) -> Self {
@@ -465,47 +541,8 @@ impl Hint for ModuleHint {
             &self.display
         }
     }
-    //Text to insert in line when tab or right arrow is pressed
     fn completion(&self) -> Option<&str> {
-        let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
-        let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
-        let mut selection_index = SELECTION_INDEX.lock().unwrap();
-        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-
-        // set up the prefix to be completed from presented hints based on current suggestion mode
-        let prfx = if suggestion_mode == "hint" && self.completion == 0
-            || remove_ascii(&self.display).contains(&remove_ascii(&default_module_message))
-                && !default_module_message.is_empty()
-        {
-            ""
-        } else if *selection_index == 0 && suggestion_mode != "hint" {
-            self.display
-                .lines()
-                .nth(1)
-                .unwrap_or("")
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-        } else {
-            self.display
-                .lines()
-                .nth(*selection_index)
-                .unwrap_or("")
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-        };
-
-        // reset selection index when completing
-        *selection_index = 0;
-        *hint_benchmark = 0;
-
-        // insert the hints
-        if prfx.len() > self.completion {
-            Some(&prfx[self.completion..])
-        } else {
-            None
-        }
+        None
     }
 }
 
@@ -746,7 +783,8 @@ impl ConditionalEventHandler for ListItemSelect {
         if *SELECTION_INDEX.lock().unwrap() == 0 {
             Some(Cmd::AcceptLine)
         } else {
-            Some(Cmd::CompleteHint)
+            *SELECTION_INDEX.lock().unwrap() = 0;
+            Some(Cmd::Complete)
         }
     }
 }
@@ -763,6 +801,24 @@ impl ConditionalEventHandler for ListHome {
         *SELECTION_INDEX.lock().unwrap() = 0;
         *HINT_BENCHMARK.lock().unwrap() = 0;
         Some(Cmd::Repaint)
+    }
+}
+
+struct CompleteAndClearIndex;
+impl ConditionalEventHandler for CompleteAndClearIndex {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if *SELECTION_INDEX.lock().unwrap() == 0 {
+            Some(Cmd::Complete)
+        } else {
+            //*SELECTION_INDEX.lock().unwrap() = 0;
+            Some(Cmd::Complete)
+        }
     }
 }
 
@@ -974,7 +1030,7 @@ fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
 
 // function to remove ascii color code from &str
 fn remove_ascii(text: &str) -> String {
-    let re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+    let re = regex::Regex::new(r"\x1b\[[0-9;]*[A-Za-z]").unwrap();
     re.replace_all(text, "").to_string()
 }
 
@@ -1271,7 +1327,7 @@ fn main() {
     // set shared keybinds (both vi and emacs) for list item selection
     rl.bind_sequence(
         KeyEvent::new('\t', Modifiers::NONE),
-        EventHandler::Simple(Cmd::CompleteHint),
+        EventHandler::Conditional(Box::from(CompleteAndClearIndex)),
     );
     rl.bind_sequence(
         KeyEvent::new('\r', Modifiers::NONE),
@@ -1315,7 +1371,7 @@ fn main() {
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::CTRL),
-        EventHandler::Simple(Cmd::CompleteHint),
+        EventHandler::Conditional(Box::from(CompleteAndClearIndex)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Left, Modifiers::CTRL),
@@ -1323,7 +1379,7 @@ fn main() {
     );
     rl.bind_sequence(
         KeyEvent::new('l', Modifiers::CTRL),
-        EventHandler::Simple(Cmd::CompleteHint),
+        EventHandler::Conditional(Box::from(CompleteAndClearIndex)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::NONE),
@@ -1411,7 +1467,7 @@ fn main() {
                 if module.with_argument.unwrap_or(false) {
                     run_module_command(&module.cmd.replace("{}", &argument).to_string());
                 // Condition 2: when user input is exactly the same as the no-arg module
-                } else if remove_ascii(&module.prefix) == prompt {
+                } else if remove_ascii(&module.prefix) == prompt.trim_end() {
                     run_module_command(&module.cmd);
                 // Condition 3: when no-arg modules is running with arguement
                 } else {
@@ -1424,7 +1480,7 @@ fn main() {
                 if prompt.is_empty() {
                     run_designated_module(prompt, cached_statics(&EMPTY_MODULE, "".to_string()))
                 // Condition 2: when helper keyword is passed, open cheatsheet in less
-                } else if prompt == cached_statics(&CHEATSHEET_ENTRY, "?".to_string()) {
+                } else if prompt.trim_end() == cached_statics(&CHEATSHEET_ENTRY, "?".to_string()) {
                     // setup variables
                     let prefix_color = cached_statics(&PREFIX_COLOR, "".to_string());
                     let description_color = cached_statics(&DESCRIPTION_COLOR, "".to_string());
