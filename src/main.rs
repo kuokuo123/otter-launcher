@@ -182,6 +182,7 @@ struct ModuleHint {
     completion: usize,
     w_arg: Option<bool>,
 }
+
 impl Completer for OtterHelper {
     type Candidate = Pair;
     fn complete(
@@ -231,6 +232,7 @@ impl Completer for OtterHelper {
         }
     }
 }
+
 // The coloring functionality of OtterHelper
 impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
