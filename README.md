@@ -30,7 +30,7 @@ External Editor & List Selection
 - modularized to run different commands
 - vi and emacs keybinds
 - two suggestion modes: list & hint
-- tab completion
+- tab completion; tab again to undo completion
 - edit prompt in an external editor (vim, emacs, etc.)
 - url encoding for web searching
 - supporting ascii color codes, chafa, sixel or kitty image protocol, etc.
@@ -169,6 +169,33 @@ indicator_no_arg_module = ""
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
+```
+
+## List
+
+![List Config](./assets/list.png)
+
+```
+header_cmd = """
+echo -e \"\n   \u001B[34;1m󱎘 \u001B[0m $USER@$HOSTNAME            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\"
+"""
+header_cmd_trimmed_lines = 0
+header = """
+   \u001B[34;1m󱎘 \u001B[0;1m """
+list_prefix = "      "
+selection_prefix = "    \u001B[31;1m> "
+indicator_with_arg_module = ""
+indicator_no_arg_module = ""
+place_holder = "type and search..."
+default_module_message = "      \u001B[33msearch\u001B[0m the internet"
+suggestion_mode = "list"
+suggestion_lines = 4
+suggestion_spacing = 0
+prefix_color = "\u001B[33m"
+prefix_padding = 3
+description_color = "\u001B[38m"
+place_holder_color = "\u001B[90m"
+hint_color = "\u001B[90m"
 ```
 
 ## Image Protocol with CPU & MEM Indicators
