@@ -163,7 +163,7 @@ static HINT_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static INDICATOR_WITH_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static INDICATOR_NO_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static FILTERED_HINT_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
-static COM_CANDIDATE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static COMPLETION_CANDIDATE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
@@ -191,7 +191,7 @@ impl Completer for OtterHelper {
         pos: usize,
         _ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
-        let com_candidate = cached_statics(&COM_CANDIDATE, "".to_string());
+        let com_candidate = cached_statics(&COMPLETION_CANDIDATE, "".to_string());
         if cached_statics(&SUGGESTION_MODE, "".to_string()) == "hint".to_string() {
             if pos <= com_candidate.len() && pos > 0 {
                 let cand = vec![Pair {
@@ -337,14 +337,14 @@ impl Hinter for OtterHelper {
 
         if suggestion_mode == "hint" {
             if line.is_empty() {
-                *COM_CANDIDATE.lock().unwrap() = None;
+                *COMPLETION_CANDIDATE.lock().unwrap() = None;
                 Some(ModuleHint {
                     display: place_holder,
                     completion: 0,
                     w_arg: None,
                 })
             } else if line.trim_end() == cheatsheet_entry {
-                *COM_CANDIDATE.lock().unwrap() = None;
+                *COMPLETION_CANDIDATE.lock().unwrap() = Some("?".to_string());
                 Some(ModuleHint {
                     display: format!(
                         "{} {}{}",
@@ -359,20 +359,21 @@ impl Hinter for OtterHelper {
                     self.hints
                         .iter()
                         .filter_map(|i| {
-                            let adjusted_line = if i.w_arg.unwrap_or(false) {
-                                line
-                            } else {
-                                &line.replace(" ", "\n")
-                            };
+                            let adjusted_line = &line.replace(" ", "\n");
 
                             if !adjusted_line.trim_end().is_empty()
                                 && remove_ascii(&i.display).starts_with(adjusted_line.trim_end())
                             {
-                                *COM_CANDIDATE.lock().unwrap() =
-                                    Some(i.display.split_whitespace().next()?.to_string());
+                                *COMPLETION_CANDIDATE.lock().unwrap() = Some(
+                                    i.display
+                                        .split_whitespace()
+                                        .next()
+                                        .unwrap_or("")
+                                        .to_string(),
+                                );
                                 Some(i.suffix(pos))
                             } else {
-                                *COM_CANDIDATE.lock().unwrap() = None;
+                                *COMPLETION_CANDIDATE.lock().unwrap() = None;
                                 None
                             }
                         })
@@ -440,7 +441,7 @@ impl Hinter for OtterHelper {
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
             let selection_index = SELECTION_INDEX.lock().unwrap();
 
-            *COM_CANDIDATE.lock().unwrap() = Some(if *selection_index == 0 {
+            *COMPLETION_CANDIDATE.lock().unwrap() = Some(if *selection_index == 0 {
                 agg_line
                     .lines()
                     .nth(0)
@@ -487,7 +488,8 @@ impl Hinter for OtterHelper {
             } else {
                 // if something is typed
                 Some(ModuleHint {
-                    display: (if line == cheatsheet_entry {
+                    display: (if line.trim_end() == cheatsheet_entry {
+                        *COMPLETION_CANDIDATE.lock().unwrap() = Some("? ".to_string());
                         format!(
                             "\n{} {} {}",
                             cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
@@ -803,24 +805,6 @@ impl ConditionalEventHandler for ListHome {
         *SELECTION_INDEX.lock().unwrap() = 0;
         *HINT_BENCHMARK.lock().unwrap() = 0;
         Some(Cmd::Repaint)
-    }
-}
-
-struct CompleteAndClearIndex;
-impl ConditionalEventHandler for CompleteAndClearIndex {
-    fn handle(
-        &self,
-        _evt: &Event,
-        _n: RepeatCount,
-        _positive: bool,
-        _ctx: &EventContext,
-    ) -> Option<Cmd> {
-        if *SELECTION_INDEX.lock().unwrap() == 0 {
-            Some(Cmd::Complete)
-        } else {
-            //*SELECTION_INDEX.lock().unwrap() = 0;
-            Some(Cmd::Complete)
-        }
     }
 }
 
@@ -1329,7 +1313,7 @@ fn main() {
     // set shared keybinds (both vi and emacs) for list item selection
     rl.bind_sequence(
         KeyEvent::new('\t', Modifiers::NONE),
-        EventHandler::Conditional(Box::from(CompleteAndClearIndex)),
+        EventHandler::Simple(Cmd::Complete),
     );
     rl.bind_sequence(
         KeyEvent::new('\r', Modifiers::NONE),
@@ -1373,7 +1357,7 @@ fn main() {
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(CompleteAndClearIndex)),
+        EventHandler::Simple(Cmd::Complete),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Left, Modifiers::CTRL),
@@ -1381,7 +1365,7 @@ fn main() {
     );
     rl.bind_sequence(
         KeyEvent::new('l', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(CompleteAndClearIndex)),
+        EventHandler::Simple(Cmd::Complete),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::NONE),
