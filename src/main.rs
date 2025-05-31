@@ -445,7 +445,7 @@ impl Hinter for OtterHelper {
             let selection_index = SELECTION_INDEX.lock().unwrap();
 
             // aggregate all the matched hint objects to form a single line that is presented as a list
-            let aggragated_lines = self
+            let mut aggregated_lines = self
                 .hints
                 .iter()
                 .filter_map(|i| {
@@ -466,16 +466,20 @@ impl Hinter for OtterHelper {
                         None
                     }
                 })
-                // partition into those that start with input texts and others
-                .partition::<Vec<_>, _>(|display| {
-                    display.starts_with(&line.split_whitespace().next().unwrap_or(""))
-                });
+                .collect::<Vec<&str>>(); // Collect the filtered results into a vector
 
-            // sort the order of list items
-            // hints that start with input texts
-            let mut filtered_items = aggragated_lines.0;
-            // followed by hints that only contain input texts
-            filtered_items.extend(aggragated_lines.1);
+            // sort list items alphebetically
+            aggregated_lines.sort_unstable();
+            // partition list items into those that start with input texts and others
+            let partitioned_lines =
+                aggregated_lines
+                    .into_iter()
+                    .partition::<Vec<&str>, _>(|display| {
+                        display.starts_with(&line.split_whitespace().next().unwrap_or(""))
+                    });
+            // move the first group forward
+            let mut filtered_items = partitioned_lines.0;
+            filtered_items.extend(partitioned_lines.1);
 
             // make the number of filtered items globally accessible
             *FILTERED_HINT_COUNT.lock().unwrap() = filtered_items.len();
@@ -498,7 +502,7 @@ impl Hinter for OtterHelper {
                     join_range.join("\n")
                 };
 
-            // set completion candidate according to list selection
+            // set completion candidate according to list selection index
             *COMPLETION_CANDIDATE.lock().unwrap() = Some(if *selection_index == 0 {
                 agg_line
                     .lines()
@@ -1334,11 +1338,11 @@ fn main() {
 
     // set shared keybinds (both vi and emacs) for list item selection
     rl.bind_sequence(
-        KeyEvent::new('\t', Modifiers::NONE),
-        EventHandler::Simple(Cmd::Complete),
+        KeyEvent::new('\r', Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListItemSelect)),
     );
     rl.bind_sequence(
-        KeyEvent::new('\r', Modifiers::NONE),
+        KeyEvent::new('\r', Modifiers::CTRL),
         EventHandler::Conditional(Box::from(ListItemSelect)),
     );
     rl.bind_sequence(
