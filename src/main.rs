@@ -810,7 +810,6 @@ impl ConditionalEventHandler for ListItemSelect {
         if *SELECTION_INDEX.lock().unwrap() == 0 {
             Some(Cmd::AcceptLine)
         } else {
-            *SELECTION_INDEX.lock().unwrap() = 0;
             Some(Cmd::Complete)
         }
     }
@@ -1341,10 +1340,6 @@ fn main() {
     rl.bind_sequence(
         KeyEvent::new('\r', Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListItemSelect)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('\r', Modifiers::CTRL),
-        EventHandler::Simple(Cmd::AcceptLine),
     );
     rl.bind_sequence(
         KeyEvent::new('j', Modifiers::CTRL),
