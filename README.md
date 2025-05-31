@@ -78,22 +78,24 @@ external_editor = "" # if set, pressing ctrl+e (or pressing v in vi normal mode)
 
 # ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
 [interface]
-header_cmd = "" # Run a shell command and make the stdout printed above the header
+# Run a shell command and make the stdout printed above the header
+header_cmd = """
+echo -e \"\n   \u001B[34;1m󱎘 \u001B[0m $USER@$HOSTNAME                     \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\"
+"""
 header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
 # use three quotes to write longer commands
-header = """
-  \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m """
+header = """   \u001B[34;1m󱎘 \u001B[0;1m """
 header_concatenate = false # print header and header_cmd output at the same line, default to false
-list_prefix = "     "
-selection_prefix = "   > "
-place_holder = "type and search"
-default_module_message = "" # if set, the text will be shown when the default module is in use
+list_prefix = "      "
+selection_prefix = "    \u001B[31;1m> "
+place_holder = "type and search..."
+default_module_message = "      search the internet" # if set, the text will be shown when the default module is in use
 empty_module_message = "" # the text to show when empty module is in use
 suggestion_mode = "list" # available options: list, hint
-suggestion_lines = 1 # length of the suggestion list, set to 0 to disable suggestions and tab completion
+suggestion_lines = 5 # length of the suggestion list, set to 0 to disable suggestions and tab completion
 indicator_with_arg_module = "" # a sign showing whether the module should run with an argument
 indicator_no_arg_module = ""
-prefix_padding = 0 # format prefixes to have a unified width; prefixes will be padded with spaces to have a least specified number of chars
+prefix_padding = 3 # format prefixes to have a unified width; prefixes will be padded with spaces to have a least specified number of chars
 # below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
@@ -105,6 +107,7 @@ hint_color = "\u001B[30m" # the color of hint mode suggestions
 [[modules]]
 description = "search with google"
 prefix = "gg"
+# try wm's exec command if 'setsid -f' does not work, eg. 'hyprctl dispatch exec'
 cmd = "setsid -f xdg-open 'https://www.google.com/search?q={}'"
 with_argument = true # If "with_argument" is true, the {} in the cmd value will be replaced with user input. If the field is not explicitly set, will be taken as false.
 url_encode = true # "url_encode" should be true if the module is set to call webpages, as this ensures special characters in url being readable to browsers. It'd better be false with shell scripts. If the field is not explicitly set, will be taken as false.
@@ -143,56 +146,59 @@ url_encode = true
 [[modules]]
 description = "open files with fzf"
 prefix = "fo"
-cmd = "setsid -f $TERM --class fzf -e sh -c 'fd --type f | fzf | setsid -f xargs -r -I {} xdg-open \"{}\"'"
+cmd = "fd --type f | fzf | setsid -f xargs -r -I {} xdg-open '{}'"
 
 [[modules]]
 description = "open folders with fzf and yazi"
 prefix = "yz"
-cmd = "setsid -f $TERM --class yazi -e sh -c 'fd --type d | fzf | xargs -r -I {} $TERM -e yazi \"{}\"'"
+cmd = "fd --type d | fzf | xargs -r -I {} yazi '{}'"
 ```
 
 # Examples for Styling
 
 ## Default Config
 
-![Default Config](./assets/default.png)
+![Default Config](./assets/list.png)
 
 ```
 [interface]
-header = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m "
-list_prefix = "     "
-place_holder = "type and search"
+header_cmd = """
+echo -e \"\n   \u001B[34;1m󱎘 \u001B[0m $USER@$HOSTNAME                     \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\"
+"""
+header = """   \u001B[34;1m󱎘 \u001B[0;1m """
+list_prefix = "      "
+selection_prefix = "    \u001B[31;1m> "
+place_holder = "type and search..."
+default_module_message = "      search the internet"
 suggestion_mode = "list"
-suggestion_lines = 1
+suggestion_lines = 5
 indicator_with_arg_module = ""
 indicator_no_arg_module = ""
+prefix_padding = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
+hint_color = "\u001B[30m"
 ```
 
-## List
+## Two Liner in Hint Mode
 
-![List Config](./assets/list.png)
+![Two Liner Config](./assets/default.png)
 
 ```
+[interface]
 header_cmd = """
-echo -e \"\n   \u001B[34;1m󱎘 \u001B[0m $USER@$HOSTNAME            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\"
+echo -e \"  \u001B[34;1m  >\u001B[0m $USER@$HOSTNAME            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\"
 """
 header_cmd_trimmed_lines = 0
-header = """
-   \u001B[34;1m󱎘 \u001B[0;1m """
-list_prefix = "      "
-selection_prefix = "    \u001B[31;1m> "
-indicator_with_arg_module = ""
-indicator_no_arg_module = ""
+header = """     \u001B[34;1m>\u001B[0;1m """
+list_prefix = "       "
+selection_prefix = "     > "
+indicator_with_arg_module = "^ "
+indicator_no_arg_module = "$ "
 place_holder = "type and search..."
-default_module_message = "      \u001B[33msearch\u001B[0m the internet"
-suggestion_mode = "list"
-suggestion_lines = 4
-suggestion_spacing = 0
+suggestion_mode = "hint"
 prefix_color = "\u001B[33m"
-prefix_padding = 3
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
