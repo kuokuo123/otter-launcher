@@ -113,7 +113,7 @@ struct Module {
     url_encode: Option<bool>,
 }
 
-// Load toml config
+// load toml config
 static CONFIG: Lazy<Config> = Lazy::new(|| {
     let home_dir = env::var("HOME").unwrap_or_else(|_| String::from("/"));
     let xdg_config_path = format!("{}/.config/otter-launcher/config.toml", home_dir);
@@ -128,6 +128,7 @@ static CONFIG: Lazy<Config> = Lazy::new(|| {
     toml::from_str(&contents).expect("cannot read contents from config_file")
 });
 
+// use lazy mutex to make important variables globally accessible (repeatedly used config values, list selection, and completion related stuff)
 // define config variables as statics
 static HEADER_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static SUGGESTION_MODE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
@@ -169,13 +170,7 @@ static COMPLETION_CANDIDATE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::n
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
 //░▀░▀░▀▀▀░▀░▀░░▀░░░░░▀▀░░░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀
 
-// Define the helper that provide hints, highlights to the rustyline editor
-#[derive(Helper, Validator)]
-struct OtterHelper {
-    hints: Vec<ModuleHint>,
-}
-
-// Define the structure of every formatted hint
+// define the structure of every formatted hint
 #[derive(Hash, Debug, PartialEq, Eq)]
 struct ModuleHint {
     display: String,
@@ -183,6 +178,50 @@ struct ModuleHint {
     w_arg: Option<bool>,
 }
 
+// define the functions for struct ModuleHint
+impl ModuleHint {
+    fn new(text: &str, completion: &str, w_arg: Option<bool>) -> Self {
+        assert!(text.starts_with(completion));
+        Self {
+            display: text.into(),
+            completion: completion.len(),
+            w_arg: w_arg,
+        }
+    }
+    fn suffix(&self, strip_chars: usize) -> Self {
+        Self {
+            display: self.display.to_owned(),
+            completion: strip_chars,
+            w_arg: self.w_arg,
+        }
+    }
+}
+
+// define how the chosen hint is presented and completed in the rustyline editor
+impl Hint for ModuleHint {
+    // text to display when hint is active
+    fn display(&self) -> &str {
+        if cached_statics(&SUGGESTION_MODE, "list".to_string()) == "hint" {
+            // hint mode
+            &self.display[self.completion..]
+        } else {
+            // list mode
+            &self.display
+        }
+    }
+    // hint completing function required by rustyline, not in use
+    fn completion(&self) -> Option<&str> {
+        None
+    }
+}
+
+// define the helper that provide hints, highlights to the rustyline editor
+#[derive(Helper, Validator)]
+struct OtterHelper {
+    hints: Vec<ModuleHint>,
+}
+
+// the completion functionality of OtterHelper
 impl Completer for OtterHelper {
     type Candidate = Pair;
     fn complete(
@@ -193,13 +232,16 @@ impl Completer for OtterHelper {
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
         let com_candidate = cached_statics(&COMPLETION_CANDIDATE, "".to_string());
         if cached_statics(&SUGGESTION_MODE, "".to_string()) == "hint".to_string() {
+            // define the behavior of completion in hint mode
             if pos <= com_candidate.len() && pos > 0 {
+                // disable completion when the input texts is longer than the matched module prefix
                 let cand = vec![Pair {
                     display: "".to_string(),
                     replacement: com_candidate.to_string() + " ",
                 }];
                 Ok((0, cand))
             } else {
+                // normal behavior
                 let cand = vec![Pair {
                     display: "".to_string(),
                     replacement: "".to_string(),
@@ -207,7 +249,9 @@ impl Completer for OtterHelper {
                 Ok((pos, cand))
             }
         } else {
+            // the behavior in list mode
             if line.is_empty() && *SELECTION_INDEX.lock().unwrap() == 0 {
+                // when empty, complete with empty module
                 let cand = vec![Pair {
                     display: "".to_string(),
                     replacement: cached_statics(&EMPTY_MODULE, "".to_string()) + " ",
@@ -215,6 +259,7 @@ impl Completer for OtterHelper {
                 *SELECTION_INDEX.lock().unwrap() = 0;
                 Ok((0, cand))
             } else if com_candidate == " " {
+                // when no module is matched, complete with default module
                 let cand = vec![Pair {
                     display: "".to_string(),
                     replacement: cached_statics(&DEFAULT_MODULE, "".to_string()) + " ",
@@ -222,6 +267,7 @@ impl Completer for OtterHelper {
                 *SELECTION_INDEX.lock().unwrap() = 0;
                 Ok((0, cand))
             } else {
+                // normal behavior
                 let cand = vec![Pair {
                     display: "".to_string(),
                     replacement: com_candidate,
@@ -233,7 +279,7 @@ impl Completer for OtterHelper {
     }
 }
 
-// The coloring functionality of OtterHelper
+// the coloring functionality of OtterHelper
 impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
         let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
@@ -322,7 +368,7 @@ impl Highlighter for OtterHelper {
 }
 
 // the hint providing functionality of OtterHelper
-// Select a hint for OtterHelper to pass into rustyline prompt editor (from a vector of all formatted hints)
+// select a hint for OtterHelper to pass into rustyline prompt editor (from a vector of all formatted hints)
 impl Hinter for OtterHelper {
     type Hint = ModuleHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
@@ -335,8 +381,10 @@ impl Hinter for OtterHelper {
 
         *HINT_SPAN.lock().unwrap() = self.hints.len();
 
+        // hint mode behavior
         if suggestion_mode == "hint" {
             if line.is_empty() {
+                // when nothing is typed
                 *COMPLETION_CANDIDATE.lock().unwrap() = None;
                 Some(ModuleHint {
                     display: place_holder,
@@ -344,6 +392,7 @@ impl Hinter for OtterHelper {
                     w_arg: None,
                 })
             } else if line.trim_end() == cheatsheet_entry {
+                // when cheatsheet_entry is typed
                 *COMPLETION_CANDIDATE.lock().unwrap() = Some("?".to_string());
                 Some(ModuleHint {
                     display: format!(
@@ -355,15 +404,18 @@ impl Hinter for OtterHelper {
                     w_arg: None,
                 })
             } else {
+                // when something's typed
                 Some(
                     self.hints
                         .iter()
                         .filter_map(|i| {
                             let adjusted_line = &line.replace(" ", "\n");
 
+                            // match typed texts with hint objectss
                             if !adjusted_line.trim_end().is_empty()
                                 && remove_ascii(&i.display).starts_with(adjusted_line.trim_end())
                             {
+                                // set the first matched prefix as completion candidate
                                 *COMPLETION_CANDIDATE.lock().unwrap() = Some(
                                     i.display
                                         .split_whitespace()
@@ -371,6 +423,7 @@ impl Hinter for OtterHelper {
                                         .unwrap_or("")
                                         .to_string(),
                                 );
+                                // provide the found hint
                                 Some(i.suffix(pos))
                             } else {
                                 *COMPLETION_CANDIDATE.lock().unwrap() = None;
@@ -386,10 +439,17 @@ impl Hinter for OtterHelper {
                 )
             }
         } else {
+            // list mode behavior
+            let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
+            let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
+            let selection_index = SELECTION_INDEX.lock().unwrap();
+
+            // aggregate all the matched hint objects to form a single line that is presented as a list
             let aggragated_lines = self
                 .hints
                 .iter()
                 .filter_map(|i| {
+                    // set different behavior for modules with/without arguments
                     let adjusted_line = if i.w_arg.unwrap_or(false) {
                         if line.contains(" ") {
                             line.split_whitespace().next().unwrap_or("").to_owned() + " "
@@ -406,14 +466,15 @@ impl Hinter for OtterHelper {
                         None
                     }
                 })
-                // Partition into those that start with input texts and others
+                // partition into those that start with input texts and others
                 .partition::<Vec<_>, _>(|display| {
                     display.starts_with(&line.split_whitespace().next().unwrap_or(""))
                 });
 
-            // Hints that start with input texts
+            // sort the order of list items
+            // hints that start with input texts
             let mut filtered_items = aggragated_lines.0;
-            // Followed by hints that only contain input texts
+            // followed by hints that only contain input texts
             filtered_items.extend(aggragated_lines.1);
 
             // make the number of filtered items globally accessible
@@ -437,10 +498,7 @@ impl Hinter for OtterHelper {
                     join_range.join("\n")
                 };
 
-            let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
-            let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
-            let selection_index = SELECTION_INDEX.lock().unwrap();
-
+            // set completion candidate according to list selection
             *COMPLETION_CANDIDATE.lock().unwrap() = Some(if *selection_index == 0 {
                 agg_line
                     .lines()
@@ -463,6 +521,7 @@ impl Hinter for OtterHelper {
                     + " "
             });
 
+            // format the aggregated hint lines as the single hint object to be presented
             if line.is_empty() {
                 // if nothing has been typed
                 Some(ModuleHint {
@@ -515,46 +574,10 @@ impl Hinter for OtterHelper {
     }
 }
 
-// Define the functions for struct ModuleHint
-impl ModuleHint {
-    fn new(text: &str, completion: &str, w_arg: Option<bool>) -> Self {
-        assert!(text.starts_with(completion));
-        Self {
-            display: text.into(),
-            completion: completion.len(),
-            w_arg: w_arg,
-        }
-    }
-    fn suffix(&self, strip_chars: usize) -> Self {
-        Self {
-            display: self.display.to_owned(),
-            completion: strip_chars,
-            w_arg: self.w_arg,
-        }
-    }
-}
-
-// define how the chosen hint is presented and completed in the rustyline editor
-impl Hint for ModuleHint {
-    // Text to display when hint is active
-    fn display(&self) -> &str {
-        let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
-        if suggestion_mode == "hint" {
-            &self.display[self.completion..]
-        } else {
-            &self.display
-        }
-    }
-    fn completion(&self) -> Option<&str> {
-        None
-    }
-}
-
 //░█░█░█▀▀░█░█░█▀▄░▀█▀░█▀█░█▀▄░▀█▀░█▀█░█▀▀░█▀▀
 //░█▀▄░█▀▀░░█░░█▀▄░░█░░█░█░█░█░░█░░█░█░█░█░▀▀█
 //░▀░▀░▀▀▀░░▀░░▀▀░░▀▀▀░▀░▀░▀▀░░▀▀▀░▀░▀░▀▀▀░▀▀▀
 
-// functions for keybindings
 struct ExternalEditor;
 impl ConditionalEventHandler for ExternalEditor {
     fn handle(
