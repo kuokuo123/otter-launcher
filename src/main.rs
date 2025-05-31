@@ -1342,8 +1342,8 @@ fn main() {
         EventHandler::Conditional(Box::from(ListItemSelect)),
     );
     rl.bind_sequence(
-        KeyEvent::new('\r', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListItemSelect)),
+        KeyEvent::new('\r', Modifiers::ALT),
+        EventHandler::Simple(Cmd::AcceptLine),
     );
     rl.bind_sequence(
         KeyEvent::new('j', Modifiers::CTRL),
