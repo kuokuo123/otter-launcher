@@ -154,6 +154,30 @@ prefix = "yz"
 cmd = "fd --type d | fzf | xargs -r -I {} yazi '{}'"
 ```
 
+# Integration
+
+Otter-launcher works well with tui programs. When launching programs, module.cmd can be scripted to perform functions like adjusting window size.
+
+In the below example, otter-launcher changes window size before and after running pulsemixer by calling swaymsg:
+
+```
+[[modules]]
+description = "pulsemixer for audio control"
+prefix = "vol"
+cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pulsemixer; swaymsg [app_id=otter-launcher] resize set width 600 px height 60 px"
+```
+
+Some recommendations of tui utilities that works really well:
+
+- Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop)
+- Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
+- Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
+- Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
+- Spotify: [spotify_player](https://github.com/aome510/spotify-player)
+- Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
+
+More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
+
 # Examples for Styling
 
 ## Default Config
@@ -197,6 +221,27 @@ indicator_with_arg_module = "^ "
 indicator_no_arg_module = "$ "
 place_holder = "type and search..."
 suggestion_mode = "hint"
+prefix_color = "\u001B[33m"
+description_color = "\u001B[38m"
+place_holder_color = "\u001B[90m"
+hint_color = "\u001B[90m"
+```
+
+## Fastfetch & Krabby
+
+![Fastfetch Config](./assets/fastfetch.png)
+
+```
+[interface]
+header_cmd = "fastfetch --structure break:colors:break:os:wm:shell:kernel:term:uptime:datetime:break --key-type icon --logo-type data --logo \"$(krabby name pikachu --no-title)\""
+header = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m "
+header_cmd_trimmed_lines = 1
+list_prefix = "     "
+selection_prefix = "   \u001B[31;1m> "
+place_holder = "type and search"
+suggestion_mode = "list"
+suggestion_lines = 5
+prefix_padding = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
@@ -314,27 +359,3 @@ description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
 
 ```
-
-# Integration
-
-Otter-launcher can work well with tui programs. When launching them, module.cmd can be scripted to perform functions like adjusting window size.
-
-In the below example, otter-launcher changes window size before and after launching pulsemixer by calling swaymsg:
-
-```
-[[modules]]
-description = "pulsemixer for audio control"
-prefix = "vol"
-cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pulsemixer; swaymsg [app_id=otter-launcher] resize set width 600 px height 60 px"
-```
-
-Some recommendations of tui utilities that works really well:
-
-- Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop)
-- Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
-- Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
-- Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
-- Spotify: [spotify_player](https://github.com/aome510/spotify-player)
-- Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
-
-More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
