@@ -41,9 +41,21 @@ External Editor & List Selection
 
 # Installation
 
-## Building from source
+## Arch User Repositories
 
-### 1. Compile otter-launcher from the repo and place it in your PATH
+### 1. Install with AUR helpers
+
+```
+paru -S otter-launcher
+```
+
+### 2. Create a config file
+
+Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml, which is included with AUR installation.
+
+An example config file is at [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Copy it to one of the above locations. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
+
+## Building from source
 
 ```
 git clone https://github.com/kuokuo123/otter-launcher /tmp/otter-launcher
@@ -52,11 +64,6 @@ cargo build --release
 sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 ```
 
-### 2. Create a config.toml
-
-Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml
-
-An example config file is at [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Copy it to one of the above locations. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
 # Configuration
 
