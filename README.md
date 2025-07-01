@@ -87,11 +87,11 @@ external_editor = "" # if set, pressing ctrl+e (or pressing v in vi normal mode)
 [interface]
 # Run a shell command and make the stdout printed above the header
 header_cmd = """
-echo -e \"\n   \u001B[34;1m󱎘 \u001B[0m $USER@$HOSTNAME                     \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\"
+echo -e \" \u001B[34;1m  >\u001B[0m $USER@$HOSTNAME                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {gsub(/i$/, "", $3); print $3}')\"
 """
 header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
 # use three quotes to write longer commands
-header = """   \u001B[34;1m󱎘 \u001B[0;1m """
+header = """    \u001B[34;1m> \u001B[0;1m"""
 header_concatenate = false # print header and header_cmd output at the same line, default to false
 list_prefix = "      "
 selection_prefix = "    \u001B[31;1m> "
@@ -120,7 +120,7 @@ with_argument = true # If "with_argument" is true, the {} in the cmd value will 
 url_encode = true # "url_encode" should be true if the module is set to call webpages, as this ensures special characters in url being readable to browsers. It'd better be false with shell scripts. If the field is not explicitly set, will be taken as false.
 
 [[modules]]
-description = "launch desktop applications with fzf"
+description = "launch desktop apps"
 prefix = "app"
 cmd = """
 desktop_file() {
@@ -136,14 +136,14 @@ echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $lin
 """
 
 [[modules]]
-description = "search github"
+description = "search in github"
 prefix = "gh"
 cmd = "setsid -f xdg-open https://github.com/search?q='{}'"
 with_argument = true
 url_encode = true
 
 [[modules]]
-description = "cambridge dictionary online"
+description = "cambridge dict"
 prefix = "dc"
 cmd = "setsid -f xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
 with_argument = true
@@ -156,7 +156,7 @@ prefix = "fo"
 cmd = "fd --type f | fzf | setsid -f xargs -r -I {} xdg-open '{}'"
 
 [[modules]]
-description = "open folders with fzf and yazi"
+description = "open folders with fzf"
 prefix = "yz"
 cmd = "fd --type d | fzf | xargs -r -I {} yazi '{}'"
 ```
