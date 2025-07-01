@@ -41,7 +41,7 @@ External Editor & List Selection
 
 # Installation
 
-## Arch User Repositories
+## AUR
 
 ### 1. Install with AUR helpers
 
@@ -189,18 +189,21 @@ More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Comm
 
 ## Default Config
 
-![Default Config](./assets/list.png)
+![Default Config](./assets/default.png)
 
 ```
 [interface]
 header_cmd = """
-echo -e \"\n   \u001B[34;1m󱎘 \u001B[0m $USER@$HOSTNAME                     \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\"
+echo -e \" \u001B[34;1m  >\u001B[0m $USER@$HOSTNAME                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {gsub(/i$/, "", $3); print $3}')\"
 """
-header = """   \u001B[34;1m󱎘 \u001B[0;1m """
+header_cmd_trimmed_lines = 0
+header = """    \u001B[34;1m> \u001B[0;1m"""
+header_concatenate = false
 list_prefix = "      "
 selection_prefix = "    \u001B[31;1m> "
 place_holder = "type and search..."
 default_module_message = "      search the internet"
+empty_module_message = ""
 suggestion_mode = "list"
 suggestion_lines = 5
 indicator_with_arg_module = ""
@@ -214,7 +217,7 @@ hint_color = "\u001B[30m"
 
 ## Two Liner in Hint Mode
 
-![Two Liner Config](./assets/default.png)
+![Two Liner Config](./assets/two_liner.png)
 
 ```
 [interface]
