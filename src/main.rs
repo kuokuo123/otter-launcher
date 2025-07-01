@@ -687,7 +687,7 @@ impl ConditionalEventHandler for ListItemDown {
         let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
         let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
 
-        if *hint_benchmark < *hint_span - suggestion_lines {
+        if *hint_benchmark <= *hint_span - suggestion_lines {
             if suggestion_lines == *selection_span {
                 if *selection_index < *selection_span {
                     *selection_index += 1;
@@ -732,7 +732,7 @@ impl ConditionalEventHandler for ViListItemJ {
             let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
             let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
 
-            if *hint_benchmark < *hint_span - suggestion_lines {
+            if *hint_benchmark <= *hint_span - suggestion_lines {
                 if suggestion_lines == *selection_span {
                     if *selection_index < *selection_span {
                         *selection_index += 1;
