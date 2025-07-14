@@ -237,7 +237,7 @@ impl Completer for OtterHelper {
                 // disable completion when the input texts is longer than the matched module prefix
                 let cand = vec![Pair {
                     display: "".to_string(),
-                    replacement: com_candidate.to_string() + " ",
+                    replacement: com_candidate + " ",
                 }];
                 Ok((0, cand))
             } else {
@@ -802,8 +802,8 @@ impl ConditionalEventHandler for ViListItemK {
     }
 }
 
-struct ListItemSelect;
-impl ConditionalEventHandler for ListItemSelect {
+struct ListItemEnter;
+impl ConditionalEventHandler for ListItemEnter {
     fn handle(
         &self,
         _evt: &Event,
@@ -814,7 +814,62 @@ impl ConditionalEventHandler for ListItemSelect {
         if *SELECTION_INDEX.lock().unwrap() == 0 {
             Some(Cmd::AcceptLine)
         } else {
+            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, "".to_string())
+                .split_whitespace()
+                .next()?
+                .to_string();
+            let target_module = CONFIG
+                .modules
+                .iter()
+                .find(|module| remove_ascii(&module.prefix) == com_candidate)
+                .unwrap();
+            Some(if target_module.with_argument.unwrap_or(false) == false {
+                run_designated_module("".to_string(), com_candidate);
+                if cached_statics(&LOOP_MODE, false) == true {
+                    *SELECTION_INDEX.lock().unwrap() = 0;
+                    Cmd::Replace(Movement::WholeBuffer, Some("".to_string()))
+                } else {
+                    Cmd::Interrupt
+                }
+            } else {
+                Cmd::Complete
+            })
+        }
+    }
+}
+
+struct ListItemSelect;
+impl ConditionalEventHandler for ListItemSelect {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if *SELECTION_INDEX.lock().unwrap() == 0 {
             Some(Cmd::Complete)
+        } else {
+            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, "".to_string())
+                .split_whitespace()
+                .next()?
+                .to_string();
+            let target_module = CONFIG
+                .modules
+                .iter()
+                .find(|module| remove_ascii(&module.prefix) == com_candidate)
+                .unwrap();
+            Some(if target_module.with_argument.unwrap_or(false) == false {
+                run_designated_module("".to_string(), com_candidate);
+                if cached_statics(&LOOP_MODE, false) == true {
+                    *SELECTION_INDEX.lock().unwrap() = 0;
+                    Cmd::Replace(Movement::WholeBuffer, Some("".to_string()))
+                } else {
+                    Cmd::Interrupt
+                }
+            } else {
+                Cmd::Complete
+            })
         }
     }
 }
@@ -1075,8 +1130,8 @@ fn run_designated_module(prompt: String, prfx: String) {
         let target_module = CONFIG
             .modules
             .iter()
-            .find(|module| remove_ascii(&module.prefix) == prfx);
-        let target_module = target_module.unwrap();
+            .find(|module| remove_ascii(&module.prefix) == prfx)
+            .unwrap();
         // whether to use url encoding
         let prompt_wo_prefix = if target_module.url_encode.unwrap_or(false) {
             encode(&prompt).to_string()
@@ -1339,7 +1394,7 @@ fn main() {
     // set shared keybinds (both vi and emacs) for list item selection
     rl.bind_sequence(
         KeyEvent::new('\r', Modifiers::NONE),
-        EventHandler::Conditional(Box::from(ListItemSelect)),
+        EventHandler::Conditional(Box::from(ListItemEnter)),
     );
     rl.bind_sequence(
         KeyEvent::new('\r', Modifiers::ALT),
@@ -1379,7 +1434,7 @@ fn main() {
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::CTRL),
-        EventHandler::Simple(Cmd::Complete),
+        EventHandler::Conditional(Box::from(ListItemSelect)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Left, Modifiers::CTRL),
@@ -1387,7 +1442,7 @@ fn main() {
     );
     rl.bind_sequence(
         KeyEvent::new('l', Modifiers::CTRL),
-        EventHandler::Simple(Cmd::Complete),
+        EventHandler::Conditional(Box::from(ListItemSelect)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::NONE),
