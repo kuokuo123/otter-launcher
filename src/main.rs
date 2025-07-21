@@ -102,6 +102,8 @@ struct Interface {
     description_color: Option<String>,
     place_holder_color: Option<String>,
     hint_color: Option<String>,
+    layout_rightward: Option<usize>,
+    layout_upward: Option<usize>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -165,6 +167,9 @@ static INDICATOR_WITH_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mut
 static INDICATOR_NO_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static FILTERED_HINT_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 static COMPLETION_CANDIDATE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static LAYOUT_RIGHTWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+static LAYOUT_UPWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+static LAYOUT_UPWARD_MOVEMENT_SWITCH: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
@@ -298,6 +303,8 @@ impl Highlighter for OtterHelper {
         let mut selection_span = SELECTION_SPAN.lock().unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
         let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
+        let layout_right = cached_statics(&LAYOUT_RIGHTWARD, 0);
+        //let layout_up = cached_statics(&LAYOUT_UPWARD, 0);
 
         if suggestion_mode == "hint" {
             format!("{}{}{}{}", "\x1b[0m", hint_color, hint, "\x1b[0m").into()
@@ -315,15 +322,17 @@ impl Highlighter for OtterHelper {
                 *hint_benchmark = 0;
                 *selection_index = 0;
             }
-            // if suggestion_mode is list
-            hint.lines()
+
+            // format every line
+            let aggregated_hint_lines = hint.lines()
                 .enumerate()
                 .map(|(index, line)| {
                     if index == *selection_index && *selection_index > 0 {
                         let parts: Vec<&str> = line.split_whitespace().collect();
                         if parts.len() >= 2 {
                             format!(
-                                "{}{}{:prefix_width$}{} {}{}{}",
+                                "\x1B[{}G{}{}{:prefix_width$}{} {}{}{}",
+                                layout_right + 1,
                                 selection_prefix,
                                 prefix_color,
                                 parts[0],
@@ -333,7 +342,7 @@ impl Highlighter for OtterHelper {
                                 "\x1b[0m"
                             )
                         } else {
-                            line.to_string()
+                            format!("\x1b[{}G{}", layout_right + 1, line)
                         }
                     } else if line == place_holder {
                         format!("{}{}{}", place_holder_color, place_holder, "\x1b[0m")
@@ -341,12 +350,13 @@ impl Highlighter for OtterHelper {
                         || empty_module_message.contains(line))
                         && !line.is_empty()
                     {
-                        line.to_string()
+                        format!("\x1b[{}G{}", layout_right + 1, line)
                     } else {
                         let parts: Vec<&str> = line.split_whitespace().collect();
                         if parts.len() >= 2 {
                             format!(
-                                "{}{}{:prefix_width$}{} {}{}{}",
+                                "\x1B[{}G{}{}{:prefix_width$}{} {}{}{}",
+                                layout_right + 1,
                                 list_prefix,
                                 prefix_color,
                                 parts[0],
@@ -356,13 +366,15 @@ impl Highlighter for OtterHelper {
                                 "\x1b[0m"
                             )
                         } else {
-                            line.to_string()
+                            format!("\x1b[{}G{}", layout_right + 1, line)
                         }
                     }
                 })
                 .collect::<Vec<String>>()
-                .join("\n")
-                .into()
+                .join("\n") + "\x1b[?25h";
+
+                return aggregated_hint_lines.into();
+
         }
     }
 }
@@ -443,6 +455,8 @@ impl Hinter for OtterHelper {
             let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
             let selection_index = SELECTION_INDEX.lock().unwrap();
+            let layout_up = cached_statics(&LAYOUT_UPWARD, 0);
+            let mut layout_upward_movement_switch = LAYOUT_UPWARD_MOVEMENT_SWITCH.lock().unwrap();
 
             // aggregate all the matched hint objects to form a single line that is presented as a list
             let mut aggregated_lines = self
@@ -526,7 +540,13 @@ impl Hinter for OtterHelper {
             });
 
             // format the aggregated hint lines as the single hint object to be presented
+            let layout_up_string = if layout_up > 0 {
+                format!("\x1b[{}B", layout_up) } else { "".to_string() };
             if line.is_empty() {
+                if *layout_upward_movement_switch != 0 {
+                    print!("{}", layout_up_string);
+                    std::io::stdout().flush().expect("failed to flush stdout")
+                };
                 // if nothing has been typed
                 Some(ModuleHint {
                     display: format!(
@@ -549,6 +569,10 @@ impl Hinter for OtterHelper {
                     w_arg: None,
                 })
             } else {
+                print!("{}", layout_up_string);
+                std::io::stdout().flush().expect("failed to flush stdout");
+                *layout_upward_movement_switch = 1;
+
                 // if something is typed
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
@@ -1298,6 +1322,8 @@ fn main() {
         CONFIG.interface.hint_color.clone(),
         "\x1b[30m".to_string(),
     );
+    init_statics(&LAYOUT_RIGHTWARD, CONFIG.interface.layout_rightward, 0);
+    init_statics(&LAYOUT_UPWARD, CONFIG.interface.layout_upward, 0);
 
     // rustyline editor setup
     *SELECTION_INDEX.lock().unwrap() = 0;
@@ -1451,43 +1477,76 @@ fn main() {
 
     // start the flow
     loop {
+        // moving layout around
+        let layout_right = cached_statics(&LAYOUT_RIGHTWARD, 0);
+        let layout_up = cached_statics(&LAYOUT_UPWARD, 0);
+        let concatenation_switch = cached_statics(&HEADER_CONCATENATE, false);
+
         // print from header commands
         let header_cmd = cached_statics(&HEADER_CMD, "".to_string());
-        // format exec_cmd
         let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
         let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
         let mut shell_cmd = Command::new(cmd_parts[0]);
         for arg in &cmd_parts[1..] {
             shell_cmd.arg(arg);
         }
-        // run header_cmd and pipe the output
         let output = shell_cmd
             .arg(&header_cmd)
             .output()
             .expect("Failed to launch header command...");
-        // trim stdout according to toml config
         let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, 0);
-        let stdout = from_utf8(&output.stdout).unwrap();
-        let lines: Vec<&str> = stdout.lines().collect();
+        let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
+        let lines: Vec<&str> = header_cmd_stdout.lines().collect();
         let remaining_lines = if lines.len() >= remove_lines_count {
             lines[..lines.len() - remove_lines_count].join("\n") + "\x1b[?25h"
         } else {
             "not enough lines of header_cmd output to be trimmed".to_string()
         };
+
+        // print header
+        let exec_echo = cached_statics(&EXEC_CMD, "sh -c".to_string());
+        let echo_parts: Vec<&str> = exec_echo.split_whitespace().collect();
+        let mut shell_echo = Command::new(echo_parts[0]);
+        for arg in &echo_parts[1..] {
+            shell_echo.arg(arg);
+        }
+        let echo_output = shell_echo
+            .arg("printf \"".to_owned() + &cached_statics(&HEADER, "".to_string()) + "\"")
+            .output()
+            .expect("Failed to launch echo command for header...");
+        let header_stdout = from_utf8(&echo_output.stdout).unwrap();
+        let header_lines: Vec<&str> = header_stdout.lines().collect();
+
+        // variables to form the header
+        let layout_up_string = if layout_up > 0 {
+                format!("\x1b[{}A", layout_up) } else { "".to_string() };
+        let concatenation = if concatenation_switch || header_cmd.is_empty() {
+                "" } else { "\n" };
+        let layout_right_padding = if concatenation_switch {
+                "".to_string() } else { format!("\x1b[{}G", layout_right + 1 ) };
+        let repeated_spaces = if concatenation_switch {
+                "".to_string() } else { " ".repeat( layout_right ) };
+        //let repeated_spaces = " ".repeat( layout_right );
+        let padded_lines: Vec<String> = header_lines
+            .iter()
+            .map(|line| format!("{}{}{}{}", layout_right_padding, repeated_spaces, layout_right_padding, line))
+            .collect();
+        let aligned_header = padded_lines.join("\n");
+
         // check if header_cmd and header should be concatenated, form header content accordingly
         let concatenated_header = format!(
-            "{}{}{}",
+            "{}{}{}{}{}{}",
             remaining_lines,
-            if cached_statics(&HEADER_CONCATENATE, false) || header_cmd.is_empty() {
-                ""
-            } else {
-                "\n"
-            },
-            cached_statics(&HEADER, "".to_string())
+            layout_up_string,
+            concatenation,
+            layout_right_padding,
+            //repeated_spaces,
+            layout_right_padding,
+            aligned_header,
         );
 
         // run rustyline with configured header
-        let prompt = rl.readline(&concatenated_header);
+        let prompt = rl.readline( &concatenated_header);
         match prompt {
             Ok(_) => {}
             Err(_) => {

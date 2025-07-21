@@ -45,7 +45,7 @@ function chafa-text() {
   # move interface.header to the right
   printf "\033[$((image_width + image_text_spacing))G"
   # move cursor position to the right
-  printf "%$((image_width + image_text_spacing - 4))s"
+  printf "%$((image_width + image_text_spacing - 1))s"
   printf "\033[$((image_width + image_text_spacing))G"
 }
 

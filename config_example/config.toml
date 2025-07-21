@@ -60,6 +60,9 @@ prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m" # the color of hint mode suggestions
+# move the whole interface rightward or upward, easier for styling with chafa image
+move_right = 0
+move_up = 0
 
 
 # Modules are defined as followed
