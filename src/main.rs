@@ -30,13 +30,13 @@ extern crate urlencoding;
 
 use once_cell::sync::Lazy;
 use rustyline::{
+    Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
+    KeyCode, KeyEvent, Modifiers, Movement, RepeatCount,
     completion::{Completer, Pair},
     config::Configurer,
     highlight::Highlighter,
     hint::{Hint, Hinter},
     history::DefaultHistory,
-    Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
-    KeyCode, KeyEvent, Modifiers, Movement, RepeatCount,
 };
 use rustyline_derive::{Helper, Validator};
 use serde::Deserialize;
@@ -102,8 +102,8 @@ struct Interface {
     description_color: Option<String>,
     place_holder_color: Option<String>,
     hint_color: Option<String>,
-    layout_rightward: Option<usize>,
-    layout_upward: Option<usize>,
+    move_right: Option<usize>,
+    move_up: Option<usize>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -304,7 +304,6 @@ impl Highlighter for OtterHelper {
         let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
         let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, 0);
-        //let layout_up = cached_statics(&LAYOUT_UPWARD, 0);
 
         if suggestion_mode == "hint" {
             format!("{}{}{}{}", "\x1b[0m", hint_color, hint, "\x1b[0m").into()
@@ -324,7 +323,8 @@ impl Highlighter for OtterHelper {
             }
 
             // format every line
-            let aggregated_hint_lines = hint.lines()
+            let aggregated_hint_lines = hint
+                .lines()
                 .enumerate()
                 .map(|(index, line)| {
                     if index == *selection_index && *selection_index > 0 {
@@ -371,10 +371,10 @@ impl Highlighter for OtterHelper {
                     }
                 })
                 .collect::<Vec<String>>()
-                .join("\n") + "\x1b[?25h";
+                .join("\n")
+                + "\x1b[?25h";
 
-                return aggregated_hint_lines.into();
-
+            return aggregated_hint_lines.into();
         }
     }
 }
@@ -456,7 +456,7 @@ impl Hinter for OtterHelper {
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
             let selection_index = SELECTION_INDEX.lock().unwrap();
             let layout_up = cached_statics(&LAYOUT_UPWARD, 0);
-            let mut layout_upward_movement_switch = LAYOUT_UPWARD_MOVEMENT_SWITCH.lock().unwrap();
+            let mut move_up_movement_switch = LAYOUT_UPWARD_MOVEMENT_SWITCH.lock().unwrap();
 
             // aggregate all the matched hint objects to form a single line that is presented as a list
             let mut aggregated_lines = self
@@ -541,9 +541,12 @@ impl Hinter for OtterHelper {
 
             // format the aggregated hint lines as the single hint object to be presented
             let layout_up_string = if layout_up > 0 {
-                format!("\x1b[{}B", layout_up) } else { "".to_string() };
+                format!("\x1b[{}B", layout_up)
+            } else {
+                "".to_string()
+            };
             if line.is_empty() {
-                if *layout_upward_movement_switch != 0 {
+                if *move_up_movement_switch != 0 {
                     print!("{}", layout_up_string);
                     std::io::stdout().flush().expect("failed to flush stdout")
                 };
@@ -571,7 +574,7 @@ impl Hinter for OtterHelper {
             } else {
                 print!("{}", layout_up_string);
                 std::io::stdout().flush().expect("failed to flush stdout");
-                *layout_upward_movement_switch = 1;
+                *move_up_movement_switch = 1;
 
                 // if something is typed
                 Some(ModuleHint {
@@ -1125,6 +1128,40 @@ fn remove_ascii(text: &str) -> String {
     re.replace_all(text, "").to_string()
 }
 
+// function to expand env
+fn expand_env_vars(input: &str) -> String {
+    // define regex for both variable replacement and subshell execution
+    let var_re = regex::Regex::new(r"\$([A-Za-z_][A-Za-z0-9_]*)").unwrap();
+    let subshell_re = regex::Regex::new(r"\$\(([^)]+)\)").unwrap();
+    // replace subshells with command output
+    let input = subshell_re
+        .replace_all(input, |captures: &regex::Captures| {
+            let command = &captures[1];
+            let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+            let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+            let mut shell_cmd = Command::new(cmd_parts[0]);
+            for arg in &cmd_parts[1..] {
+                shell_cmd.arg(arg);
+            }
+            // run the captured command
+            let output = shell_cmd.arg(command).output();
+            // collect and return command output, trim to remove new line, default to empty on failure
+            match output {
+                Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
+                Err(_) => String::new(),
+            }
+        })
+        .into_owned();
+
+    // replace environment variables with their values
+    var_re
+        .replace_all(&input, |captures: &regex::Captures| {
+            let var_name = &captures[1];
+            env::var(var_name).unwrap_or_else(|_| String::new())
+        })
+        .into_owned()
+}
+
 // function to run module.cmd
 fn run_module_command(mod_cmd_arg: &str) {
     // format the shell command by which the module commands are launched
@@ -1322,8 +1359,8 @@ fn main() {
         CONFIG.interface.hint_color.clone(),
         "\x1b[30m".to_string(),
     );
-    init_statics(&LAYOUT_RIGHTWARD, CONFIG.interface.layout_rightward, 0);
-    init_statics(&LAYOUT_UPWARD, CONFIG.interface.layout_upward, 0);
+    init_statics(&LAYOUT_RIGHTWARD, CONFIG.interface.move_right, 0);
+    init_statics(&LAYOUT_UPWARD, CONFIG.interface.move_up, 0);
 
     // rustyline editor setup
     *SELECTION_INDEX.lock().unwrap() = 0;
@@ -1504,34 +1541,34 @@ fn main() {
         };
 
         // print header
-        let exec_echo = cached_statics(&EXEC_CMD, "sh -c".to_string());
-        let echo_parts: Vec<&str> = exec_echo.split_whitespace().collect();
-        let mut shell_echo = Command::new(echo_parts[0]);
-        for arg in &echo_parts[1..] {
-            shell_echo.arg(arg);
-        }
-        let echo_output = shell_echo
-            .arg("printf \"".to_owned() + &cached_statics(&HEADER, "".to_string()) + "\"")
-            .output()
-            .expect("Failed to launch echo command for header...");
-        let header_stdout = from_utf8(&echo_output.stdout).unwrap();
-        let header_lines: Vec<&str> = header_stdout.lines().collect();
+        let config_header = cached_statics(&HEADER, "sh -c".to_string());
+        let header_lines = expand_env_vars(&config_header);
 
         // variables to form the header
         let layout_up_string = if layout_up > 0 {
-                format!("\x1b[{}A", layout_up) } else { "".to_string() };
+            format!("\x1b[{}A", layout_up)
+        } else {
+            "".to_string()
+        };
         let concatenation = if concatenation_switch || header_cmd.is_empty() {
-                "" } else { "\n" };
+            ""
+        } else {
+            "\n"
+        };
         let layout_right_padding = if concatenation_switch {
-                "".to_string() } else { format!("\x1b[{}G", layout_right + 1 ) };
+            "".to_string()
+        } else {
+            format!("\x1b[{}G", layout_right + 1)
+        };
         let repeated_spaces = if concatenation_switch {
-                "".to_string() } else { " ".repeat( layout_right ) };
-        //let repeated_spaces = " ".repeat( layout_right );
-        let padded_lines: Vec<String> = header_lines
-            .iter()
-            .map(|line| format!("{}{}{}{}", layout_right_padding, repeated_spaces, layout_right_padding, line))
-            .collect();
-        let aligned_header = padded_lines.join("\n");
+            "".to_string()
+        } else {
+            " ".repeat(layout_right)
+        };
+        let aligned_header = format!(
+            "{}{}{}{}",
+            layout_right_padding, repeated_spaces, layout_right_padding, header_lines
+        );
 
         // check if header_cmd and header should be concatenated, form header content accordingly
         let concatenated_header = format!(
@@ -1540,13 +1577,12 @@ fn main() {
             layout_up_string,
             concatenation,
             layout_right_padding,
-            //repeated_spaces,
             layout_right_padding,
             aligned_header,
         );
 
         // run rustyline with configured header
-        let prompt = rl.readline( &concatenated_header);
+        let prompt = rl.readline(&concatenated_header);
         match prompt {
             Ok(_) => {}
             Err(_) => {
