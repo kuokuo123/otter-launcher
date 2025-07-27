@@ -1535,14 +1535,15 @@ fn main() {
         let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
         let lines: Vec<&str> = header_cmd_stdout.lines().collect();
         let remaining_lines = if lines.len() >= remove_lines_count {
-            lines[..lines.len() - remove_lines_count].join("\n") + "\x1b[?25h"
+            lines[..lines.len() - remove_lines_count].join("\n")
         } else {
             "not enough lines of header_cmd output to be trimmed".to_string()
         };
 
         // print header
         let config_header = cached_statics(&HEADER, "sh -c".to_string());
-        let header_lines = expand_env_vars(&config_header);
+        let expanded_header = expand_env_vars(&config_header);
+        let header_lines: Vec<&str> = expanded_header.lines().collect();
 
         // variables to form the header
         let layout_up_string = if layout_up > 0 {
@@ -1565,19 +1566,18 @@ fn main() {
         } else {
             " ".repeat(layout_right)
         };
-        let aligned_header = format!(
-            "{}{}{}{}",
-            layout_right_padding, repeated_spaces, layout_right_padding, header_lines
-        );
+        let padded_lines: Vec<String> = header_lines
+            .iter()
+            .map(|line| format!("{}{}{}{}", layout_right_padding, repeated_spaces, layout_right_padding, line))
+            .collect();
+        let aligned_header = padded_lines.join("\n");
 
         // check if header_cmd and header should be concatenated, form header content accordingly
         let concatenated_header = format!(
-            "{}{}{}{}{}{}",
+            "{}{}{}{}",
             remaining_lines,
             layout_up_string,
             concatenation,
-            layout_right_padding,
-            layout_right_padding,
             aligned_header,
         );
 
