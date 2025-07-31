@@ -290,7 +290,7 @@ impl Highlighter for OtterHelper {
         let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
         let empty_module_message = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
         let description_color = cached_statics(&DESCRIPTION_COLOR, "".to_string());
-        let place_holder = cached_statics(&PLACE_HOLDER, "type and search...".to_string());
+        let place_holder = cached_statics(&PLACE_HOLDER, "type something".to_string());
         let place_holder_color = cached_statics(&PLACE_HOLDER_COLOR, "\x1b[30m".to_string());
         let hint_color = cached_statics(&HINT_COLOR, "\x1b[30m".to_string());
         let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
@@ -385,7 +385,7 @@ impl Hinter for OtterHelper {
     type Hint = ModuleHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
         let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
-        let place_holder = cached_statics(&PLACE_HOLDER, "type and search...".to_string());
+        let place_holder = cached_statics(&PLACE_HOLDER, "type something".to_string());
         let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, "?".to_string());
         let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, 1);
@@ -1290,7 +1290,7 @@ fn main() {
     init_statics(
         &HEADER,
         CONFIG.interface.header.clone(),
-        "\x1b[34;1m \x1b[0m otter-launcher \x1b[34;1m>\x1b[0;1m ".to_string(),
+        "otter-launcher: ".to_string(),
     );
     init_statics(
         &HEADER_CONCATENATE,
@@ -1310,7 +1310,7 @@ fn main() {
     init_statics(
         &PLACE_HOLDER,
         CONFIG.interface.place_holder.clone(),
-        "type and search".to_string(),
+        "type something".to_string(),
     );
     init_statics(
         &INDICATOR_WITH_ARG_MODULE,
