@@ -86,7 +86,8 @@ external_editor = "" # if set, pressing ctrl+e (or pressing v in vi normal mode)
 # ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
 [interface]
 # use three quotes to write longer commands
-header = """ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n    \u001B[34;1m>\u001B[0;1m """
+header = """
+ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n    \u001B[34;1m>\u001B[0;1m """
 # Run a shell command and make the stdout printed above the header
 header_cmd = ""
 header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
@@ -194,7 +195,7 @@ More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Comm
 
 ``` toml
 [interface]
-header = """ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n    \u001B[34;1m>\u001B[0;1m """
+header = """ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n    \u001B[34;1m>\u001B[0;1m """
 list_prefix = "      "
 selection_prefix = "   \u001B[31;1m> "
 place_holder = "type and search"
@@ -243,7 +244,7 @@ hint_color = "\u001B[90m"
 [interface]
 header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/images_other/waterways_and_otterways.jpg"
 header_cmd_trimmed_lines = 1
-header = """  \u001B[34;1m  󱎘 \u001B[0m $USER@$(echo $HOSTNAME)          \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n    \u001B[34;1m󱎘 \u001B[0;1m """
+header = """  \u001B[34;1m  󱎘 \u001B[0m $USER@$(echo $HOSTNAME)          \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n    \u001B[34;1m󱎘 \u001B[0;1m """
 list_prefix = "       "
 selection_prefix = "     \u001B[31;1m> "
 place_holder = "type and search..."
@@ -264,7 +265,7 @@ hint_color = "\u001B[90m"
 
 ```toml
 [interface]
-header = """  \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n     \u001B[34;1m>\u001B[0;1m """
+header = """  \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)              \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n     \u001B[34;1m>\u001B[0;1m """
 indicator_with_arg_module = "^ "
 indicator_no_arg_module = "$ "
 place_holder = "type and search"
@@ -327,7 +328,7 @@ header = """
     │ \u001B[90m󱎘  \u001B[31m󱎘  \u001B[32m󱎘  \u001B[33m󱎘  \u001B[34m󱎘  \u001B[35m󱎘  \u001B[36m󱎘\u001B[0m │
     └ \u001B[36m \u001B[1;36m system\u001B[0m archlinux ┘
     ┌ \u001B[33m \u001B[1;36m window \u001B[0m     $XDG_CURRENT_DESKTOP ┐
-    │ \u001B[31m \u001B[1;36m loads\u001B[0m      $(mpstat | awk 'FNR ==4 {print $4}')% │
+    │ \u001B[31m \u001B[1;36m loads\u001B[0m       $(cat /proc/loadavg | cut -d ' ' -f 1) │
     │ \u001B[32m \u001B[1;36m memory\u001B[0m     $(free -h | awk 'FNR == 2 {print $3}') │
     │ \u001B[90m\u001B[0m  """
 list_prefix = "    └ \u001B[34m󱓞  "
