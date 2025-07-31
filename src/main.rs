@@ -1533,7 +1533,7 @@ fn main() {
             .expect("Failed to launch header command...");
         let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, 0);
         let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
-        let lines: Vec<&str> = header_cmd_stdout.lines().collect();
+        let lines: Vec<&str> = header_cmd_stdout.split('\n').collect();
         let remaining_lines = if lines.len() >= remove_lines_count {
             lines[..lines.len() - remove_lines_count].join("\n")
         } else {
@@ -1543,7 +1543,7 @@ fn main() {
         // print header
         let config_header = cached_statics(&HEADER, "sh -c".to_string());
         let expanded_header = expand_env_vars(&config_header);
-        let header_lines: Vec<&str> = expanded_header.lines().collect();
+        let header_lines: Vec<&str> = expanded_header.split('\n').collect();
 
         // variables to form the header
         let layout_up_string = if layout_up > 0 {
@@ -1568,17 +1568,19 @@ fn main() {
         };
         let padded_lines: Vec<String> = header_lines
             .iter()
-            .map(|line| format!("{}{}{}{}", layout_right_padding, repeated_spaces, layout_right_padding, line))
+            .map(|line| {
+                format!(
+                    "{}{}{}{}",
+                    layout_right_padding, repeated_spaces, layout_right_padding, line
+                )
+            })
             .collect();
         let aligned_header = padded_lines.join("\n");
 
         // check if header_cmd and header should be concatenated, form header content accordingly
         let concatenated_header = format!(
             "{}{}{}{}",
-            remaining_lines,
-            layout_up_string,
-            concatenation,
-            aligned_header,
+            remaining_lines, layout_up_string, concatenation, aligned_header,
         );
 
         // run rustyline with configured header
