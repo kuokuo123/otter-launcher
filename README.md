@@ -87,7 +87,8 @@ external_editor = "" # if set, pressing ctrl+e (or pressing v in vi normal mode)
 [interface]
 # use three quotes to write longer commands
 header = """
- \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n    \u001B[34;1m>\u001B[0;1m """
+ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
+    \u001B[34;1m>\u001B[0;1m """
 # Run a shell command and make the stdout printed above the header
 header_cmd = ""
 header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
@@ -101,7 +102,7 @@ suggestion_mode = "list" # available options: list, hint
 suggestion_lines = 4 # length of the suggestion list, set to 0 to disable suggestions and tab completion
 indicator_with_arg_module = "\u001B[31m^\u001B[0m " # a sign showing whether the module should run with an argument
 indicator_no_arg_module = "\u001B[31m$\u001B[0m "
-prefix_padding = 3 # format prefixes to have a unified width; prefixes will be padded with spaces to have a least specified number of chars
+prefix_padding = 3 # format prefixes to have a uniformed width; prefixes will be padded with spaces to have a least specified number of chars
 # below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
@@ -195,7 +196,9 @@ More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Comm
 
 ``` toml
 [interface]
-header = """ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n    \u001B[34;1m>\u001B[0;1m """
+header = """
+ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
+    \u001B[34;1m>\u001B[0;1m """
 list_prefix = "      "
 selection_prefix = "   \u001B[31;1m> "
 place_holder = "type and search"
