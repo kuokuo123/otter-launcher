@@ -1533,7 +1533,7 @@ fn main() {
             .expect("Failed to launch header command...");
         let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, 0);
         let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
-        let lines: Vec<&str> = header_cmd_stdout.split('\n').collect();
+        let lines: Vec<&str> = header_cmd_stdout.lines().collect();
         let remaining_lines = if lines.len() >= remove_lines_count {
             lines[..lines.len() - remove_lines_count].join("\n")
         } else {
