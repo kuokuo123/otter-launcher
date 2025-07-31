@@ -85,23 +85,21 @@ external_editor = "" # if set, pressing ctrl+e (or pressing v in vi normal mode)
 
 # ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
 [interface]
-# Run a shell command and make the stdout printed above the header
-header_cmd = """
-echo -e \" \u001B[34;1m  >\u001B[0m $USER@$HOSTNAME                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {gsub(/i$/, "", $3); print $3}')\"
-"""
-header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
 # use three quotes to write longer commands
-header = """    \u001B[34;1m> \u001B[0;1m"""
+header = """ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n    \u001B[34;1m>\u001B[0;1m """
+# Run a shell command and make the stdout printed above the header
+header_cmd = ""
+header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
 header_concatenate = false # print header and header_cmd output at the same line, default to false
 list_prefix = "      "
-selection_prefix = "    \u001B[31;1m> "
-place_holder = "type and search..."
-default_module_message = "      search the internet" # if set, the text will be shown when the default module is in use
+selection_prefix = "   \u001B[31;1m> "
+place_holder = "type and search"
+default_module_message = "      \u001B[33msearch\u001B[0m the internet" # if set, the text will be shown when the default module is in use
 empty_module_message = "" # the text to show when empty module is in use
 suggestion_mode = "list" # available options: list, hint
-suggestion_lines = 5 # length of the suggestion list, set to 0 to disable suggestions and tab completion
-indicator_with_arg_module = "" # a sign showing whether the module should run with an argument
-indicator_no_arg_module = ""
+suggestion_lines = 4 # length of the suggestion list, set to 0 to disable suggestions and tab completion
+indicator_with_arg_module = "\u001B[31m^\u001B[0m " # a sign showing whether the module should run with an argument
+indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 prefix_padding = 3 # format prefixes to have a unified width; prefixes will be padded with spaces to have a least specified number of chars
 # below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
 prefix_color = "\u001B[33m"
@@ -190,54 +188,26 @@ More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Comm
 
 # Examples for Styling
 
-## Default Config
+## Example Config
 
-![Default Config](./assets/default.png)
+![Example Config](./assets/default.png)
 
 ```
 [interface]
-header_cmd = """
-echo -e \" \u001B[34;1m  >\u001B[0m $USER@$HOSTNAME                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {gsub(/i$/, "", $3); print $3}')\"
-"""
-header_cmd_trimmed_lines = 0
-header = """    \u001B[34;1m> \u001B[0;1m"""
-header_concatenate = false
+header = """ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n    \u001B[34;1m>\u001B[0;1m """
 list_prefix = "      "
-selection_prefix = "    \u001B[31;1m> "
-place_holder = "type and search..."
-default_module_message = "      search the internet"
-empty_module_message = ""
+selection_prefix = "   \u001B[31;1m> "
+place_holder = "type and search"
+default_module_message = "      \u001B[33msearch\u001B[0m the internet"
 suggestion_mode = "list"
-suggestion_lines = 5
-indicator_with_arg_module = ""
-indicator_no_arg_module = ""
+suggestion_lines = 4
+indicator_with_arg_module = "\u001B[31m^\u001B[0m "
+indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 prefix_padding = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m"
-```
-
-## Two Liner in Hint Mode
-
-![Two Liner Config](./assets/two_liner.png)
-
-```
-[interface]
-header_cmd = """
-echo -e \"  \u001B[34;1m  >\u001B[0m $USER@$HOSTNAME            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\"
-"""
-header = """     \u001B[34;1m>\u001B[0;1m """
-list_prefix = "       "
-selection_prefix = "     > "
-indicator_with_arg_module = "^ "
-indicator_no_arg_module = "$ "
-place_holder = "type and search..."
-suggestion_mode = "hint"
-prefix_color = "\u001B[33m"
-description_color = "\u001B[38m"
-place_holder_color = "\u001B[90m"
-hint_color = "\u001B[90m"
 ```
 
 ## Fastfetch & Krabby
@@ -247,13 +217,15 @@ hint_color = "\u001B[90m"
 ```
 [interface]
 header_cmd = "fastfetch --structure break:colors:break:os:wm:shell:kernel:term:uptime:datetime:break --key-type icon --logo-type data --logo \"$(krabby name pikachu --no-title)\""
-header = "  \u001B[34m \u001B[0m otter-launcher \u001B[34m>\u001B[0m "
+header = "  \u001B[7;1m otter-launcher \u001B[0m "
 header_cmd_trimmed_lines = 1
-list_prefix = "     "
-selection_prefix = "   \u001B[31;1m> "
-place_holder = "type and search"
+list_prefix = "    \u001B[36m-\u001B[0m "
+selection_prefix = "    \u001B[31;1m> "
+place_holder = ""
 suggestion_mode = "list"
 suggestion_lines = 5
+indicator_with_arg_module = "\u001B[31m^\u001B[0m "
+indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 prefix_padding = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
@@ -261,7 +233,7 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
-## Image Protocol with CPU & MEM Indicators
+## Image Protocol
 
 ![Foot Config](./assets/foot.png)
 
@@ -269,21 +241,16 @@ hint_color = "\u001B[90m"
 
 ```
 [interface]
-header_cmd = """
-chafa --fit-width $HOME/.config/otter-launcher/waterways_and_otterways.jpg;
-echo -e "  \u001B[34;1m   󱎘\u001B[0m $USER@$HOSTNAME       \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')"
-"""
-header_cmd_trimmed_lines = 0
-header = """     \u001B[34;1m󱎘\u001B[0;1m """
+header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/images_other/waterways_and_otterways.jpg"
+header_cmd_trimmed_lines = 1
+header = """  \u001B[34;1m  󱎘 \u001B[0m $USER@$(echo $HOSTNAME)          \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n    \u001B[34;1m󱎘 \u001B[0;1m """
 list_prefix = "       "
 selection_prefix = "     \u001B[31;1m> "
 place_holder = "type and search..."
 default_module_message = """
        \u001B[35msearch\u001B[0m on the internet"""
-empty_module_message = """"""
 suggestion_mode = "list"
 suggestion_lines = 3
-suggestion_spacing = 0
 prefix_padding = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
@@ -291,55 +258,43 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
+## Two Liner in Hint Mode
+
+![Two_liner Config](./assets/two_liner.png)
+
+```
+[interface]
+header = """  \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n     \u001B[34;1m>\u001B[0;1m """
+indicator_with_arg_module = "^ "
+indicator_no_arg_module = "$ "
+place_holder = "type and search"
+suggestion_mode = "hint"
+place_holder_color = "\u001B[90m"
+hint_color = "\u001B[90m"
+```
+
 ## Image to the Left
 
-![Chafa-text Config](./assets/cover_pic.png)
-
-[Image Source: artemidadada](https://www.reddit.com/r/PixelArt/comments/cqmw4i/otter_and_carp_koi/)
-
-This config involves 3 main steps to render otter-launcher to the right of a chafa image:
-
-1. Using ascii codes to render chafa image at the desired position (or use [chafa-text.sh](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-text.sh)).
-2. Using ascii codes (\u001B[{number}A & \u001B[{number}G) to render interface.header_cmd to the right of the image.
-3. Concatenating interface.header_cmd and interface.header.
-3. Adding ascii codes (\u001B[{number}G) to interface.list_prefix and interface.selection_prefix to move listed items to the right.
-
-Below follows the details:
+![Chafa-text Config](./assets/soothing.png)
 
 ```
 [interface]
 
-header_cmd = """
-# pad an empty line to the top of the image
-echo -e ""
-# pad 3 spaces to the left of the image
-printf "\u001B[3G"
-# print the image using chafa
-chafa -s 22x8 $HOME/.config/otter-launcher/chinatown_otter.png
-# move cursor up 7 lines to print texts higher
-printf "\u001B[7A"
-# move cursor right 20 chars to print texts next to the image
-printf "\u001B[20G"
-# print a line showing system info
-echo -e "\u001B[1mthe otter's saying:"
-# move cursor right 20 chars to start the input field at the right position
-echo -e "\u001B[20G$(printf %16s)\u001B[20G"
-"""
+# render image by chafa
+header_cmd = "chafa -s x10 /home/kkoala/.config/otter-launcher/image.png"
+header_cmd_trimmed_lines = 1
 
-header = ""
+# move the layout
+move_right = 19
+move_up = 8
 
-# putting header_cmd and header in the same line
-header_concatenate = true
-
-# move listed item to the right "\u001B[21G" means moving them right 21 character width
-list_prefix = "\u001B[21G "
-selection_prefix = "\u001B[20G\u001B[31;1m> "
-default_module_message = "\u001B[21G \u001B[33msearch\u001B[0m the internet"
-
+header = "  $USER@$(echo $HOSTNAME)     \u001B[31m\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n  "
+list_prefix = "  "
+selection_prefix = "\u001B[31;1m> "
+place_holder = "type & search"
+default_module_message = "  \u001B[33msearch\u001B[0m the internet"
 suggestion_mode = "list"
 suggestion_lines = 4
-
-place_holder = "type and search"
 prefix_padding = 3
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
@@ -351,24 +306,38 @@ hint_color = "\u001B[90m"
 
 ![Prinny Config](./assets/prinny.png)
 
-This config uses [chafa-penguin.sh](https://github.com/kuokuo123/otter-launcher/tree/main/contrib/chafa-penguin.sh) to render a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png).
+This is a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png), not really a penguin.
 
 ```
 [interface]
+
+# render image by chafa
 header_cmd = """
-$HOME/.config/otter-launcher/scripts/chafa-penguin.sh;
+printf "\u001B[30G"
+chafa -s x10 /home/kkoala/.config/otter-launcher/images_rec.image
 """
-header = "    │ \u001B[90m\u001B[0m  "
-indicator_with_arg_module = ""
-indicator_no_arg_module = ""
+header_cmd_trimmed_lines = 1
+
+# move layout up
+move_up = 9
+
+# customized header & list prefix
+header = """
+    ┌ \u001B[1;34m  $USER@$(echo $HOSTNAME) \u001B[0m───┐
+    │ \u001B[90m󱎘  \u001B[31m󱎘  \u001B[32m󱎘  \u001B[33m󱎘  \u001B[34m󱎘  \u001B[35m󱎘  \u001B[36m󱎘\u001B[0m │
+    └ \u001B[36m \u001B[1;36m system\u001B[0m archlinux ┘
+    ┌ \u001B[33m \u001B[1;36m window \u001B[0m     $XDG_CURRENT_DESKTOP ┐
+    │ \u001B[31m \u001B[1;36m loads\u001B[0m      $(mpstat | awk 'FNR ==4 {print $4}')% │
+    │ \u001B[32m \u001B[1;36m memory\u001B[0m     $(free -h | awk 'FNR == 2 {print $3}') │
+    │ \u001B[90m\u001B[0m  """
+list_prefix = "    └ \u001B[34m󱓞  "
+default_module_message = "    └ \u001B[34m󱓞  \u001B[33msearch\u001B[0m the internet"
+
 place_holder = "type & search"
 suggestion_mode = "list"
 suggestion_lines = 1
-list_prefix = "    └ \u001B[34m󱓞  "
-prefix_padding = 0
-default_module_message = "    └ \u001B[34m󱓞  \u001B[33msearch\u001B[0m the internet"
 prefix_color = "\u001B[33m"
 description_color = "\u001B[38m"
 place_holder_color = "\u001B[90m"
-
+hint_color = "\u001B[90m"
 ```
