@@ -168,7 +168,7 @@ Otter-launcher works well with tui programs. When launching programs, module.cmd
 
 In the below example, otter-launcher changes window size before and after running pulsemixer by calling swaymsg:
 
-```
+``` toml
 [[modules]]
 description = "pulsemixer for audio control"
 prefix = "vol"
@@ -192,7 +192,7 @@ More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Comm
 
 ![Example Config](./assets/default.png)
 
-```
+``` toml
 [interface]
 header = """ \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n    \u001B[34;1m>\u001B[0;1m """
 list_prefix = "      "
@@ -214,7 +214,7 @@ hint_color = "\u001B[30m"
 
 ![Fastfetch Config](./assets/fastfetch.png)
 
-```
+``` toml
 [interface]
 header_cmd = "fastfetch --structure break:colors:break:os:wm:shell:kernel:term:uptime:datetime:break --key-type icon --logo-type data --logo \"$(krabby name pikachu --no-title)\""
 header = "  \u001B[7;1m otter-launcher \u001B[0m "
@@ -239,7 +239,7 @@ hint_color = "\u001B[90m"
 
 [Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
 
-```
+``` toml
 [interface]
 header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/images_other/waterways_and_otterways.jpg"
 header_cmd_trimmed_lines = 1
@@ -262,7 +262,7 @@ hint_color = "\u001B[90m"
 
 ![Two_liner Config](./assets/two_liner.png)
 
-```
+```toml
 [interface]
 header = """  \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n     \u001B[34;1m>\u001B[0;1m """
 indicator_with_arg_module = "^ "
@@ -277,7 +277,7 @@ hint_color = "\u001B[90m"
 
 ![Chafa-text Config](./assets/soothing.png)
 
-```
+```toml
 [interface]
 
 # render image by chafa
@@ -308,7 +308,7 @@ hint_color = "\u001B[90m"
 
 This is a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png), not really a penguin.
 
-```
+```toml
 [interface]
 
 # render image by chafa
