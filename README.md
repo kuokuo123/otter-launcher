@@ -94,7 +94,7 @@ header_cmd = ""
 header_cmd_trimmed_lines = 0 # Remove a number of lines from header_cmd output, in case of some programs printing excessive empty lines at the end of its output
 header_concatenate = false # print header and header_cmd output at the same line, default to false
 list_prefix = "      "
-selection_prefix = "   \u001B[31;1m> "
+selection_prefix = "    \u001B[31;1m> "
 place_holder = "type and search"
 default_module_message = "      \u001B[33msearch\u001B[0m the internet" # if set, the text will be shown when the default module is in use
 empty_module_message = "" # the text to show when empty module is in use
@@ -200,7 +200,7 @@ header = """
  \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
     \u001B[34;1m>\u001B[0;1m """
 list_prefix = "      "
-selection_prefix = "   \u001B[31;1m> "
+selection_prefix = "    \u001B[31;1m> "
 place_holder = "type and search"
 default_module_message = "      \u001B[33msearch\u001B[0m the internet"
 suggestion_mode = "list"
@@ -285,7 +285,7 @@ hint_color = "\u001B[90m"
 [interface]
 
 # render image by chafa
-header_cmd = "chafa -s x10 /home/kkoala/.config/otter-launcher/image.png"
+header_cmd = "chafa -s x10 $HOME/.config/otter-launcher/image.png"
 header_cmd_trimmed_lines = 1
 
 # move the layout
@@ -318,7 +318,7 @@ This is a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/
 # render image by chafa
 header_cmd = """
 printf "\u001B[30G"
-chafa -s x10 /home/kkoala/.config/otter-launcher/images_rec.image
+chafa -s x10 $HOME/.config/otter-launcher/images_rec.image
 """
 header_cmd_trimmed_lines = 1
 
@@ -335,6 +335,7 @@ header = """
     │ \u001B[32m \u001B[1;36m memory\u001B[0m     $(free -h | awk 'FNR == 2 {print $3}') │
     │ \u001B[90m\u001B[0m  """
 list_prefix = "    └ \u001B[34m󱓞  "
+selection_prefix = "    └ \u001B[34m󱓞  "
 default_module_message = "    └ \u001B[34m󱓞  \u001B[33msearch\u001B[0m the internet"
 
 place_holder = "type & search"
