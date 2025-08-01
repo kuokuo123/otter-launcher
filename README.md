@@ -123,7 +123,7 @@ with_argument = true # If "with_argument" is true, the {} in the cmd value will 
 url_encode = true # "url_encode" should be true if the module is set to call webpages, as this ensures special characters in url being readable to browsers. It'd better be false with shell scripts. If the field is not explicitly set, will be taken as false.
 
 [[modules]]
-description = "launch desktop apps"
+description = "launch desktop programs"
 prefix = "app"
 cmd = """
 desktop_file() {
@@ -139,14 +139,52 @@ echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $lin
 """
 
 [[modules]]
-description = "search in github"
-prefix = "gh"
-cmd = "setsid -f xdg-open https://github.com/search?q='{}'"
+description = "power menu with fzf"
+prefix = "po"
+cmd = """
+function power {
+if [[ -n $1 ]]; then
+case $1 in
+"logout") session=`loginctl session-status | head -n 1 | awk '{print $1}'`; loginctl terminate-session $session ;;
+"suspend") systemctl suspend ;;
+"hibernate") systemctl hibernate ;;
+"reboot") systemctl reboot ;;
+"shutdown") systemctl poweroff ;;
+esac fi }
+power $(echo -e 'reboot\nshutdown\nlogout\nsuspend\nhibernate' | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Power Menu: ' | tail -1)
+"""
+
+[[modules]]
+description = "run command in terminal"
+prefix = "sh"
+cmd = """
+setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e {}
+"""
+with_argument = true
+
+[[modules]]
+description = "search archwiki"
+prefix = "aw"
+cmd = "setsid -f xdg-open https://wiki.archlinux.org/index.php?search='{}'"
 with_argument = true
 url_encode = true
 
 [[modules]]
-description = "cambridge dict"
+description = "search for arch packages"
+prefix = "pac"
+cmd = "setsid -f xdg-open https://archlinux.org/packages/?q='{}'"
+with_argument = true
+url_encode = true
+
+[[modules]]
+description = "search for aur packages"
+prefix = "aur"
+cmd = "setsid -f xdg-open https://aur.archlinux.org/packages?K='{}'"
+with_argument = true
+url_encode = true
+
+[[modules]]
+description = "cambridge dictionary"
 prefix = "dc"
 cmd = "setsid -f xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
 with_argument = true
@@ -156,12 +194,14 @@ url_encode = true
 [[modules]]
 description = "open files with fzf"
 prefix = "fo"
-cmd = "fd --type f | fzf | setsid -f xargs -r -I {} xdg-open '{}'"
+cmd = "fd --type f | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Files: ' | setsid -f xargs -r -I {} xdg-open '{}'"
 
 [[modules]]
 description = "open folders with fzf"
 prefix = "yz"
-cmd = "fd --type d | fzf | xargs -r -I {} yazi '{}'"
+cmd = """
+fd --type d | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Folders: ' | xargs -r -I {} setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '{}'
+"""
 ```
 
 # Integration
@@ -335,7 +375,7 @@ header = """
     │ \u001B[32m \u001B[1;36m memory\u001B[0m     $(free -h | awk 'FNR == 2 {print $3}') │
     │ \u001B[90m\u001B[0m  """
 list_prefix = "    └ \u001B[34m󱓞  "
-selection_prefix = "    └ \u001B[34m󱓞  "
+selection_prefix = "    └ \u001B[31m󱓞  "
 default_module_message = "    └ \u001B[34m󱓞  \u001B[33msearch\u001B[0m the internet"
 
 place_holder = "type & search"
