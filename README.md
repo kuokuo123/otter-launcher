@@ -105,7 +105,7 @@ indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 prefix_padding = 3 # format prefixes to have a uniformed width; prefixes will be padded with spaces to have a least specified number of chars
 # below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
 prefix_color = "\u001B[33m"
-description_color = "\u001B[38m"
+description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m" # the color of hint mode suggestions
 # move the whole interface rightward or upward, easier for styling with chafa image

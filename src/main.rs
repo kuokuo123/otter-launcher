@@ -289,7 +289,7 @@ impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
         let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
         let empty_module_message = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
-        let description_color = cached_statics(&DESCRIPTION_COLOR, "".to_string());
+        let description_color = cached_statics(&DESCRIPTION_COLOR, "\x1b[39m".to_string());
         let place_holder = cached_statics(&PLACE_HOLDER, "type something".to_string());
         let place_holder_color = cached_statics(&PLACE_HOLDER_COLOR, "\x1b[30m".to_string());
         let hint_color = cached_statics(&HINT_COLOR, "\x1b[30m".to_string());
@@ -331,12 +331,11 @@ impl Highlighter for OtterHelper {
                         let parts: Vec<&str> = line.split_whitespace().collect();
                         if parts.len() >= 2 {
                             format!(
-                                "\x1B[{}G{}{}{:prefix_width$}{} {}{}{}",
+                                "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
                                 layout_right + 1,
                                 selection_prefix,
                                 prefix_color,
                                 parts[0],
-                                "\x1b[0m",
                                 description_color,
                                 parts[1..].join(" "),
                                 "\x1b[0m"
@@ -355,12 +354,11 @@ impl Highlighter for OtterHelper {
                         let parts: Vec<&str> = line.split_whitespace().collect();
                         if parts.len() >= 2 {
                             format!(
-                                "\x1B[{}G{}{}{:prefix_width$}{} {}{}{}",
+                                "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
                                 layout_right + 1,
                                 list_prefix,
                                 prefix_color,
                                 parts[0],
-                                "\x1b[0m",
                                 description_color,
                                 parts[1..].join(" "),
                                 "\x1b[0m"
@@ -1347,7 +1345,7 @@ fn main() {
     init_statics(
         &DESCRIPTION_COLOR,
         CONFIG.interface.description_color.clone(),
-        "".to_string(),
+        "\x1b[39m".to_string(),
     );
     init_statics(
         &PLACE_HOLDER_COLOR,
