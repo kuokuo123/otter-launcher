@@ -249,7 +249,7 @@ indicator_with_arg_module = "\u001B[31m^\u001B[0m "
 indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 prefix_padding = 3
 prefix_color = "\u001B[33m"
-description_color = "\u001B[38m"
+description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m"
 ```
@@ -272,7 +272,7 @@ indicator_with_arg_module = "\u001B[31m^\u001B[0m "
 indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 prefix_padding = 3
 prefix_color = "\u001B[33m"
-description_color = "\u001B[38m"
+description_color = "\u001B[39m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
@@ -297,7 +297,7 @@ suggestion_mode = "list"
 suggestion_lines = 3
 prefix_padding = 3
 prefix_color = "\u001B[33m"
-description_color = "\u001B[38m"
+description_color = "\u001B[39m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
@@ -341,7 +341,7 @@ suggestion_mode = "list"
 suggestion_lines = 4
 prefix_padding = 3
 prefix_color = "\u001B[33m"
-description_color = "\u001B[38m"
+description_color = "\u001B[39m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
@@ -382,7 +382,7 @@ place_holder = "type & search"
 suggestion_mode = "list"
 suggestion_lines = 1
 prefix_color = "\u001B[33m"
-description_color = "\u001B[38m"
+description_color = "\u001B[39m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
