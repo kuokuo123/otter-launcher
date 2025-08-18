@@ -158,7 +158,7 @@ power $(echo -e 'reboot\nshutdown\nlogout\nsuspend\nhibernate' | fzf --reverse -
 description = "run command in terminal"
 prefix = "sh"
 cmd = """
-setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e {}
+setsid -f $(printf $TERM | sed 's/xterm-//g') -e sh -c "{}"
 """
 with_argument = true
 
