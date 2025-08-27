@@ -271,7 +271,7 @@ impl Completer for OtterHelper {
                 }];
                 *SELECTION_INDEX.lock().unwrap() = 0;
                 Ok((0, cand))
-            } else {
+            } else if pos == line.len() {
                 // normal behavior
                 let cand = vec![Pair {
                     display: "".to_string(),
@@ -279,6 +279,13 @@ impl Completer for OtterHelper {
                 }];
                 *SELECTION_INDEX.lock().unwrap() = 0;
                 Ok((0, cand))
+            } else {
+                let cand = vec![Pair {
+                    display: "".to_string(),
+                    replacement: "".to_string(),
+                }];
+                *SELECTION_INDEX.lock().unwrap() = 0;
+                Ok((pos, cand))
             }
         }
     }
@@ -834,7 +841,7 @@ impl ConditionalEventHandler for ListItemEnter {
         _evt: &Event,
         _n: RepeatCount,
         _positive: bool,
-        _ctx: &EventContext,
+        ctx: &EventContext,
     ) -> Option<Cmd> {
         if *SELECTION_INDEX.lock().unwrap() == 0 {
             Some(Cmd::AcceptLine)
@@ -856,10 +863,29 @@ impl ConditionalEventHandler for ListItemEnter {
                 } else {
                     Cmd::Interrupt
                 }
-            } else {
+            } else if ctx.pos() == ctx.line().len() {
                 Cmd::Complete
+            } else {
+                Cmd::CompleteHint
             })
         }
+    }
+}
+
+struct ListItemTab;
+impl ConditionalEventHandler for ListItemTab {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        Some(if ctx.pos() == ctx.line().len() {
+            Cmd::Complete
+        } else {
+            Cmd::CompleteHint
+        })
     }
 }
 
@@ -1460,6 +1486,10 @@ fn main() {
     rl.bind_sequence(
         KeyEvent::new('\r', Modifiers::ALT),
         EventHandler::Simple(Cmd::AcceptLine),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('\t', Modifiers::NONE),
+        EventHandler::Conditional(Box::from(ListItemTab)),
     );
     rl.bind_sequence(
         KeyEvent::new('j', Modifiers::CTRL),
