@@ -410,7 +410,7 @@ impl Hinter for OtterHelper {
                         cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
                     )
                     .to_string(),
-                    completion: pos,
+                    completion: line.len(),
                     w_arg: None,
                 })
             } else {
@@ -434,7 +434,7 @@ impl Hinter for OtterHelper {
                                         .to_string(),
                                 );
                                 // provide the found hint
-                                Some(i.suffix(pos))
+                                Some(i.suffix(line.len()))
                             } else {
                                 *COMPLETION_CANDIDATE.lock().unwrap() = None;
                                 None
