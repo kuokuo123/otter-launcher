@@ -1447,14 +1447,6 @@ fn main() {
     } else {
         // emacs bindings
         rl.bind_sequence(
-            KeyEvent::new('n', Modifiers::CTRL),
-            EventHandler::Conditional(Box::from(ListItemDown)),
-        );
-        rl.bind_sequence(
-            KeyEvent::new('p', Modifiers::CTRL),
-            EventHandler::Conditional(Box::from(ListItemUp)),
-        );
-        rl.bind_sequence(
             KeyEvent::new('<', Modifiers::ALT),
             EventHandler::Conditional(Box::from(ListHome)),
         );
@@ -1490,6 +1482,14 @@ fn main() {
     rl.bind_sequence(
         KeyEvent::new('\t', Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListItemTab)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('n', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListItemDown)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('p', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
         KeyEvent::new('j', Modifiers::CTRL),
