@@ -3,7 +3,7 @@
 
 ![cover_pic](./assets/soothing.png)
 
-A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ascii color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
+A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
 The core concept is making these behaviours possible:
 
@@ -33,7 +33,7 @@ External Editor & List Selection
 - tab completion; tab again to undo completion
 - edit prompt in an external editor (vim, emacs, etc.)
 - url encoding for web searching
-- supporting ascii color codes, chafa, sixel or kitty image protocol, etc.
+- supporting ansi codes, chafa, sixel or kitty image protocol, etc.
 - cheat sheet
 - callback function
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
@@ -83,7 +83,7 @@ external_editor = "" # if set, pressing ctrl+e (or pressing v in vi normal mode)
 #callback = "" # if set, otter-launcher will run the command after a module is executed; for example, it can call swaymsg to adjust window size
 
 
-# ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
+# ANSI codes are allowed with these options. However, \x1b should be replaced with \u001B because the rust toml crate cannot read \x as an escaped character...
 [interface]
 # use three quotes to write longer commands
 header = """
@@ -103,7 +103,7 @@ suggestion_lines = 4 # length of the suggestion list, set to 0 to disable sugges
 indicator_with_arg_module = "\u001B[31m^\u001B[0m " # a sign showing whether the module should run with an argument
 indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 prefix_padding = 3 # format prefixes to have a uniformed width; prefixes will be padded with spaces to have a least specified number of chars
-# below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
+# below color options affect all modules; per-module coloring is allowed by using ansi color codes at each module's configurations
 prefix_color = "\u001B[33m"
 description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"

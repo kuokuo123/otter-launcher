@@ -35,7 +35,7 @@ external_editor = "" # if set, pressing ctrl+e (or pressing v in vi normal mode)
 #callback = "" # if set, otter-launcher will run the command after a module is executed; for example, it can call swaymsg to adjust window size
 
 
-# ASCII color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
+# ANSI color codes are allowed with these options. However, \x1b should be replaced with \u001B (unicode escape) because the rust toml crate cannot read \x as an escaped character...
 [interface]
 # use three quotes to write longer commands
 header = """
@@ -55,7 +55,7 @@ suggestion_lines = 4 # length of the suggestion list, set to 0 to disable sugges
 indicator_with_arg_module = "\u001B[31m^\u001B[0m " # a sign showing whether the module should run with an argument
 indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 prefix_padding = 3 # format prefixes to have a uniformed width; prefixes will be padded with spaces to have a least specified number of chars
-# below color options affect all modules; per-module coloring is allowed by using ascii color codes at each module's configurations
+# below color options affect all modules; per-module coloring is allowed by using ansi codes at each module's configurations
 prefix_color = "\u001B[33m"
 description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
