@@ -114,12 +114,12 @@ move_up = 0
 
 
 # Modules are defined as followed
+# otter-launcher runs the specified cmd as a child process. Use "setsid -f" if you need to unbind or fork the launched program like normal shell scripting. While unbinding is useful for launching gui programs, otter-launcher should retain the ability to run commandline programs.
 [[modules]]
 description = "search with google"
 prefix = "gg"
-# try wm's exec command if 'setsid -f' does not work, eg. 'hyprctl dispatch exec'
-cmd = "setsid -f xdg-open 'https://www.google.com/search?q={}'"
-with_argument = true # If "with_argument" is true, the {} in the cmd value will be replaced with user input. If the field is not explicitly set, will be taken as false.
+cmd = "setsid -f xdg-open 'https://www.google.com/search?q={}'" # try wm's exec command for unbinding if 'setsid -f' does not work as expected, eg. 'hyprctl dispatch exec' or 'swaymsg exec,' etc.
+with_argument = true # If "with_argument" is true, the {} in the cmd value will be replaced with user input. If this field is not explicitly set, will be taken as false.
 url_encode = true # "url_encode" should be true if the module is set to call webpages, as this ensures special characters in url being readable to browsers. It'd better be false with shell scripts. If the field is not explicitly set, will be taken as false.
 
 [[modules]]
