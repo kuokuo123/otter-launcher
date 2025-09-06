@@ -1226,7 +1226,7 @@ fn run_module_command_unbind_proc(mod_cmd_arg: &str) {
 fn run_designated_module(prompt: String, prfx: String) {
     // test if the designated module is set
     if prfx.is_empty() {
-        println!("no module set for executing: {}", prompt)
+        println!("{}", prompt)
     } else {
         // set a fallback module to prevent panic when no module is found
         let fallback = Module {
@@ -1253,14 +1253,14 @@ fn run_designated_module(prompt: String, prfx: String) {
 
         // run the module's command
         if target_module.unbind_proc.unwrap_or(false) {
-            run_module_command(
+            run_module_command_unbind_proc(
                 &target_module
                     .cmd
                     .replace("{}", &prompt_wo_prefix)
                     .to_string(),
             );
         } else {
-            run_module_command_unbind_proc(
+            run_module_command(
                 &target_module
                     .cmd
                     .replace("{}", &prompt_wo_prefix)
