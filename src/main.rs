@@ -1228,19 +1228,29 @@ fn run_designated_module(prompt: String, prfx: String) {
     if prfx.is_empty() {
         println!("no module set for executing: {}", prompt)
     } else {
-        // if set
+        // set a fallback module to prevent panic when no module is found
+        let fallback = Module {
+            description: "".to_string(),
+            prefix: "".to_string(),
+            cmd: "printf 'no default_module or empty_module found\n'".to_string(),
+            with_argument: None,
+            url_encode: None,
+            unbind_proc: None,
+        };
+
         // find the designated module
         let target_module = CONFIG
             .modules
             .iter()
             .find(|module| remove_ascii(&module.prefix) == prfx)
-            .unwrap();
+            .unwrap_or(&fallback);
         // whether to use url encoding
         let prompt_wo_prefix = if target_module.url_encode.unwrap_or(false) {
             encode(&prompt).to_string()
         } else {
             prompt
         };
+
         // run the module's command
         if target_module.unbind_proc.unwrap_or(false) {
             run_module_command(
@@ -1681,9 +1691,11 @@ fn main() {
                 // Condition 1: when the selected module runs with arguement
                 if module.with_argument.unwrap_or(false) {
                     if module.unbind_proc.unwrap_or(false) {
-                    run_module_command_unbind_proc(&module.cmd.replace("{}", &argument).to_string());
+                        run_module_command_unbind_proc(
+                            &module.cmd.replace("{}", &argument).to_string(),
+                        );
                     } else {
-                    run_module_command(&module.cmd.replace("{}", &argument).to_string());
+                        run_module_command(&module.cmd.replace("{}", &argument).to_string());
                     }
                 // Condition 2: when user input is exactly the same as the no-arg module
                 } else if remove_ascii(&module.prefix) == prompt.trim_end() {
