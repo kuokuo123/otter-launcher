@@ -69,7 +69,7 @@ move_up = 0
 [[modules]]
 description = "search with google"
 prefix = "gg"
-cmd = "xdg-open 'https://www.google.com/search?q={}'" # try wm's exec command for unbinding if 'setsid -f' does not work as expected, eg. 'hyprctl dispatch exec'
+cmd = "xdg-open https://www.google.com/search?q='{}'" # try wm's exec command for unbinding if 'setsid -f' does not work as expected, eg. 'hyprctl dispatch exec'
 with_argument = true # if true, {} in cmd will be replaced with user input. if not explicitly set, taken as false.
 url_encode = true # should be true when calling webpages; this ensures special characters in url being readable to browsers; taken as false if not explicitly set
 unbind_proc = true # run cmd in a forked shell as opposed to as a child process; useful for launching gui programs; taken as false if not explicitly set
