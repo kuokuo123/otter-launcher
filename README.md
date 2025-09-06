@@ -194,13 +194,13 @@ url_encode = true
 [[modules]]
 description = "open files with fzf"
 prefix = "fo"
-cmd = "fd --type f | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Files: ' | setsid -f xargs -r -I {} xdg-open '{}'"
+cmd = "fd --type f | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Files: ' | setsid -f xargs -r -I [] xdg-open '[]'"
 
 [[modules]]
 description = "open folders with fzf"
 prefix = "yz"
 cmd = """
-fd --type d | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Folders: ' | xargs -r -I {} setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '{}'
+fd --type d | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Folders: ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
 """
 ```
 

@@ -1200,26 +1200,29 @@ fn run_module_command(mod_cmd_arg: &str) {
     shell_cmd
         .arg(mod_cmd_arg)
         .spawn()
-        .expect("failed to launch callback...")
+        .expect("failed to launch run_module_command()")
         .wait()
-        .expect("failed to wail for callback execution...");
+        .expect("failed to wait for run_module_command()");
 }
 
 fn run_module_command_unbind_proc(mod_cmd_arg: &str) {
     // format the shell command by which the module commands are launched
+    let mut shell_cmd = Command::new("setsid");
+    shell_cmd.arg("-f");
+
     let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-    let mut shell_cmd = Command::new(cmd_parts[0]);
-    for arg in &cmd_parts[1..] {
+    for arg in &cmd_parts[0..] {
         shell_cmd.arg(arg);
     }
+
     // run module cmd
     shell_cmd
-        .arg("setsid -f -- ".to_owned() + mod_cmd_arg)
+        .arg(mod_cmd_arg)
         .spawn()
-        .expect("failed to launch callback...")
+        .expect("failed to launch run_module_command_unbind_proc()")
         .wait()
-        .expect("failed to wail for callback execution...");
+        .expect("failed to wait for run_module_command_unbind_proc()");
 }
 
 // function to run empty & default modules
