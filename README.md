@@ -117,9 +117,10 @@ move_up = 0
 [[modules]]
 description = "search with google"
 prefix = "gg"
-cmd = "setsid -f xdg-open 'https://www.google.com/search?q={}'" # try wm's exec command for unbinding if 'setsid -f' does not work as expected, eg. 'hyprctl dispatch exec'
+cmd = "xdg-open 'https://www.google.com/search?q={}'" # try wm's exec command for unbinding if 'setsid -f' does not work as expected, eg. 'hyprctl dispatch exec'
 with_argument = true # if true, {} in cmd will be replaced with user input. if not explicitly set, taken as false.
 url_encode = true # should be true when calling webpages; this ensures special characters in url being readable to browsers; taken as false if not explicitly set
+unbind_proc = true # run cmd in a forked shell as opposed to as a child process; useful for launching gui programs; taken as false if not explicitly set
 
 # fzf is needed to run below functions
 [[modules]]
@@ -158,37 +159,42 @@ power $(echo -e 'reboot\nshutdown\nlogout\nsuspend\nhibernate' | fzf --reverse -
 description = "run command in terminal"
 prefix = "sh"
 cmd = """
-setsid -f $(printf $TERM | sed 's/xterm-//g') -e sh -c "{}"
+$(printf $TERM | sed 's/xterm-//g') -e sh -c "{}"
 """
 with_argument = true
+unbind_proc = true
 
 [[modules]]
 description = "search archwiki"
 prefix = "aw"
-cmd = "setsid -f xdg-open https://wiki.archlinux.org/index.php?search='{}'"
+cmd = "xdg-open https://wiki.archlinux.org/index.php?search='{}'"
 with_argument = true
 url_encode = true
+unbind_proc = true
 
 [[modules]]
 description = "search for arch packages"
 prefix = "pac"
-cmd = "setsid -f xdg-open https://archlinux.org/packages/?q='{}'"
+cmd = "xdg-open https://archlinux.org/packages/?q='{}'"
 with_argument = true
 url_encode = true
+unbind_proc = true
 
 [[modules]]
 description = "search for aur packages"
 prefix = "aur"
-cmd = "setsid -f xdg-open https://aur.archlinux.org/packages?K='{}'"
+cmd = "xdg-open https://aur.archlinux.org/packages?K='{}'"
 with_argument = true
 url_encode = true
+unbind_proc = true
 
 [[modules]]
 description = "cambridge dictionary"
 prefix = "dc"
-cmd = "setsid -f xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
+cmd = "xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
 with_argument = true
 url_encode = true
+unbind_proc = true
 
 # fd is needed to run below functions
 [[modules]]
