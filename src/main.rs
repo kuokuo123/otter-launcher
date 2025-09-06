@@ -113,6 +113,7 @@ struct Module {
     cmd: String,
     with_argument: Option<bool>,
     url_encode: Option<bool>,
+    unbind_proc: Option<bool>,
 }
 
 // load toml config
@@ -1204,11 +1205,28 @@ fn run_module_command(mod_cmd_arg: &str) {
         .expect("failed to wail for callback execution...");
 }
 
+fn run_module_command_unbind_proc(mod_cmd_arg: &str) {
+    // format the shell command by which the module commands are launched
+    let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+    let mut shell_cmd = Command::new(cmd_parts[0]);
+    for arg in &cmd_parts[1..] {
+        shell_cmd.arg(arg);
+    }
+    // run module cmd
+    shell_cmd
+        .arg("setsid -f -- ".to_owned() + mod_cmd_arg)
+        .spawn()
+        .expect("failed to launch callback...")
+        .wait()
+        .expect("failed to wail for callback execution...");
+}
+
 // function to run empty & default modules
 fn run_designated_module(prompt: String, prfx: String) {
     // test if the designated module is set
     if prfx.is_empty() {
-        println!("{}", prompt)
+        println!("no module set for executing: {}", prompt)
     } else {
         // if set
         // find the designated module
@@ -1224,12 +1242,21 @@ fn run_designated_module(prompt: String, prfx: String) {
             prompt
         };
         // run the module's command
-        run_module_command(
-            &target_module
-                .cmd
-                .replace("{}", &prompt_wo_prefix)
-                .to_string(),
-        );
+        if target_module.unbind_proc.unwrap_or(false) {
+            run_module_command(
+                &target_module
+                    .cmd
+                    .replace("{}", &prompt_wo_prefix)
+                    .to_string(),
+            );
+        } else {
+            run_module_command_unbind_proc(
+                &target_module
+                    .cmd
+                    .replace("{}", &prompt_wo_prefix)
+                    .to_string(),
+            );
+        }
     }
 }
 
@@ -1653,10 +1680,18 @@ fn main() {
 
                 // Condition 1: when the selected module runs with arguement
                 if module.with_argument.unwrap_or(false) {
+                    if module.unbind_proc.unwrap_or(false) {
+                    run_module_command_unbind_proc(&module.cmd.replace("{}", &argument).to_string());
+                    } else {
                     run_module_command(&module.cmd.replace("{}", &argument).to_string());
+                    }
                 // Condition 2: when user input is exactly the same as the no-arg module
                 } else if remove_ascii(&module.prefix) == prompt.trim_end() {
-                    run_module_command(&module.cmd);
+                    if module.unbind_proc.unwrap_or(false) {
+                        run_module_command_unbind_proc(&module.cmd);
+                    } else {
+                        run_module_command(&module.cmd);
+                    }
                 // Condition 3: when no-arg modules is running with arguement
                 } else {
                     run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, "".to_string()))
