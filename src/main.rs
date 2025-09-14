@@ -1440,6 +1440,7 @@ fn main() {
             KeyEvent::new('\x1b', Modifiers::NONE),
             EventHandler::Simple(Cmd::Interrupt),
         );
+        rl.set_keyseq_timeout(Some(0));
     }
 
     // check if vi_mode is on, and set up keybinds accordingly
