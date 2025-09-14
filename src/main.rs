@@ -104,6 +104,7 @@ struct Interface {
     hint_color: Option<String>,
     move_right: Option<usize>,
     move_up: Option<usize>,
+    customized_list_order: Option<bool>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -171,6 +172,7 @@ static COMPLETION_CANDIDATE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::n
 static LAYOUT_RIGHTWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static LAYOUT_UPWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static LAYOUT_UPWARD_MOVEMENT_SWITCH: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
+static CUSTOMIZED_LIST_ORDER: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
@@ -488,8 +490,10 @@ impl Hinter for OtterHelper {
                 })
                 .collect::<Vec<&str>>(); // Collect the filtered results into a vector
 
-            // sort list items alphebetically
-            aggregated_lines.sort_unstable();
+            if cached_statics(&CUSTOMIZED_LIST_ORDER, false) == false {
+                // sort list items alphebetically
+                aggregated_lines.sort_unstable();
+            }
             // partition list items into those that start with input texts and others
             let partitioned_lines =
                 aggregated_lines
@@ -1425,6 +1429,11 @@ fn main() {
     );
     init_statics(&LAYOUT_RIGHTWARD, CONFIG.interface.move_right, 0);
     init_statics(&LAYOUT_UPWARD, CONFIG.interface.move_up, 0);
+    init_statics(
+        &CUSTOMIZED_LIST_ORDER,
+        CONFIG.interface.customized_list_order,
+        false,
+    );
 
     // rustyline editor setup
     *SELECTION_INDEX.lock().unwrap() = 0;
