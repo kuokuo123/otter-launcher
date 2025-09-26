@@ -51,6 +51,7 @@ default_module_message = "      \u001B[33msearch\u001B[0m the internet" # shown 
 empty_module_message = "" # shown when the empty module is in use
 suggestion_mode = "list" # available options: list, hint
 suggestion_lines = 4 # 0 to disable suggestions and tab completion
+customized_list_order = false # false to list modules alphabetically; true to list as per the configured order in the below [[modules]] section
 indicator_with_arg_module = "\u001B[31m^\u001B[0m " # the sign showing whether a module should run with an argument
 indicator_no_arg_module = "\u001B[31m$\u001B[0m "
 prefix_padding = 3 # format prefixes to have a uniformed width
