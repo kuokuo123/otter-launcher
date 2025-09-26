@@ -171,7 +171,6 @@ static FILTERED_HINT_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 static COMPLETION_CANDIDATE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static LAYOUT_RIGHTWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static LAYOUT_UPWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static LAYOUT_UPWARD_MOVEMENT_SWITCH: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 static CUSTOMIZED_LIST_ORDER: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
@@ -463,8 +462,6 @@ impl Hinter for OtterHelper {
             let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
             let selection_index = SELECTION_INDEX.lock().unwrap();
-            let layout_up = cached_statics(&LAYOUT_UPWARD, 0);
-            let mut move_up_movement_switch = LAYOUT_UPWARD_MOVEMENT_SWITCH.lock().unwrap();
 
             // aggregate all the matched hint objects to form a single line that is presented as a list
             let mut aggregated_lines = self
@@ -550,16 +547,7 @@ impl Hinter for OtterHelper {
             });
 
             // format the aggregated hint lines as the single hint object to be presented
-            let layout_up_string = if layout_up > 0 {
-                format!("\x1b[{}B", layout_up)
-            } else {
-                "".to_string()
-            };
             if line.is_empty() {
-                if *move_up_movement_switch != 0 {
-                    print!("{}", layout_up_string);
-                    std::io::stdout().flush().expect("failed to flush stdout")
-                };
                 // if nothing has been typed
                 Some(ModuleHint {
                     display: format!(
@@ -582,10 +570,6 @@ impl Hinter for OtterHelper {
                     w_arg: None,
                 })
             } else {
-                print!("{}", layout_up_string);
-                std::io::stdout().flush().expect("failed to flush stdout");
-                *move_up_movement_switch = 1;
-
                 // if something is typed
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
