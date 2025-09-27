@@ -30,13 +30,13 @@ extern crate urlencoding;
 
 use once_cell::sync::Lazy;
 use rustyline::{
-    Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
-    KeyCode, KeyEvent, Modifiers, Movement, RepeatCount,
     completion::{Completer, Pair},
     config::Configurer,
     highlight::Highlighter,
     hint::{Hint, Hinter},
     history::DefaultHistory,
+    Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
+    KeyCode, KeyEvent, Modifiers, Movement, RepeatCount,
 };
 use rustyline_derive::{Helper, Validator};
 use serde::Deserialize;
@@ -64,6 +64,7 @@ use urlencoding::encode;
 struct Config {
     general: General,
     interface: Interface,
+    overlay: Overlay,
     modules: Vec<Module>,
 }
 
@@ -102,9 +103,17 @@ struct Interface {
     description_color: Option<String>,
     place_holder_color: Option<String>,
     hint_color: Option<String>,
-    move_right: Option<usize>,
-    move_up: Option<usize>,
+    move_interface_right: Option<usize>,
+    move_interface_down: Option<usize>,
     customized_list_order: Option<bool>,
+}
+
+#[derive(Deserialize, Default)]
+struct Overlay {
+    overlay_cmd: Option<String>,
+    overlay_trimmed_lines: Option<usize>,
+    move_overlay_right: Option<usize>,
+    move_overlay_down: Option<usize>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -135,6 +144,7 @@ static CONFIG: Lazy<Config> = Lazy::new(|| {
 // use lazy mutex to make important variables globally accessible (repeatedly used config values, list selection, and completion related stuff)
 // define config variables as statics
 static HEADER_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static OVERLAY_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static SUGGESTION_MODE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static LOOP_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static CALLBACK: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
@@ -145,6 +155,7 @@ static VI_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static ESC_TO_ABORT: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static CLEAR_SCREEN_AFTER_EXECUTION: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static HEADER_CMD_TRIMMED_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+static OVERLAY_TRIMMED_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static HEADER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static HEADER_CONCATENATE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static EXEC_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
@@ -168,10 +179,15 @@ static HINT_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static INDICATOR_WITH_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static INDICATOR_NO_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static FILTERED_HINT_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
+static HEADER_LINE_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 static COMPLETION_CANDIDATE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static LAYOUT_RIGHTWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static LAYOUT_UPWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+static LAYOUT_DOWNWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+static OVERLAY_RIGHTWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+static OVERLAY_DOWNWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static CUSTOMIZED_LIST_ORDER: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
+static OVERLAY_LINES: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static OVERLAY_PADDING: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
@@ -313,9 +329,23 @@ impl Highlighter for OtterHelper {
         let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
         let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, 0);
+        let overlay_lines = cached_statics(&OVERLAY_LINES, "".to_string());
+        let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, 0);
+        let overlay_down_cached = cached_statics(&OVERLAY_DOWNWARD, 0);
+        let overlay_up = format!("\x1b[{}A", hint.lines().collect::<Vec<&str>>().len() + *HEADER_LINE_COUNT.lock().unwrap() - 2);
+        let overlay_down = if overlay_down_cached == 0 {
+            String::new()
+        } else {
+            format!("\x1b[{}B", overlay_down_cached)
+        };
 
         if suggestion_mode == "hint" {
-            format!("{}{}{}{}", "\x1b[0m", hint_color, hint, "\x1b[0m").into()
+            (format!(
+                "\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G",
+                hint_color, hint, overlay_up, overlay_down, overlay_right
+            ) + &overlay_lines
+                + "\x1b[u\x1b[?25h")
+                .into()
         } else {
             // shrink selection span if filtered_hint_count shrinks
             if suggestion_lines >= *filtered_hint_count {
@@ -379,7 +409,14 @@ impl Highlighter for OtterHelper {
                 })
                 .collect::<Vec<String>>()
                 .join("\n")
-                + "\x1b[?25h";
+                + &format!(
+                    "\x1b[s{}{}\x1b[{}G",
+                    overlay_up,
+                    overlay_down,
+                    overlay_right
+                )
+                + &overlay_lines
+                + "\x1b[u\x1b[?25h";
 
             return aggregated_hint_lines.into();
         }
@@ -397,7 +434,36 @@ impl Hinter for OtterHelper {
         let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, 1);
         let hint_benchmark = *HINT_BENCHMARK.lock().unwrap();
+        let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, 0);
+        let overlay_down = cached_statics(&OVERLAY_DOWNWARD, 0);
 
+        // print from overlay commands
+        let overlay_cmd = cached_statics(&OVERLAY_CMD, "".to_string());
+        let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+        let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+        let mut shell_cmd = Command::new(cmd_parts[0]);
+        for arg in &cmd_parts[1..] {
+            shell_cmd.arg(arg);
+        }
+        let output = shell_cmd
+            .arg(&overlay_cmd)
+            .output()
+            .expect("Failed to launch overlay command...");
+        let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, 0);
+        let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
+        let lines: Vec<&str> = header_cmd_stdout.lines().collect();
+
+        let overlay_lines = if lines.len() >= remove_lines_count {
+            lines[..lines.len() - remove_lines_count].join("\n")
+        } else {
+            "not enough lines of header_cmd output to be trimmed".to_string()
+        };
+
+        // store overlay lines into universial var, prep for highlighter use
+        *OVERLAY_LINES.lock().unwrap() = Some(overlay_lines.clone());
+
+        let mut padded_line_count = *OVERLAY_PADDING.lock().unwrap();
+        padded_line_count = 8 + overlay_down;
         *HINT_SPAN.lock().unwrap() = self.hints.len();
 
         // hint mode behavior
@@ -406,7 +472,7 @@ impl Hinter for OtterHelper {
                 // when nothing is typed
                 *COMPLETION_CANDIDATE.lock().unwrap() = None;
                 Some(ModuleHint {
-                    display: place_holder,
+                    display: format!("{}", place_holder),
                     completion: 0,
                     w_arg: None,
                 })
@@ -451,7 +517,7 @@ impl Hinter for OtterHelper {
                         })
                         .next()
                         .unwrap_or(ModuleHint {
-                            display: "\x1b[0m".to_string(),
+                            display: format!("\x1b[0m"),
                             completion: 0,
                             w_arg: None,
                         }),
@@ -1335,8 +1401,18 @@ fn main() {
         "".to_string(),
     );
     init_statics(
+        &OVERLAY_CMD,
+        CONFIG.overlay.overlay_cmd.clone(),
+        "".to_string(),
+    );
+    init_statics(
         &HEADER_CMD_TRIMMED_LINES,
         CONFIG.interface.header_cmd_trimmed_lines,
+        0,
+    );
+    init_statics(
+        &OVERLAY_TRIMMED_LINES,
+        CONFIG.overlay.overlay_trimmed_lines,
         0,
     );
     init_statics(
@@ -1411,8 +1487,10 @@ fn main() {
         CONFIG.interface.hint_color.clone(),
         "\x1b[30m".to_string(),
     );
-    init_statics(&LAYOUT_RIGHTWARD, CONFIG.interface.move_right, 0);
-    init_statics(&LAYOUT_UPWARD, CONFIG.interface.move_up, 0);
+    init_statics(&LAYOUT_RIGHTWARD, CONFIG.interface.move_interface_right, 0);
+    init_statics(&LAYOUT_DOWNWARD, CONFIG.interface.move_interface_down, 0);
+    init_statics(&OVERLAY_RIGHTWARD, CONFIG.overlay.move_overlay_right, 0);
+    init_statics(&OVERLAY_DOWNWARD, CONFIG.overlay.move_overlay_down, 0);
     init_statics(
         &CUSTOMIZED_LIST_ORDER,
         CONFIG.interface.customized_list_order,
@@ -1578,7 +1656,7 @@ fn main() {
     loop {
         // moving layout around
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, 0);
-        let layout_up = cached_statics(&LAYOUT_UPWARD, 0);
+        let layout_down = cached_statics(&LAYOUT_DOWNWARD, 0);
         let concatenation_switch = cached_statics(&HEADER_CONCATENATE, false);
 
         // print from header commands
@@ -1608,8 +1686,8 @@ fn main() {
         let header_lines: Vec<&str> = expanded_header.split('\n').collect();
 
         // variables to form the header
-        let layout_up_string = if layout_up > 0 {
-            format!("\x1b[{}A", layout_up)
+        let layout_down_string = if layout_down > 0 {
+            format!("{}", "\n".repeat(layout_down))
         } else {
             "".to_string()
         };
@@ -1642,8 +1720,10 @@ fn main() {
         // check if header_cmd and header should be concatenated, form header content accordingly
         let concatenated_header = format!(
             "{}{}{}{}",
-            remaining_lines, layout_up_string, concatenation, aligned_header,
+            remaining_lines, layout_down_string, concatenation, aligned_header,
         );
+
+        *HEADER_LINE_COUNT.lock().unwrap() = concatenated_header.lines().collect::<Vec<_>>().len();
 
         // run rustyline with configured header
         let prompt = rl.readline(&concatenated_header);
