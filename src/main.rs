@@ -214,9 +214,9 @@ impl ModuleHint {
             w_arg: w_arg,
         }
     }
-    fn suffix(&self, strip_chars: usize) -> Self {
+    fn suffix(&self, strip_chars: usize, padded_line_count: usize) -> Self {
         Self {
-            display: self.display.to_owned(),
+            display: self.display.to_owned() + &"\n ".repeat(padded_line_count),
             completion: strip_chars,
             w_arg: self.w_arg,
         }
@@ -517,8 +517,8 @@ impl Hinter for OtterHelper {
                 *COMPLETION_CANDIDATE.lock().unwrap() = Some("?".to_string());
                 Some(ModuleHint {
                     display: format!(
-                        "{} {}{}",
-                        cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
+                        "{} {}{}{}",
+                        cheatsheet_entry, indicator_no_arg_module, "cheat sheet", "\n ".repeat(padded_line_count)
                     )
                     .to_string(),
                     completion: line.len(),
@@ -545,7 +545,7 @@ impl Hinter for OtterHelper {
                                         .to_string(),
                                 );
                                 // provide the found hint
-                                Some(i.suffix(line.len()))
+                                Some(i.suffix(line.len(), padded_line_count))
                             } else {
                                 *COMPLETION_CANDIDATE.lock().unwrap() = None;
                                 None
@@ -553,7 +553,7 @@ impl Hinter for OtterHelper {
                         })
                         .next()
                         .unwrap_or(ModuleHint {
-                            display: format!("\x1b[0m"),
+                            display: format!("\x1b[0m{}", "\n ".repeat(padded_line_count)),
                             completion: 0,
                             w_arg: None,
                         }),
@@ -697,9 +697,19 @@ impl Hinter for OtterHelper {
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
                         *COMPLETION_CANDIDATE.lock().unwrap() = Some("? ".to_string());
+                        let cheatsheet_count = cheatsheet_entry.lines().collect::<Vec<_>>().len();
+                        padded_line_count = if overlay_height + overlay_down
+                            > header_line_count + cheatsheet_count
+                        {
+                            overlay_height + overlay_down
+                                - header_line_count
+                                - cheatsheet_count
+                        } else {
+                            0
+                        };
                         format!(
-                            "\n{} {} {}",
-                            cheatsheet_entry, indicator_no_arg_module, "cheat sheet"
+                            "\n{} {} {}{}",
+                            cheatsheet_entry, indicator_no_arg_module, "cheat sheet", "\n ".repeat(padded_line_count)
                         )
                     // if no module is matched
                     } else if agg_line.is_empty() {
@@ -707,7 +717,17 @@ impl Hinter for OtterHelper {
                         if d_module.is_empty() {
                             "\x1b[0m".to_string()
                         } else {
-                            format!("\n{}", d_module)
+                            let default_message_count = d_module.lines().collect::<Vec<_>>().len();
+                            padded_line_count = if overlay_height + overlay_down
+                                > header_line_count + default_message_count
+                            {
+                                overlay_height + overlay_down
+                                    - header_line_count
+                                    - default_message_count
+                            } else {
+                                0
+                            };
+                            format!("\n{}{}", d_module, "\n ".repeat(padded_line_count))
                         }
                     // if some module is matched
                     } else {
