@@ -42,17 +42,17 @@ use rustyline_derive::{Helper, Validator};
 use serde::Deserialize;
 use std::{
     borrow::Cow,
+    collections::HashMap,
     env,
     error::Error,
     fs::{self, OpenOptions},
-    io::{Write, Read},
+    io::{Read, Write},
+    os::fd::AsRawFd,
     path::Path,
     process,
     process::{Command, Stdio},
     str::from_utf8,
     sync::Mutex,
-    os::fd::AsRawFd,
-    collections::HashMap,
 };
 use urlencoding::encode;
 
@@ -432,6 +432,7 @@ impl Highlighter for OtterHelper {
 impl Hinter for OtterHelper {
     type Hint = ModuleHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
+        *HINT_SPAN.lock().unwrap() = self.hints.len();
         let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
         let place_holder = cached_statics(&PLACE_HOLDER, "type something".to_string());
         let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, "?".to_string());
@@ -441,53 +442,54 @@ impl Hinter for OtterHelper {
         let overlay_down = cached_statics(&OVERLAY_DOWNWARD, 0);
         let header_line_count = *HEADER_LINE_COUNT.lock().unwrap();
 
-        // print from overlay commands
+        // print from overlay commands, if any
         let overlay_cmd = cached_statics(&OVERLAY_CMD, "".to_string());
-        let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
-        let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-        let mut shell_cmd = Command::new(cmd_parts[0]);
-        for arg in &cmd_parts[1..] {
-            shell_cmd.arg(arg);
-        }
-        let output = shell_cmd
-            .arg(&overlay_cmd)
-            .output()
-            .expect("Failed to launch overlay command...");
-        let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, 0);
-        let overlay_cmd_stdout = from_utf8(&output.stdout).unwrap();
-        let lines: Vec<&str> = overlay_cmd_stdout.lines().collect();
-        let lines_count = lines.len();
-
-        let overlay_lines = if lines_count > remove_lines_count {
-            lines[..lines_count - remove_lines_count].join("\n")
+        let overlay_lines = if !overlay_cmd.is_empty() {
+            let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+            let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+            let mut shell_cmd = Command::new(cmd_parts[0]);
+            for arg in &cmd_parts[1..] {
+                shell_cmd.arg(arg);
+            }
+            let output = shell_cmd
+                .arg(&overlay_cmd)
+                .output()
+                .expect("Failed to launch overlay command...");
+            let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, 0);
+            let overlay_cmd_stdout = from_utf8(&output.stdout).unwrap();
+            let lines: Vec<&str> = overlay_cmd_stdout.lines().collect();
+            let lines_count = lines.len();
+            if lines_count > remove_lines_count {
+                lines[..lines_count - remove_lines_count].join("\n")
+            } else {
+                "not enough lines of overlay_cmd output to be trimmed".to_string()
+            }
         } else {
-            "not enough lines of overlay_cmd output to be trimmed".to_string()
+            "".to_string()
         };
-
-        let overlay_line_count = overlay_lines.lines().collect::<Vec<_>>().len();
 
         // store overlay lines into universial var, prep for highlighter use
         *OVERLAY_LINES.lock().unwrap() = Some(overlay_lines.clone());
 
-        *HINT_SPAN.lock().unwrap() = self.hints.len();
-
         // measure overlay row height, using either kitty or sixel or raw lines
         let overlay_height_cached = cached_statics(&OVERLAY_HEIGHT, 0);
         let overlay_height = if overlay_height_cached == 0 {
+            let overlay_line_count = overlay_lines.lines().collect::<Vec<_>>().len();
             if let Some(r) = kitty_rows(&overlay_lines) {
-                    r + overlay_line_count - 1
+                r + overlay_line_count - 1
             } else if let Some(r) = sixel_rows(&overlay_lines) {
                 // convert pixels -> terminal rows using ceil
-                let term_cell_height = terminal_cell_height_px().expect("cannot get terminal cell high to measure sixel image height");
-                    r * 6 / term_cell_height + overlay_line_count - 1
+                let term_cell_height = terminal_cell_height_px()
+                    .expect("cannot get terminal cell high to measure sixel image height");
+                r * 6 / term_cell_height + overlay_line_count - 1
             } else {
                 overlay_line_count
             }
         } else {
+            let overlay_line_count = overlay_lines.lines().collect::<Vec<_>>().len();
             if overlay_height_cached >= overlay_line_count {
                 overlay_height_cached
             } else {
-                //println!("error: overlay_height < overlay_content");
                 overlay_line_count
             }
         };
@@ -673,12 +675,15 @@ impl Hinter for OtterHelper {
                         } else {
                             // calculate overlay padding, to maintain layout when printing at window bottom
                             let empty_message_count = e_module.lines().collect::<Vec<_>>().len();
-                            padded_line_count =
-                                if overlay_height + overlay_down > header_line_count + empty_message_count {
-                                    overlay_height + overlay_down - header_line_count - empty_message_count
-                                } else {
-                                    0
-                                };
+                            padded_line_count = if overlay_height + overlay_down
+                                > header_line_count + empty_message_count
+                            {
+                                overlay_height + overlay_down
+                                    - header_line_count
+                                    - empty_message_count
+                            } else {
+                                0
+                            };
                             // if empty module is set
                             format!("\n{}{}", e_module, "\n ".repeat(padded_line_count))
                         },
@@ -1441,7 +1446,11 @@ fn kitty_rows(s: &str) -> Option<usize> {
                 // (initial chunk usually has r, subsequent chunks may omit it).
                 id_to_rows
                     .entry(id)
-                    .and_modify(|x| if r > *x { *x = r })
+                    .and_modify(|x| {
+                        if r > *x {
+                            *x = r
+                        }
+                    })
                     .or_insert(r);
             } else {
                 // No explicit id — treat as its own image
@@ -1454,7 +1463,6 @@ fn kitty_rows(s: &str) -> Option<usize> {
     let total = sum_ids + anon_images;
     if total > 0 { Some(total) } else { None }
 }
-
 
 // function to measure sixel graphics height (raster row, not terminal row)
 /// Count SIXEL raster rows for one block body (string between ESC P and ST).
