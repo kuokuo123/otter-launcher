@@ -62,10 +62,10 @@ place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m" # suggestion color in hint mode
 # move the interface rightward or downward
 move_interface_right = 0
-move_interface_up = 0
+move_interface_down = 0
 
 
-# overlay is a floating layer that can be printed with things on and moved around; useful for integrating chafa images
+# overlay is a floating layer that can be printed with stdout and moved around; useful for integrating chafa images
 [overlay]
 overlay_cmd = "" # run a command and print stdout on the overlay layer
 overlay_trimmed_lines = 0 # remove trailing lines from overlay_cmd output

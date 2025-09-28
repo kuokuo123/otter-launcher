@@ -34,6 +34,7 @@ External Editor & List Selection
 - edit prompt in an external editor (vim, emacs, etc.)
 - url encoding for web searching
 - supporting ansi codes, chafa, sixel or kitty image protocol, etc.
+- overlay layer to show chafa image
 - cheat sheet
 - callback function
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
@@ -110,10 +111,10 @@ place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m" # suggestion color in hint mode
 # move the interface rightward or downward
 move_interface_right = 0
-move_interface_up = 0
+move_interface_down = 0
 
 
-# overlay is a floating layer that can be printed with things on and moved around; useful for integrating chafa images
+# overlay is a floating layer that can be printed with stdout and moved around; useful for integrating chafa images
 [overlay]
 overlay_cmd = "" # run a command and print stdout on the overlay layer
 overlay_trimmed_lines = 0 # remove trailing lines from overlay_cmd output
@@ -339,16 +340,12 @@ hint_color = "\u001B[90m"
 ![Chafa-text Config](./assets/soothing.png)
 
 ```toml
+[overlay]
+# render image in overlay layer using chafa
+overlay_cmd = "chafa -s x10 $HOME/.config/otter-launcher/image.png"
+overlay_trimmed_lines = 1
+
 [interface]
-
-# render image by chafa
-header_cmd = "chafa -s x10 $HOME/.config/otter-launcher/image.png"
-header_cmd_trimmed_lines = 1
-
-# move the layout
-move_right = 19
-move_up = 8
-
 header = "  $USER@$(echo $HOSTNAME)     \u001B[31m\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n  "
 list_prefix = "  "
 selection_prefix = "\u001B[31;1m> "
@@ -361,6 +358,10 @@ prefix_color = "\u001B[33m"
 description_color = "\u001B[39m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
+
+# move the interface
+move_interface_right = 20
+move_interface_down = 2
 ```
 
 ## Image to the Right
@@ -370,17 +371,17 @@ hint_color = "\u001B[90m"
 This is a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png), not really a penguin.
 
 ```toml
+[overlay]
+# render image in overlay layer using chafa
+overlay_cmd = "chafa -s x10 $HOME/.config/otter-launcher/image.png"
+overlay_trimmed_lines = 1
+
+#move overlay rightwards
+move_overlay_right = 32
+
 [interface]
-
-# render image by chafa
-header_cmd = """
-printf "\u001B[30G"
-chafa -s x10 $HOME/.config/otter-launcher/images_rec.image
-"""
-header_cmd_trimmed_lines = 1
-
-# move layout up
-move_up = 9
+# move the interface
+move_interface_down = 1
 
 # customized header & list prefix
 header = """
