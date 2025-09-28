@@ -445,6 +445,7 @@ impl Hinter for OtterHelper {
         // print from overlay commands, if any
         let overlay_cmd = cached_statics(&OVERLAY_CMD, "".to_string());
         let overlay_lines = if !overlay_cmd.is_empty() {
+            let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, 0);
             let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
             let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
             let mut shell_cmd = Command::new(cmd_parts[0]);
@@ -460,7 +461,7 @@ impl Hinter for OtterHelper {
             let lines: Vec<&str> = overlay_cmd_stdout.lines().collect();
             let lines_count = lines.len();
             if lines_count > remove_lines_count {
-                lines[..lines_count - remove_lines_count].join("\n")
+                lines[..lines_count - remove_lines_count].join(&format!("\n\x1b[{}G", overlay_right + 1))
             } else {
                 "not enough lines of overlay_cmd output to be trimmed".to_string()
             }
