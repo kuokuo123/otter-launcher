@@ -30,13 +30,13 @@ extern crate urlencoding;
 
 use once_cell::sync::Lazy;
 use rustyline::{
+    Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
+    KeyCode, KeyEvent, Modifiers, Movement, RepeatCount,
     completion::{Completer, Pair},
     config::Configurer,
     highlight::Highlighter,
     hint::{Hint, Hinter},
     history::DefaultHistory,
-    Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
-    KeyCode, KeyEvent, Modifiers, Movement, RepeatCount,
 };
 use rustyline_derive::{Helper, Validator};
 use serde::Deserialize;
@@ -45,12 +45,14 @@ use std::{
     env,
     error::Error,
     fs::{self, OpenOptions},
-    io::Write,
+    io::{Write, Read},
     path::Path,
     process,
     process::{Command, Stdio},
     str::from_utf8,
     sync::Mutex,
+    os::fd::AsRawFd,
+    collections::HashMap,
 };
 use urlencoding::encode;
 
@@ -112,6 +114,7 @@ struct Interface {
 struct Overlay {
     overlay_cmd: Option<String>,
     overlay_trimmed_lines: Option<usize>,
+    overlay_height: Option<usize>,
     move_overlay_right: Option<usize>,
     move_overlay_down: Option<usize>,
 }
@@ -156,6 +159,7 @@ static ESC_TO_ABORT: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static CLEAR_SCREEN_AFTER_EXECUTION: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static HEADER_CMD_TRIMMED_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static OVERLAY_TRIMMED_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
+static OVERLAY_HEIGHT: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static HEADER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 static HEADER_CONCATENATE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static EXEC_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
@@ -187,7 +191,6 @@ static OVERLAY_RIGHTWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(N
 static OVERLAY_DOWNWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static CUSTOMIZED_LIST_ORDER: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static OVERLAY_LINES: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static OVERLAY_PADDING: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
@@ -332,7 +335,10 @@ impl Highlighter for OtterHelper {
         let overlay_lines = cached_statics(&OVERLAY_LINES, "".to_string());
         let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, 0);
         let overlay_down_cached = cached_statics(&OVERLAY_DOWNWARD, 0);
-        let overlay_up = format!("\x1b[{}A", hint.lines().collect::<Vec<&str>>().len() + *HEADER_LINE_COUNT.lock().unwrap() - 2);
+        let overlay_up = format!(
+            "\x1b[{}A",
+            hint.lines().collect::<Vec<&str>>().len() + *HEADER_LINE_COUNT.lock().unwrap() - 2
+        );
         let overlay_down = if overlay_down_cached == 0 {
             String::new()
         } else {
@@ -411,9 +417,7 @@ impl Highlighter for OtterHelper {
                 .join("\n")
                 + &format!(
                     "\x1b[s{}{}\x1b[{}G",
-                    overlay_up,
-                    overlay_down,
-                    overlay_right
+                    overlay_up, overlay_down, overlay_right
                 )
                 + &overlay_lines
                 + "\x1b[u\x1b[?25h";
@@ -434,8 +438,8 @@ impl Hinter for OtterHelper {
         let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, 1);
         let hint_benchmark = *HINT_BENCHMARK.lock().unwrap();
-        let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, 0);
         let overlay_down = cached_statics(&OVERLAY_DOWNWARD, 0);
+        let header_line_count = *HEADER_LINE_COUNT.lock().unwrap();
 
         // print from overlay commands
         let overlay_cmd = cached_statics(&OVERLAY_CMD, "".to_string());
@@ -450,21 +454,50 @@ impl Hinter for OtterHelper {
             .output()
             .expect("Failed to launch overlay command...");
         let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, 0);
-        let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
-        let lines: Vec<&str> = header_cmd_stdout.lines().collect();
+        let overlay_cmd_stdout = from_utf8(&output.stdout).unwrap();
+        let lines: Vec<&str> = overlay_cmd_stdout.lines().collect();
+        let lines_count = lines.len();
 
-        let overlay_lines = if lines.len() >= remove_lines_count {
-            lines[..lines.len() - remove_lines_count].join("\n")
+        let overlay_lines = if lines_count > remove_lines_count {
+            lines[..lines_count - remove_lines_count].join("\n")
         } else {
-            "not enough lines of header_cmd output to be trimmed".to_string()
+            "not enough lines of overlay_cmd output to be trimmed".to_string()
         };
+
+        let overlay_line_count = overlay_lines.lines().collect::<Vec<_>>().len();
 
         // store overlay lines into universial var, prep for highlighter use
         *OVERLAY_LINES.lock().unwrap() = Some(overlay_lines.clone());
 
-        let mut padded_line_count = *OVERLAY_PADDING.lock().unwrap();
-        padded_line_count = 8 + overlay_down;
         *HINT_SPAN.lock().unwrap() = self.hints.len();
+
+        // measure overlay row height, using either kitty or sixel or raw lines
+        let overlay_height_cached = cached_statics(&OVERLAY_HEIGHT, 0);
+        let overlay_height = if overlay_height_cached == 0 {
+            if let Some(r) = kitty_rows(&overlay_lines) {
+                    r + overlay_line_count - 1
+            } else if let Some(r) = sixel_rows(&overlay_lines) {
+                // convert pixels -> terminal rows using ceil
+                let term_cell_height = terminal_cell_height_px().expect("cannot get terminal cell high to measure sixel image height");
+                    r * 6 / term_cell_height + overlay_line_count - 1
+            } else {
+                overlay_line_count
+            }
+        } else {
+            if overlay_height_cached >= overlay_line_count {
+                overlay_height_cached
+            } else {
+                //println!("error: overlay_height < overlay_content");
+                overlay_line_count
+            }
+        };
+
+        // calculate overlay padding, to maintain layout when printing at window bottom
+        let mut padded_line_count = if overlay_height + overlay_down > header_line_count {
+            overlay_height - header_line_count + overlay_down
+        } else {
+            header_line_count
+        };
 
         // hint mode behavior
         if suggestion_mode == "hint" {
@@ -472,7 +505,7 @@ impl Hinter for OtterHelper {
                 // when nothing is typed
                 *COMPLETION_CANDIDATE.lock().unwrap() = None;
                 Some(ModuleHint {
-                    display: format!("{}", place_holder),
+                    display: format!("{}{}", place_holder, "\n ".repeat(padded_line_count)),
                     completion: 0,
                     w_arg: None,
                 })
@@ -586,6 +619,16 @@ impl Hinter for OtterHelper {
                         .take(suggestion_lines)
                         .copied()
                         .collect::<Vec<_>>();
+                    // calculate overlay padding, to maintain layout when printing at window bottom
+                    let join_range_count = join_range.len();
+                    padded_line_count =
+                        if overlay_height + overlay_down > header_line_count + join_range_count {
+                            overlay_height + overlay_down - header_line_count - join_range_count
+                        } else {
+                            0
+                        };
+                    // debugging
+                    //print!("{}", padded_line_count);
                     join_range.join("\n")
                 };
 
@@ -625,11 +668,19 @@ impl Hinter for OtterHelper {
                             if agg_line.is_empty() {
                                 "".to_string()
                             } else {
-                                format!("\n{}", agg_line)
+                                format!("\n{}{}", agg_line, "\n ".repeat(padded_line_count))
                             }
                         } else {
+                            // calculate overlay padding, to maintain layout when printing at window bottom
+                            let empty_message_count = e_module.lines().collect::<Vec<_>>().len();
+                            padded_line_count =
+                                if overlay_height + overlay_down > header_line_count + empty_message_count {
+                                    overlay_height + overlay_down - header_line_count - empty_message_count
+                                } else {
+                                    0
+                                };
                             // if empty module is set
-                            format!("\n{}", e_module)
+                            format!("\n{}{}", e_module, "\n ".repeat(padded_line_count))
                         },
                     ),
                     completion: pos,
@@ -1349,6 +1400,131 @@ fn general_callback() {
     }
 }
 
+/// Sum of terminal rows for all kitty images found in `s`.
+/// - Handles multiple images.
+/// - Handles multi-chunk transmissions by grouping on `i=<id>`.
+/// - Uses `r=<rows>` if present; ignores blocks without `r`.
+///
+/// Returns `None` if no kitty image rows were found.
+fn kitty_rows(s: &str) -> Option<usize> {
+    // Match: ESC_G ... (terminated by ST `ESC\` or ST 0x9c, or BEL 0x07)
+    // Captures the "body" (params[,;]data...) so we can parse params before the first ';'
+    let re = regex::Regex::new(r"\x1b_G(?P<body>.*?)(?:\x1b\\|\x9c|\x07)").ok()?;
+    let mut id_to_rows: HashMap<String, usize> = HashMap::new();
+    let mut anon_images = 0usize;
+
+    for caps in re.captures_iter(s) {
+        let body = match caps.name("body") {
+            Some(m) => m.as_str(),
+            None => continue,
+        };
+
+        // Params are before the first ';' (then optional base64 data after ';')
+        let params_str = body.split_once(';').map(|(p, _)| p).unwrap_or(body);
+
+        let mut img_id: Option<String> = None;
+        let mut rows: Option<usize> = None;
+
+        for part in params_str.split(',') {
+            if let Some((k, v)) = part.split_once('=') {
+                match k {
+                    "i" => img_id = Some(v.to_string()),
+                    "r" => rows = v.parse::<usize>().ok(),
+                    _ => {}
+                }
+            }
+        }
+
+        if let Some(r) = rows {
+            if let Some(id) = img_id {
+                // For the same image id, keep the largest r we’ve seen
+                // (initial chunk usually has r, subsequent chunks may omit it).
+                id_to_rows
+                    .entry(id)
+                    .and_modify(|x| if r > *x { *x = r })
+                    .or_insert(r);
+            } else {
+                // No explicit id — treat as its own image
+                anon_images += r;
+            }
+        }
+    }
+
+    let sum_ids: usize = id_to_rows.values().copied().sum();
+    let total = sum_ids + anon_images;
+    if total > 0 { Some(total) } else { None }
+}
+
+
+// function to measure sixel graphics height (raster row, not terminal row)
+/// Count SIXEL raster rows for one block body (string between ESC P and ST).
+#[inline]
+fn sixel_block_raster_rows(body: &str) -> Option<usize> {
+    // SIXEL data starts after the first 'q'
+    let idx = body.find('q')?;
+    let data = &body[idx + 1..];
+    if data.is_empty() {
+        return Some(0);
+    }
+    // '-' advances to next sixel row; '$' is carriage return (same row)
+    Some(1 + data.bytes().filter(|&b| b == b'-').count())
+}
+
+/// Sum of raster rows across all SIXEL images found in `s`.
+/// Returns None if no SIXEL blocks are present.
+fn sixel_rows(s: &str) -> Option<usize> {
+    // Match DCS ... ST: ESC P ... (terminated by ESC\ or 0x9C)
+    let re = regex::Regex::new(r"(?s)\x1bP(?P<body>.*?)(?:\x1b\\|\x9c)").ok()?;
+    let mut total: usize = 0;
+    let mut found = false;
+
+    for caps in re.captures_iter(s) {
+        if let Some(body) = caps.name("body") {
+            if let Some(rows) = sixel_block_raster_rows(body.as_str()) {
+                total += rows;
+                found = true;
+            }
+        }
+    }
+
+    if found { Some(total) } else { None }
+}
+
+// function to get term cell height, just for converting sixel rows to terminal rows
+fn terminal_cell_height_px() -> anyhow::Result<usize> {
+    // First try ioctl(TIOCGWINSZ)
+    unsafe {
+        let mut ws: libc::winsize = std::mem::zeroed();
+        if libc::ioctl(std::io::stdout().as_raw_fd(), libc::TIOCGWINSZ, &mut ws) == 0 {
+            if ws.ws_row > 0 && ws.ws_ypixel > 0 {
+                let h = (ws.ws_ypixel as usize + ws.ws_row as usize - 1) / ws.ws_row as usize;
+                return Ok(h);
+            }
+        }
+    }
+
+    // Fallback: Xterm “report cell size in pixels” (CSI 16 t)
+    // Put tty in raw mode in real code
+    let mut out = std::io::stdout();
+    out.write_all(b"\x1b[16t")?;
+    out.flush()?;
+
+    // Read response like: ESC [ 6 ; <height> ; <width> t
+    let mut buf = [0u8; 64];
+    let n = std::io::stdin().read(&mut buf)?;
+    let s = std::str::from_utf8(&buf[..n])?;
+    // Very loose parse:
+    if let Some(rest) = s.strip_prefix("\x1b[") {
+        let parts: Vec<&str> = rest.trim_end_matches('t').split(';').collect();
+        if parts.len() >= 3 && parts[0] == "6" {
+            let height: usize = parts[1].parse()?;
+            return Ok(height);
+        }
+    }
+
+    anyhow::bail!("could not determine cell height in pixels");
+}
+
 //░█▀▀░█░░░█▀█░█░█░░░█▀▀░█▀█░█▀█░▀█▀░█▀▄░█▀█░█░░
 //░█▀▀░█░░░█░█░█▄█░░░█░░░█░█░█░█░░█░░█▀▄░█░█░█░░
 //░▀░░░▀▀▀░▀▀▀░▀░▀░░░▀▀▀░▀▀▀░▀░▀░░▀░░▀░▀░▀▀▀░▀▀▀
@@ -1415,6 +1591,7 @@ fn main() {
         CONFIG.overlay.overlay_trimmed_lines,
         0,
     );
+    init_statics(&OVERLAY_HEIGHT, CONFIG.overlay.overlay_height, 0);
     init_statics(
         &HEADER,
         CONFIG.interface.header.clone(),
