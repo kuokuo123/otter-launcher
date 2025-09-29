@@ -58,6 +58,8 @@ An example config file is at [config_example](https://github.com/kuokuo123/otter
 
 ## Building from source
 
+1. Compile from source code
+
 ```
 git clone https://github.com/kuokuo123/otter-launcher /tmp/otter-launcher
 cd /tmp/otter-launcher
@@ -65,6 +67,9 @@ cargo build --release
 sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 ```
 
+2. Create a config file
+
+The default config file looks for /etc/otter-launcher/pikachu.example, which is in the repos's config_example folder. You can modify the config file to either remove this line from overlay_cmd or point to the pikachu.
 
 # Configuration
 
