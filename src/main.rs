@@ -499,7 +499,7 @@ impl Hinter for OtterHelper {
         let mut padded_line_count = if overlay_height + overlay_down > header_line_count {
             overlay_height - header_line_count + overlay_down
         } else {
-            header_line_count
+            0
         };
 
         // hint mode behavior
@@ -1426,15 +1426,10 @@ fn general_callback() {
     }
 }
 
-/// Sum of terminal rows for all kitty images found in `s`.
-/// - Handles multiple images.
-/// - Handles multi-chunk transmissions by grouping on `i=<id>`.
-/// - Uses `r=<rows>` if present; ignores blocks without `r`.
-///
-/// Returns `None` if no kitty image rows were found.
+// function to measure kitty image height
 fn kitty_rows(s: &str) -> Option<usize> {
-    // Match: ESC_G ... (terminated by ST `ESC\` or ST 0x9c, or BEL 0x07)
-    // Captures the "body" (params[,;]data...) so we can parse params before the first ';'
+    // match: ESC_G ... (terminated by ST `ESC\` or ST 0x9c, or BEL 0x07)
+    // captures the body (params[,;]data...), enabling parsing params before the first ;
     let re = regex::Regex::new(r"\x1b_G(?P<body>.*?)(?:\x1b\\|\x9c|\x07)").ok()?;
     let mut id_to_rows: HashMap<String, usize> = HashMap::new();
     let mut anon_images = 0usize;
@@ -1445,7 +1440,7 @@ fn kitty_rows(s: &str) -> Option<usize> {
             None => continue,
         };
 
-        // Params are before the first ';' (then optional base64 data after ';')
+        // params are before the first ; (then optional base64 data after ';')
         let params_str = body.split_once(';').map(|(p, _)| p).unwrap_or(body);
 
         let mut img_id: Option<String> = None;
@@ -1463,8 +1458,7 @@ fn kitty_rows(s: &str) -> Option<usize> {
 
         if let Some(r) = rows {
             if let Some(id) = img_id {
-                // For the same image id, keep the largest r we’ve seen
-                // (initial chunk usually has r, subsequent chunks may omit it).
+                // for the same image id, keep the largest r seen
                 id_to_rows
                     .entry(id)
                     .and_modify(|x| {
@@ -1474,7 +1468,7 @@ fn kitty_rows(s: &str) -> Option<usize> {
                     })
                     .or_insert(r);
             } else {
-                // No explicit id — treat as its own image
+                // no explicit id — treat as its own image
                 anon_images += r;
             }
         }
@@ -1485,11 +1479,10 @@ fn kitty_rows(s: &str) -> Option<usize> {
     if total > 0 { Some(total) } else { None }
 }
 
-// function to measure sixel graphics height (raster row, not terminal row)
-/// Count SIXEL raster rows for one block body (string between ESC P and ST).
+// function to measure sixel graphics height (raster row, not terminal row, string between ESC P and ST)
 #[inline]
 fn sixel_block_raster_rows(body: &str) -> Option<usize> {
-    // SIXEL data starts after the first 'q'
+    // sixel data starts after the first 'q'
     let idx = body.find('q')?;
     let data = &body[idx + 1..];
     if data.is_empty() {
@@ -1499,10 +1492,10 @@ fn sixel_block_raster_rows(body: &str) -> Option<usize> {
     Some(1 + data.bytes().filter(|&b| b == b'-').count())
 }
 
-/// Sum of raster rows across all SIXEL images found in `s`.
-/// Returns None if no SIXEL blocks are present.
+// sum of raster rows across all sixel images found in `s`.
+// returns None if no sixel blocks are present.
 fn sixel_rows(s: &str) -> Option<usize> {
-    // Match DCS ... ST: ESC P ... (terminated by ESC\ or 0x9C)
+    // match DCS ... ST: ESC P ... (terminated by ESC\ or 0x9C)
     let re = regex::Regex::new(r"(?s)\x1bP(?P<body>.*?)(?:\x1b\\|\x9c)").ok()?;
     let mut total: usize = 0;
     let mut found = false;
@@ -1521,7 +1514,7 @@ fn sixel_rows(s: &str) -> Option<usize> {
 
 // function to get term cell height, just for converting sixel rows to terminal rows
 fn terminal_cell_height_px() -> anyhow::Result<usize> {
-    // First try ioctl(TIOCGWINSZ)
+    // first try ioctl(TIOCGWINSZ)
     unsafe {
         let mut ws: libc::winsize = std::mem::zeroed();
         if libc::ioctl(std::io::stdout().as_raw_fd(), libc::TIOCGWINSZ, &mut ws) == 0 {
@@ -1532,17 +1525,15 @@ fn terminal_cell_height_px() -> anyhow::Result<usize> {
         }
     }
 
-    // Fallback: Xterm “report cell size in pixels” (CSI 16 t)
-    // Put tty in raw mode in real code
+    // fallback: xterm “report cell size in pixels” (CSI 16 t)
     let mut out = std::io::stdout();
     out.write_all(b"\x1b[16t")?;
     out.flush()?;
 
-    // Read response like: ESC [ 6 ; <height> ; <width> t
+    // read response like: ESC [ 6 ; <height> ; <width> t
     let mut buf = [0u8; 64];
     let n = std::io::stdin().read(&mut buf)?;
     let s = std::str::from_utf8(&buf[..n])?;
-    // Very loose parse:
     if let Some(rest) = s.strip_prefix("\x1b[") {
         let parts: Vec<&str> = rest.trim_end_matches('t').split(';').collect();
         if parts.len() >= 3 && parts[0] == "6" {
