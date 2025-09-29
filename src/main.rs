@@ -348,7 +348,7 @@ impl Highlighter for OtterHelper {
         if suggestion_mode == "hint" {
             (format!(
                 "\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G",
-                hint_color, hint, overlay_up, overlay_down, overlay_right
+                hint_color, hint, overlay_up, overlay_down, overlay_right + 1
             ) + &overlay_lines
                 + "\x1b[u\x1b[?25h")
                 .into()
@@ -417,7 +417,7 @@ impl Highlighter for OtterHelper {
                 .join("\n")
                 + &format!(
                     "\x1b[s{}{}\x1b[{}G",
-                    overlay_up, overlay_down, overlay_right
+                    overlay_up, overlay_down, overlay_right + 1
                 )
                 + &overlay_lines
                 + "\x1b[u\x1b[?25h";
