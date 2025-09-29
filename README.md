@@ -42,7 +42,7 @@ External Editor & List Selection
 
 # Installation
 
-## AUR
+### AUR
 
 Install with AUR helpers
 
@@ -50,7 +50,7 @@ Install with AUR helpers
 paru -S otter-launcher
 ```
 
-## Building from source
+### Building from source
 
 1. Compile from source code
 
@@ -69,12 +69,12 @@ The default config file looks for /etc/otter-launcher/pikachu.example, which is 
 
 Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml, which is included with AUR installation.
 
-The confing file encompasses of four parts:
+The confing file encompasses four parts:
 
 - [general] includes generic options
 - [interface] includes options related to user interface
-- [overlay] includes options releated to the overlay layer (normally used for image integration)
-- unlimited [[modules]] can be configured through bash scripting
+- [overlay] includes options releated to image integration
+- [[modules]] can be configured through bash scripting in an unlimited number
 
 All the available are listed below, and can also be found in [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
