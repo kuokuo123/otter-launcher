@@ -68,6 +68,10 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 # Configuration
 
+Since v0.6.0, the default config comes with a pikachu to demonstrate how image integration works.
+
+![Example Config](./assets/default.png)
+
 ``` toml
 [general]
 default_module = "gg" # module to run when no prefix is matched
@@ -88,15 +92,16 @@ external_editor = "nvim" # if set, press ctrl+e (or v in vi normal mode) to edit
 [interface]
 # use three quotes to write longer commands
 header = """
- \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
-    \u001B[34;1m>\u001B[0;1m """
+                   \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1) \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
+  \u001B[34;1m$USER@$(printf $HOSTNAME)
+ \u001B[0;1m """
 header_cmd = "" # run a command and print stdout above the header
 header_cmd_trimmed_lines = 0 # remove trailing lines from header_cmd output, in case of some programs appending excessive empty lines
 header_concatenate = false # print header and header_cmd output to the same line, default to false
-list_prefix = "      "
-selection_prefix = "    \u001B[31;1m> "
+list_prefix = "  "
+selection_prefix = "\u001B[31;1m> "
 place_holder = "type and search"
-default_module_message = "      \u001B[33msearch\u001B[0m the internet" # shown when the default module is in use
+default_module_message = "  \u001B[33msearch\u001B[0m the internet" # shown when the default module is in use
 empty_module_message = "" # shown when the empty module is in use
 suggestion_mode = "list" # available options: list, hint
 suggestion_lines = 4 # 0 to disable suggestions and tab completion
@@ -110,17 +115,16 @@ description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m" # suggestion color in hint mode
 # move the interface rightward or downward
-move_interface_right = 0
-move_interface_down = 0
+move_interface_right = 23
+move_interface_down = 1
 
 
 # overlay is a floating layer that can be printed with stdout and moved around; useful for integrating chafa images
 [overlay]
-overlay_cmd = "" # run a command and print stdout on the overlay layer
-overlay_trimmed_lines = 0 # remove trailing lines from overlay_cmd output
-overlay_height = 0 # set overlay size; 0 to be auto; 1 is one line, 2 two lines, etc.
-# move the overlay layer around for theming
-move_overlay_right = 0
+overlay_cmd = "cat /etc/otter-launcher/pikachu.example" # run a command and print stdout on the overlay layer
+overlay_trimmed_lines = 1 # remove trailing lines from overlay_cmd output
+overlay_height = 0 # set overlay size; 0 to be auto; 1 is one line, 2 two lines, etc; kitty & sixel image size can be determined automatically; others should be set mannually
+move_overlay_right = 2 # move the overlay layer around for theming
 move_overlay_down = 0
 
 
@@ -136,7 +140,7 @@ unbind_proc = true # run cmd in a forked shell as opposed to as a child process;
 
 # fzf is needed to run below functions
 [[modules]]
-description = "launch desktop programs"
+description = "launch programs"
 prefix = "app"
 cmd = """
 desktop_file() {
@@ -152,7 +156,7 @@ echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $lin
 """
 
 [[modules]]
-description = "power menu with fzf"
+description = "power menu (fzf)"
 prefix = "po"
 cmd = """
 function power {
@@ -168,7 +172,7 @@ power $(echo -e 'reboot\nshutdown\nlogout\nsuspend\nhibernate' | fzf --reverse -
 """
 
 [[modules]]
-description = "run command in terminal"
+description = "run commands"
 prefix = "sh"
 cmd = """
 $(printf $TERM | sed 's/xterm-//g') -e sh -c "{}"
@@ -185,7 +189,7 @@ url_encode = true
 unbind_proc = true
 
 [[modules]]
-description = "search for arch packages"
+description = "search packages"
 prefix = "pac"
 cmd = "xdg-open https://archlinux.org/packages/?q='{}'"
 with_argument = true
@@ -193,7 +197,7 @@ url_encode = true
 unbind_proc = true
 
 [[modules]]
-description = "search for aur packages"
+description = "search the AUR"
 prefix = "aur"
 cmd = "xdg-open https://aur.archlinux.org/packages?K='{}'"
 with_argument = true
@@ -201,7 +205,7 @@ url_encode = true
 unbind_proc = true
 
 [[modules]]
-description = "cambridge dictionary"
+description = "cambridge dict"
 prefix = "dc"
 cmd = "xdg-open 'https://dictionary.cambridge.org/dictionary/english/{}'"
 with_argument = true
@@ -210,12 +214,12 @@ unbind_proc = true
 
 # fd is needed to run below functions
 [[modules]]
-description = "open files with fzf"
+description = "open files (fzf)"
 prefix = "fo"
 cmd = "fd --type f | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Files: ' | setsid -f xargs -r -I [] xdg-open '[]'"
 
 [[modules]]
-description = "open folders with fzf"
+description = "open folders (yazi)"
 prefix = "yz"
 cmd = """
 fd --type d | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Folders: ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
@@ -224,7 +228,7 @@ fd --type d | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Folders: 
 
 # Integration
 
-Otter-launcher works well with tui programs. When launching programs, module.cmd can be scripted to perform functions like adjusting window size.
+Otter-launcher works well with tui programs. When launching programs, module.cmd can be scripted to adjust window sizes.
 
 In the below example, otter-launcher changes window size before and after running pulsemixer by calling swaymsg:
 
@@ -248,28 +252,19 @@ More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Comm
 
 # Examples for Styling
 
-## Example Config
+## Two Liner in Hint Mode
 
-![Example Config](./assets/default.png)
+![Two_liner Config](./assets/two_liner.png)
 
-``` toml
+```toml
 [interface]
-header = """
- \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)                \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
-    \u001B[34;1m>\u001B[0;1m """
-list_prefix = "      "
-selection_prefix = "    \u001B[31;1m> "
+header = """  \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)              \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n     \u001B[34;1m>\u001B[0;1m """
+indicator_with_arg_module = "^ "
+indicator_no_arg_module = "$ "
 place_holder = "type and search"
-default_module_message = "      \u001B[33msearch\u001B[0m the internet"
-suggestion_mode = "list"
-suggestion_lines = 4
-indicator_with_arg_module = "\u001B[31m^\u001B[0m "
-indicator_no_arg_module = "\u001B[31m$\u001B[0m "
-prefix_padding = 3
-prefix_color = "\u001B[33m"
-description_color = "\u001B[39m"
-place_holder_color = "\u001B[30m"
-hint_color = "\u001B[30m"
+suggestion_mode = "hint"
+place_holder_color = "\u001B[90m"
+hint_color = "\u001B[90m"
 ```
 
 ## Fastfetch & Krabby
@@ -297,6 +292,8 @@ hint_color = "\u001B[90m"
 
 ## Image Protocol
 
+This config uses chafa in header_cmd to render the image.
+
 ![Foot Config](./assets/foot.png)
 
 [Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
@@ -320,22 +317,9 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
-## Two Liner in Hint Mode
-
-![Two_liner Config](./assets/two_liner.png)
-
-```toml
-[interface]
-header = """  \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)              \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n     \u001B[34;1m>\u001B[0;1m """
-indicator_with_arg_module = "^ "
-indicator_no_arg_module = "$ "
-place_holder = "type and search"
-suggestion_mode = "hint"
-place_holder_color = "\u001B[90m"
-hint_color = "\u001B[90m"
-```
-
 ## Image to the Left
+
+This config renders chafa image by overlay_cmd at the left, and move the whole inteface to the right.
 
 ![Chafa-text Config](./assets/soothing.png)
 
@@ -366,9 +350,9 @@ move_interface_down = 2
 
 ## Image to the Right
 
-![Prinny Config](./assets/prinny.png)
+This config also renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png) by overlay_cmd, and then move the image overlay to the right.
 
-This is a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png), not really a penguin.
+![Prinny Config](./assets/prinny.png)
 
 ```toml
 [overlay]
