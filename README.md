@@ -44,17 +44,11 @@ External Editor & List Selection
 
 ## AUR
 
-### 1. Install with AUR helpers
+Install with AUR helpers
 
 ```
 paru -S otter-launcher
 ```
-
-### 2. Create a config file
-
-Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml, which is included with AUR installation.
-
-An example config file is at [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Copy it to one of the above locations. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
 ## Building from source
 
@@ -67,11 +61,22 @@ cargo build --release
 sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 ```
 
-2. Create a config file
+2. Create a config file mannually
 
 The default config file looks for /etc/otter-launcher/pikachu.example, which is in the repos's config_example folder. You can modify the config file to either remove this line from overlay_cmd or point to the pikachu.
 
 # Configuration
+
+Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml, which is included with AUR installation.
+
+The confing file encompasses of four parts:
+
+- [general] includes generic options
+- [interface] includes options related to user interface
+- [overlay] includes options releated to the overlay layer (normally used for image integration)
+- unlimited [[modules]] can be configured through bash scripting
+
+All the available are listed below, and can also be found in [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
 Since v0.6.0, the default config comes with a pikachu to demonstrate how image integration works.
 
