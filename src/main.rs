@@ -21,13 +21,6 @@
 //░█░░░█▀▄░█▀█░░█░░█▀▀░▀▀█
 //░▀▀▀░▀░▀░▀░▀░░▀░░▀▀▀░▀▀▀
 
-extern crate regex;
-extern crate rustyline;
-extern crate rustyline_derive;
-extern crate serde;
-extern crate toml;
-extern crate urlencoding;
-
 use once_cell::sync::Lazy;
 use rustyline::{
     Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
