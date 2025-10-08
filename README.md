@@ -13,7 +13,7 @@ The core concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) as a module to launch desktop apps. Use your wm's window rules to control its window size.
+Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [gyr](https://github.com/Mjoyufull/gyr) (developing) as a module to launch desktop apps. Use your wm's window rules to control its window size.
 
 # Demo
 
@@ -255,7 +255,7 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
 
 Some recommendations of tui utilities that works really well:
 
-- Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop)
+- Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) [gyr](https://github.com/Mjoyufull/gyr)
 - Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
 - Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
 - Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
