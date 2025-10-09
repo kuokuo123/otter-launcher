@@ -39,13 +39,12 @@ use std::{
     env,
     error::Error,
     fs::{self, OpenOptions},
-    io::{Read, Write},
-    os::fd::AsRawFd,
+    io::{self, Read, Write},
     path::Path,
     process,
     process::{Command, Stdio},
     str::from_utf8,
-    sync::Mutex,
+    sync::{Mutex, OnceLock},
 };
 use urlencoding::encode;
 
@@ -184,6 +183,7 @@ static OVERLAY_RIGHTWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(N
 static OVERLAY_DOWNWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 static CUSTOMIZED_LIST_ORDER: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
 static OVERLAY_LINES: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static CELL_HEIGHT: OnceLock<usize> = OnceLock::new();
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
@@ -341,7 +341,11 @@ impl Highlighter for OtterHelper {
         if suggestion_mode == "hint" {
             (format!(
                 "\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G",
-                hint_color, hint, overlay_up, overlay_down, overlay_right + 1
+                hint_color,
+                hint,
+                overlay_up,
+                overlay_down,
+                overlay_right + 1
             ) + &overlay_lines
                 + "\x1b[u\x1b[?25h")
                 .into()
@@ -410,7 +414,9 @@ impl Highlighter for OtterHelper {
                 .join("\n")
                 + &format!(
                     "\x1b[s{}{}\x1b[{}G",
-                    overlay_up, overlay_down, overlay_right + 1
+                    overlay_up,
+                    overlay_down,
+                    overlay_right + 1
                 )
                 + &overlay_lines
                 + "\x1b[u\x1b[?25h";
@@ -454,7 +460,8 @@ impl Hinter for OtterHelper {
             let lines: Vec<&str> = overlay_cmd_stdout.lines().collect();
             let lines_count = lines.len();
             if lines_count > remove_lines_count {
-                lines[..lines_count - remove_lines_count].join(&format!("\n\x1b[{}G", overlay_right + 1))
+                lines[..lines_count - remove_lines_count]
+                    .join(&format!("\n\x1b[{}G", overlay_right + 1))
             } else {
                 "not enough lines of overlay_cmd output to be trimmed".to_string()
             }
@@ -473,7 +480,7 @@ impl Hinter for OtterHelper {
                 r + overlay_line_count - 1
             } else if let Some(r) = sixel_rows(&overlay_lines) {
                 // convert pixels -> terminal rows using ceil
-                let term_cell_height = terminal_cell_height_px()
+                let term_cell_height = term_cell_height_cached()
                     .expect("cannot get terminal cell high to measure sixel image height");
                 r * 6 / term_cell_height + overlay_line_count - 1
             } else {
@@ -511,7 +518,10 @@ impl Hinter for OtterHelper {
                 Some(ModuleHint {
                     display: format!(
                         "{} {}{}{}",
-                        cheatsheet_entry, indicator_no_arg_module, "cheat sheet", "\n ".repeat(padded_line_count)
+                        cheatsheet_entry,
+                        indicator_no_arg_module,
+                        "cheat sheet",
+                        "\n ".repeat(padded_line_count)
                     )
                     .to_string(),
                     completion: line.len(),
@@ -694,15 +704,16 @@ impl Hinter for OtterHelper {
                         padded_line_count = if overlay_height + overlay_down
                             > header_line_count + cheatsheet_count
                         {
-                            overlay_height + overlay_down
-                                - header_line_count
-                                - cheatsheet_count
+                            overlay_height + overlay_down - header_line_count - cheatsheet_count
                         } else {
                             0
                         };
                         format!(
                             "\n{} {} {}{}",
-                            cheatsheet_entry, indicator_no_arg_module, "cheat sheet", "\n ".repeat(padded_line_count)
+                            cheatsheet_entry,
+                            indicator_no_arg_module,
+                            "cheat sheet",
+                            "\n ".repeat(padded_line_count)
                         )
                     // if no module is matched
                     } else if agg_line.is_empty() {
@@ -1472,7 +1483,7 @@ fn kitty_rows(s: &str) -> Option<usize> {
     if total > 0 { Some(total) } else { None }
 }
 
-// function to measure sixel graphics height (raster row, not terminal row, string between ESC P and ST)
+// functions to measure sixel graphics height (raster row, not terminal row, string between ESC P and ST)
 #[inline]
 fn sixel_block_raster_rows(body: &str) -> Option<usize> {
     // sixel data starts after the first 'q'
@@ -1505,37 +1516,98 @@ fn sixel_rows(s: &str) -> Option<usize> {
     if found { Some(total) } else { None }
 }
 
-// function to get term cell height, just for converting sixel rows to terminal rows
-fn terminal_cell_height_px() -> anyhow::Result<usize> {
-    // first try ioctl(TIOCGWINSZ)
-    unsafe {
-        let mut ws: libc::winsize = std::mem::zeroed();
-        if libc::ioctl(std::io::stdout().as_raw_fd(), libc::TIOCGWINSZ, &mut ws) == 0 {
-            if ws.ws_row > 0 && ws.ws_ypixel > 0 {
-                let h = (ws.ws_ypixel as usize + ws.ws_row as usize - 1) / ws.ws_row as usize;
-                return Ok(h);
+// functions to get term cell height, just for converting sixel rows to terminal rows
+fn term_cell_height_cached() -> std::io::Result<usize> {
+    if let Some(h) = CELL_HEIGHT.get() {
+        return Ok(*h);
+    }
+    let h = terminal_cell_height_px()?; // your existing fn
+    CELL_HEIGHT.set(h).ok();
+    Ok(h)
+}
+
+fn write_csi_and_read<'a>(
+    out: &mut dyn Write,
+    inp: &mut dyn Read,
+    csi: &[u8],
+    buf: &'a mut [u8],
+) -> io::Result<&'a str> {
+    out.write_all(csi)?;
+    out.flush()?;
+    let n = inp.read(buf)?;
+    std::str::from_utf8(&buf[..n]).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+}
+
+fn parse_csi_numbers(s: &str, expected_leading: &str) -> Option<Vec<usize>> {
+    let rest = s.strip_prefix("\x1b[")?;
+    let rest = rest.strip_suffix('t')?;
+    let mut it = rest.split(';');
+    if it.next()? != expected_leading {
+        return None;
+    }
+    let mut out = Vec::new();
+    for p in it {
+        out.push(p.parse().ok()?);
+    }
+    Some(out)
+}
+
+fn terminal_cell_height_px() -> io::Result<usize> {
+    // use /dev/tty-style stdin/stdout, pure std I/O
+    let mut out = io::stdout();
+    let mut inp = io::stdin();
+
+    // 1) try CSI 16 t : "report cell size in pixels" -> ESC [ 16 t?
+    // many terminals reply as: ESC [ 6 ; <height_px> ; <width_px> t
+    {
+        let mut buf = [0u8; 128];
+        if let Ok(s) = write_csi_and_read(&mut out, &mut inp, b"\x1b[16t", &mut buf) {
+            if let Some(nums) = parse_csi_numbers(s, "6") {
+                if nums.len() >= 2 && nums[0] > 0 {
+                    return Ok(nums[0]); // height in pixels per cell
+                }
             }
         }
     }
 
-    // fallback: xterm “report cell size in pixels” (CSI 16 t)
-    let mut out = std::io::stdout();
-    out.write_all(b"\x1b[16t")?;
-    out.flush()?;
+    // 2) fallback: derive from window pixel height / rows
+    //    CSI 14 t -> report window size in pixels: ESC [ 4 ; <height_px> ; <width_px> t
+    //    CSI 18 t -> report text area size in characters: ESC [ 8 ; <rows> ; <cols> t
+    let mut height_px: Option<usize> = None;
+    let mut rows: Option<usize> = None;
 
-    // read response like: ESC [ 6 ; <height> ; <width> t
-    let mut buf = [0u8; 64];
-    let n = std::io::stdin().read(&mut buf)?;
-    let s = std::str::from_utf8(&buf[..n])?;
-    if let Some(rest) = s.strip_prefix("\x1b[") {
-        let parts: Vec<&str> = rest.trim_end_matches('t').split(';').collect();
-        if parts.len() >= 3 && parts[0] == "6" {
-            let height: usize = parts[1].parse()?;
-            return Ok(height);
+    {
+        let mut buf = [0u8; 128];
+        if let Ok(s) = write_csi_and_read(&mut out, &mut inp, b"\x1b[14t", &mut buf) {
+            if let Some(nums) = parse_csi_numbers(s, "4") {
+                if nums.len() >= 2 && nums[0] > 0 {
+                    height_px = Some(nums[0]);
+                }
+            }
+        }
+    }
+    {
+        let mut buf = [0u8; 128];
+        if let Ok(s) = write_csi_and_read(&mut out, &mut inp, b"\x1b[18t", &mut buf) {
+            if let Some(nums) = parse_csi_numbers(s, "8") {
+                if nums.len() >= 2 && nums[0] > 0 {
+                    rows = Some(nums[0]);
+                }
+            }
         }
     }
 
-    anyhow::bail!("could not determine cell height in pixels");
+    if let (Some(hpx), Some(r)) = (height_px, rows) {
+        if r > 0 {
+            let per_cell = (hpx + r - 1) / r;
+            return Ok(per_cell);
+        }
+    }
+
+    Err(io::Error::new(
+        io::ErrorKind::Other,
+        "could not determine cell height in pixels (ANSI queries failed)",
+    ))
 }
 
 //░█▀▀░█░░░█▀█░█░█░░░█▀▀░█▀█░█▀█░▀█▀░█▀▄░█▀█░█░░
