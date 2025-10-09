@@ -485,8 +485,7 @@ impl Hinter for OtterHelper {
                 r + overlay_line_count - 1
             } else if let Some(r) = sixel_rows(&overlay_lines) {
                 // convert pixels -> terminal rows using ceil
-                let term_cell_height = term_cell_height_cached()
-                    .expect("cannot get terminal cell high to measure sixel image height");
+                let term_cell_height = term_cell_height_cached().unwrap_or(22);
                 r * 6 / term_cell_height + overlay_line_count - 1
             } else {
                 overlay_line_count
