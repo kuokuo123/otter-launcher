@@ -21,7 +21,6 @@
 //░█░░░█▀▄░█▀█░░█░░█▀▀░▀▀█
 //░▀▀▀░▀░▀░▀░▀░░▀░░▀▀▀░▀▀▀
 
-use once_cell::sync::Lazy;
 use rustyline::{
     Cmd, ConditionalEventHandler, Context, EditMode, Editor, Event, EventContext, EventHandler,
     KeyCode, KeyEvent, Modifiers, Movement, RepeatCount,
@@ -122,67 +121,74 @@ struct Module {
 }
 
 // load toml config
-static CONFIG: Lazy<Config> = Lazy::new(|| {
-    let home_dir = env::var("HOME").unwrap_or_else(|_| String::from("/"));
+static CONFIG: OnceLock<Config> = OnceLock::new();
+
+fn load_config() -> Config {
+    let home_dir = env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let xdg_config_path = format!("{}/.config/otter-launcher/config.toml", home_dir);
-    // fallback from xdg_config_path to /etc
-    let config_file: &str = if Path::new(&xdg_config_path).exists() {
-        &xdg_config_path
+
+    let config_file = if Path::new(&xdg_config_path).exists() {
+        xdg_config_path
     } else {
-        "/etc/otter-launcher/config.toml"
+        "/etc/otter-launcher/config.toml".to_string()
     };
-    let contents = std::fs::read_to_string(config_file).unwrap_or_else(|_| String::new());
 
+    let contents = fs::read_to_string(config_file).unwrap_or_default();
     toml::from_str(&contents).expect("cannot read contents from config_file")
-});
+}
 
-// use lazy mutex to make important variables globally accessible (repeatedly used config values, list selection, and completion related stuff)
+#[inline]
+fn config() -> &'static Config {
+    CONFIG.get_or_init(load_config)
+}
+
+// use oncelock mutex to make important variables globally accessible (repeatedly used config values, list selection, and completion related stuff)
 // define config variables as statics
-static HEADER_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static OVERLAY_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static SUGGESTION_MODE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static LOOP_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
-static CALLBACK: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static CHEATSHEET_ENTRY: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static CHEATSHEET_VIEWER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static EXTERNAL_EDITOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static VI_MODE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
-static ESC_TO_ABORT: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
-static CLEAR_SCREEN_AFTER_EXECUTION: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
-static HEADER_CMD_TRIMMED_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static OVERLAY_TRIMMED_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static OVERLAY_HEIGHT: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static HEADER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static HEADER_CONCATENATE: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
-static EXEC_CMD: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static DEFAULT_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static EMPTY_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static EMPTY_MODULE_MESSAGE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static DEFAULT_MODULE_MESSAGE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static SUGGESTION_LINES: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static PREFIX_PADDING: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static SELECTION_INDEX: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
-static SELECTION_SPAN: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
-static HINT_SPAN: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
-static HINT_BENCHMARK: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
-static LIST_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static SELECTION_PREFIX: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static PREFIX_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static DESCRIPTION_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static PLACE_HOLDER: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static PLACE_HOLDER_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static HINT_COLOR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static INDICATOR_WITH_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static INDICATOR_NO_ARG_MODULE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static FILTERED_HINT_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
-static HEADER_LINE_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
-static COMPLETION_CANDIDATE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
-static LAYOUT_RIGHTWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static LAYOUT_DOWNWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static OVERLAY_RIGHTWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static OVERLAY_DOWNWARD: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
-static CUSTOMIZED_LIST_ORDER: Lazy<Mutex<Option<bool>>> = Lazy::new(|| Mutex::new(None));
-static OVERLAY_LINES: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+static HEADER_CMD: OnceLock<Mutex<String>> = OnceLock::new();
+static OVERLAY_CMD: OnceLock<Mutex<String>> = OnceLock::new();
+static SUGGESTION_MODE: OnceLock<Mutex<String>> = OnceLock::new();
+static LOOP_MODE: OnceLock<Mutex<bool>> = OnceLock::new();
+static CALLBACK: OnceLock<Mutex<String>> = OnceLock::new();
+static CHEATSHEET_ENTRY: OnceLock<Mutex<String>> = OnceLock::new();
+static CHEATSHEET_VIEWER: OnceLock<Mutex<String>> = OnceLock::new();
+static EXTERNAL_EDITOR: OnceLock<Mutex<String>> = OnceLock::new();
+static VI_MODE: OnceLock<Mutex<bool>> = OnceLock::new();
+static ESC_TO_ABORT: OnceLock<Mutex<bool>> = OnceLock::new();
+static CLEAR_SCREEN_AFTER_EXECUTION: OnceLock<Mutex<bool>> = OnceLock::new();
+static HEADER_CMD_TRIMMED_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
+static OVERLAY_TRIMMED_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
+static OVERLAY_HEIGHT: OnceLock<Mutex<usize>> = OnceLock::new();
+static HEADER: OnceLock<Mutex<String>> = OnceLock::new();
+static HEADER_CONCATENATE: OnceLock<Mutex<bool>> = OnceLock::new();
+static EXEC_CMD: OnceLock<Mutex<String>> = OnceLock::new();
+static DEFAULT_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
+static EMPTY_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
+static EMPTY_MODULE_MESSAGE: OnceLock<Mutex<String>> = OnceLock::new();
+static DEFAULT_MODULE_MESSAGE: OnceLock<Mutex<String>> = OnceLock::new();
+static SUGGESTION_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
+static PREFIX_PADDING: OnceLock<Mutex<usize>> = OnceLock::new();
+static SELECTION_INDEX: OnceLock<Mutex<usize>> = OnceLock::new();
+static SELECTION_SPAN: OnceLock<Mutex<usize>> = OnceLock::new();
+static HINT_SPAN: OnceLock<Mutex<usize>> = OnceLock::new();
+static HINT_BENCHMARK: OnceLock<Mutex<usize>> = OnceLock::new();
+static LIST_PREFIX: OnceLock<Mutex<String>> = OnceLock::new();
+static SELECTION_PREFIX: OnceLock<Mutex<String>> = OnceLock::new();
+static PREFIX_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
+static DESCRIPTION_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
+static PLACE_HOLDER: OnceLock<Mutex<String>> = OnceLock::new();
+static PLACE_HOLDER_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
+static HINT_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
+static INDICATOR_WITH_ARG_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
+static INDICATOR_NO_ARG_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
+static FILTERED_HINT_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
+static HEADER_LINE_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
+static COMPLETION_CANDIDATE: OnceLock<Mutex<String>> = OnceLock::new();
+static LAYOUT_RIGHTWARD: OnceLock<Mutex<usize>> = OnceLock::new();
+static LAYOUT_DOWNWARD: OnceLock<Mutex<usize>> = OnceLock::new();
+static OVERLAY_RIGHTWARD: OnceLock<Mutex<usize>> = OnceLock::new();
+static OVERLAY_DOWNWARD: OnceLock<Mutex<usize>> = OnceLock::new();
+static CUSTOMIZED_LIST_ORDER: OnceLock<Mutex<bool>> = OnceLock::new();
+static OVERLAY_LINES: OnceLock<Mutex<String>> = OnceLock::new();
 static CELL_HEIGHT: OnceLock<usize> = OnceLock::new();
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
@@ -190,7 +196,6 @@ static CELL_HEIGHT: OnceLock<usize> = OnceLock::new();
 //░▀░▀░▀▀▀░▀░▀░░▀░░░░░▀▀░░░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀
 
 // define the structure of every formatted hint
-#[derive(Hash, Debug, PartialEq, Eq)]
 struct ModuleHint {
     display: String,
     completion: usize,
@@ -220,7 +225,7 @@ impl ModuleHint {
 impl Hint for ModuleHint {
     // text to display when hint is active
     fn display(&self) -> &str {
-        if cached_statics(&SUGGESTION_MODE, "list".to_string()) == "hint" {
+        if cached_statics(&SUGGESTION_MODE, || "list".to_string()) == "hint" {
             // hint mode
             &self.display[self.completion..]
         } else {
@@ -249,8 +254,8 @@ impl Completer for OtterHelper {
         pos: usize,
         _ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
-        let com_candidate = cached_statics(&COMPLETION_CANDIDATE, "".to_string());
-        if cached_statics(&SUGGESTION_MODE, "".to_string()) == "hint".to_string() {
+        let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || "".to_string());
+        if cached_statics(&SUGGESTION_MODE, || "".to_string()) == "hint".to_string() {
             // define the behavior of completion in hint mode
             if pos <= com_candidate.len() && pos > 0 {
                 // disable completion when the input texts is longer than the matched module prefix
@@ -269,21 +274,21 @@ impl Completer for OtterHelper {
             }
         } else {
             // the behavior in list mode
-            if line.is_empty() && *SELECTION_INDEX.lock().unwrap() == 0 {
+            if line.is_empty() && *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() == 0 {
                 // when empty, complete with empty module
                 let cand = vec![Pair {
                     display: "".to_string(),
-                    replacement: cached_statics(&EMPTY_MODULE, "".to_string()) + " ",
+                    replacement: cached_statics(&EMPTY_MODULE, || "".to_string()) + " ",
                 }];
-                *SELECTION_INDEX.lock().unwrap() = 0;
+                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
                 Ok((0, cand))
             } else if com_candidate == " " {
                 // when no module is matched, complete with default module
                 let cand = vec![Pair {
                     display: "".to_string(),
-                    replacement: cached_statics(&DEFAULT_MODULE, "".to_string()) + " ",
+                    replacement: cached_statics(&DEFAULT_MODULE, || "".to_string()) + " ",
                 }];
-                *SELECTION_INDEX.lock().unwrap() = 0;
+                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
                 Ok((0, cand))
             } else if pos == line.len() {
                 // normal behavior
@@ -291,14 +296,14 @@ impl Completer for OtterHelper {
                     display: "".to_string(),
                     replacement: com_candidate,
                 }];
-                *SELECTION_INDEX.lock().unwrap() = 0;
+                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
                 Ok((0, cand))
             } else {
                 let cand = vec![Pair {
                     display: "".to_string(),
                     replacement: "".to_string(),
                 }];
-                *SELECTION_INDEX.lock().unwrap() = 0;
+                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
                 Ok((pos, cand))
             }
         }
@@ -308,29 +313,29 @@ impl Completer for OtterHelper {
 // the coloring functionality of OtterHelper
 impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
-        let empty_module_message = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
-        let description_color = cached_statics(&DESCRIPTION_COLOR, "\x1b[39m".to_string());
-        let place_holder = cached_statics(&PLACE_HOLDER, "type something".to_string());
-        let place_holder_color = cached_statics(&PLACE_HOLDER_COLOR, "\x1b[30m".to_string());
-        let hint_color = cached_statics(&HINT_COLOR, "\x1b[30m".to_string());
-        let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
-        let list_prefix = cached_statics(&LIST_PREFIX, "".to_string());
-        let selection_prefix = cached_statics(&SELECTION_PREFIX, ">".to_string());
-        let prefix_color = cached_statics(&PREFIX_COLOR, "".to_string());
-        let prefix_width = cached_statics(&PREFIX_PADDING, 0);
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-        let mut selection_index = SELECTION_INDEX.lock().unwrap();
-        let mut selection_span = SELECTION_SPAN.lock().unwrap();
-        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-        let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
-        let layout_right = cached_statics(&LAYOUT_RIGHTWARD, 0);
-        let overlay_lines = cached_statics(&OVERLAY_LINES, "".to_string());
-        let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, 0);
-        let overlay_down_cached = cached_statics(&OVERLAY_DOWNWARD, 0);
+        let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, || "".to_string());
+        let empty_module_message = cached_statics(&EMPTY_MODULE_MESSAGE, || "".to_string());
+        let description_color = cached_statics(&DESCRIPTION_COLOR, || "\x1b[39m".to_string());
+        let place_holder = cached_statics(&PLACE_HOLDER, || "type something".to_string());
+        let place_holder_color = cached_statics(&PLACE_HOLDER_COLOR, || "\x1b[30m".to_string());
+        let hint_color = cached_statics(&HINT_COLOR, || "\x1b[30m".to_string());
+        let suggestion_mode = cached_statics(&SUGGESTION_MODE, || "list".to_string());
+        let list_prefix = cached_statics(&LIST_PREFIX, || "".to_string());
+        let selection_prefix = cached_statics(&SELECTION_PREFIX, || ">".to_string());
+        let prefix_color = cached_statics(&PREFIX_COLOR, || "".to_string());
+        let prefix_width = cached_statics(&PREFIX_PADDING, || 0);
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let mut selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
+        let overlay_lines = cached_statics(&OVERLAY_LINES, || "".to_string());
+        let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
+        let overlay_down_cached = cached_statics(&OVERLAY_DOWNWARD, || 0);
         let overlay_up = format!(
             "\x1b[{}A",
-            hint.lines().collect::<Vec<&str>>().len() + *HEADER_LINE_COUNT.lock().unwrap() - 2
+            hint.lines().collect::<Vec<&str>>().len() + *HEADER_LINE_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() - 2
         );
         let overlay_down = if overlay_down_cached == 0 {
             String::new()
@@ -431,21 +436,21 @@ impl Highlighter for OtterHelper {
 impl Hinter for OtterHelper {
     type Hint = ModuleHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
-        *HINT_SPAN.lock().unwrap() = self.hints.len();
-        let suggestion_mode = cached_statics(&SUGGESTION_MODE, "list".to_string());
-        let place_holder = cached_statics(&PLACE_HOLDER, "type something".to_string());
-        let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, "?".to_string());
-        let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 1);
-        let hint_benchmark = *HINT_BENCHMARK.lock().unwrap();
-        let overlay_down = cached_statics(&OVERLAY_DOWNWARD, 0);
-        let header_line_count = *HEADER_LINE_COUNT.lock().unwrap();
+        *HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap() = self.hints.len();
+        let suggestion_mode = cached_statics(&SUGGESTION_MODE, || "list".to_string());
+        let place_holder = cached_statics(&PLACE_HOLDER, || "type something".to_string());
+        let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, || "?".to_string());
+        let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, || "".to_string());
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 1);
+        let hint_benchmark = *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let overlay_down = cached_statics(&OVERLAY_DOWNWARD, || 0);
+        let header_line_count = *HEADER_LINE_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
 
         // print from overlay commands, if any
-        let overlay_cmd = cached_statics(&OVERLAY_CMD, "".to_string());
+        let overlay_cmd = cached_statics(&OVERLAY_CMD, || "".to_string());
         let overlay_lines = if !overlay_cmd.is_empty() {
-            let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, 0);
-            let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+            let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
+            let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
             let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
             let mut shell_cmd = Command::new(cmd_parts[0]);
             for arg in &cmd_parts[1..] {
@@ -455,7 +460,7 @@ impl Hinter for OtterHelper {
                 .arg(&overlay_cmd)
                 .output()
                 .expect("Failed to launch overlay command...");
-            let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, 0);
+            let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, || 0);
             let overlay_cmd_stdout = from_utf8(&output.stdout).unwrap();
             let lines: Vec<&str> = overlay_cmd_stdout.lines().collect();
             let lines_count = lines.len();
@@ -470,10 +475,10 @@ impl Hinter for OtterHelper {
         };
 
         // store overlay lines into universial var, prep for highlighter use
-        *OVERLAY_LINES.lock().unwrap() = Some(overlay_lines.clone());
+        *OVERLAY_LINES.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = overlay_lines.clone();
 
         // measure overlay row height, using either kitty or sixel or raw lines
-        let overlay_height_cached = cached_statics(&OVERLAY_HEIGHT, 0);
+        let overlay_height_cached = cached_statics(&OVERLAY_HEIGHT, || 0);
         let overlay_height = if overlay_height_cached == 0 {
             let overlay_line_count = overlay_lines.lines().collect::<Vec<_>>().len();
             if let Some(r) = kitty_rows(&overlay_lines) {
@@ -506,7 +511,7 @@ impl Hinter for OtterHelper {
         if suggestion_mode == "hint" {
             if line.is_empty() {
                 // when nothing is typed
-                *COMPLETION_CANDIDATE.lock().unwrap() = None;
+                *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = "".to_string();
                 Some(ModuleHint {
                     display: format!("{}{}", place_holder, "\n ".repeat(padded_line_count)),
                     completion: 0,
@@ -514,7 +519,7 @@ impl Hinter for OtterHelper {
                 })
             } else if line.trim_end() == cheatsheet_entry {
                 // when cheatsheet_entry is typed
-                *COMPLETION_CANDIDATE.lock().unwrap() = Some("?".to_string());
+                *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = "?".to_string();
                 Some(ModuleHint {
                     display: format!(
                         "{} {}{}{}",
@@ -540,17 +545,17 @@ impl Hinter for OtterHelper {
                                 && remove_ascii(&i.display).starts_with(adjusted_line.trim_end())
                             {
                                 // set the first matched prefix as completion candidate
-                                *COMPLETION_CANDIDATE.lock().unwrap() = Some(
+                                *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() =
                                     i.display
                                         .split_whitespace()
                                         .next()
                                         .unwrap_or("")
-                                        .to_string(),
-                                );
+                                        .to_string()
+                                ;
                                 // provide the found hint
                                 Some(i.suffix(line.len(), padded_line_count))
                             } else {
-                                *COMPLETION_CANDIDATE.lock().unwrap() = None;
+                                *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = "".to_string();
                                 None
                             }
                         })
@@ -564,9 +569,9 @@ impl Hinter for OtterHelper {
             }
         } else {
             // list mode behavior
-            let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, "".to_string());
-            let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, "".to_string());
-            let selection_index = SELECTION_INDEX.lock().unwrap();
+            let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, || "".to_string());
+            let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, || "".to_string());
+            let selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
 
             // aggregate all the matched hint objects to form a single line that is presented as a list
             let mut aggregated_lines = self
@@ -592,7 +597,7 @@ impl Hinter for OtterHelper {
                 })
                 .collect::<Vec<&str>>(); // Collect the filtered results into a vector
 
-            if cached_statics(&CUSTOMIZED_LIST_ORDER, false) == false {
+            if cached_statics(&CUSTOMIZED_LIST_ORDER, || false) == false {
                 // sort list items alphebetically
                 aggregated_lines.sort_unstable();
             }
@@ -608,14 +613,14 @@ impl Hinter for OtterHelper {
             filtered_items.extend(partitioned_lines.1);
 
             // make the number of filtered items globally accessible
-            *FILTERED_HINT_COUNT.lock().unwrap() = filtered_items.len();
+            *FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() = filtered_items.len();
 
             // Check if there are enough filtered items after the skip
             let agg_line =
-                if hint_benchmark + suggestion_lines > *FILTERED_HINT_COUNT.lock().unwrap() {
+                if hint_benchmark + suggestion_lines > *FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() {
                     // If not enough, default to taking from the start
                     let join_range = &filtered_items
-                        [..usize::min(suggestion_lines, *FILTERED_HINT_COUNT.lock().unwrap())];
+                        [..usize::min(suggestion_lines, *FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap())];
                     join_range.join("\n")
                 } else {
                     // If there are enough to take
@@ -639,7 +644,7 @@ impl Hinter for OtterHelper {
                 };
 
             // set completion candidate according to list selection index
-            *COMPLETION_CANDIDATE.lock().unwrap() = Some(if *selection_index == 0 {
+            *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = if *selection_index == 0 {
                 agg_line
                     .lines()
                     .nth(0)
@@ -659,7 +664,7 @@ impl Hinter for OtterHelper {
                     .unwrap_or("")
                     .to_string()
                     + " "
-            });
+            };
 
             // format the aggregated hint lines as the single hint object to be presented
             if line.is_empty() {
@@ -699,7 +704,7 @@ impl Hinter for OtterHelper {
                 // if something is typed
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
-                        *COMPLETION_CANDIDATE.lock().unwrap() = Some("? ".to_string());
+                        *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = "? ".to_string();
                         let cheatsheet_count = cheatsheet_entry.lines().collect::<Vec<_>>().len();
                         padded_line_count = if overlay_height + overlay_down
                             > header_line_count + cheatsheet_count
@@ -763,7 +768,7 @@ impl ConditionalEventHandler for ExternalEditor {
             && ctx.input_mode() == rustyline::InputMode::Command
             || ctx.mode() == rustyline::EditMode::Emacs
         {
-            let editor = cached_statics(&EXTERNAL_EDITOR, "".to_string());
+            let editor = cached_statics(&EXTERNAL_EDITOR, || "".to_string());
             let mut file_path = env::temp_dir();
             file_path.push("otter-launcher");
             // Write the current line into the temporary file
@@ -778,7 +783,7 @@ impl ConditionalEventHandler for ExternalEditor {
                     .expect("failed when writing to the temp file");
             }
 
-            let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+            let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
             let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
             let mut shell_cmd = Command::new(cmd_parts[0]);
             for arg in &cmd_parts[1..] {
@@ -813,11 +818,11 @@ impl ConditionalEventHandler for ListItemUp {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let mut selection_index = SELECTION_INDEX.lock().unwrap();
-        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-        let selection_span = SELECTION_SPAN.lock().unwrap();
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-        let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
+        let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
 
         if *selection_index > 1 {
             *selection_index -= 1;
@@ -848,12 +853,12 @@ impl ConditionalEventHandler for ListItemDown {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let selection_span = SELECTION_SPAN.lock().unwrap();
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-        let hint_span = HINT_SPAN.lock().unwrap();
-        let mut selection_index = SELECTION_INDEX.lock().unwrap();
-        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-        let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
+        let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
 
         if *hint_benchmark <= *hint_span - suggestion_lines {
             if suggestion_lines == *selection_span {
@@ -893,12 +898,12 @@ impl ConditionalEventHandler for ViListItemJ {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let selection_span = SELECTION_SPAN.lock().unwrap();
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-            let hint_span = HINT_SPAN.lock().unwrap();
-            let mut selection_index = SELECTION_INDEX.lock().unwrap();
-            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-            let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
+            let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+            let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
 
             if *hint_benchmark <= *hint_span - suggestion_lines {
                 if suggestion_lines == *selection_span {
@@ -941,11 +946,11 @@ impl ConditionalEventHandler for ViListItemK {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let mut selection_index = SELECTION_INDEX.lock().unwrap();
-            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-            let selection_span = SELECTION_SPAN.lock().unwrap();
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-            let filtered_hint_count = FILTERED_HINT_COUNT.lock().unwrap();
+            let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+            let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
 
             if *selection_index > 1 {
                 *selection_index -= 1;
@@ -979,22 +984,22 @@ impl ConditionalEventHandler for ListItemEnter {
         _positive: bool,
         ctx: &EventContext,
     ) -> Option<Cmd> {
-        if *SELECTION_INDEX.lock().unwrap() == 0 {
+        if *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() == 0 {
             Some(Cmd::AcceptLine)
         } else {
-            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, "".to_string())
+            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || "".to_string())
                 .split_whitespace()
                 .next()?
                 .to_string();
-            let target_module = CONFIG
+            let target_module = config()
                 .modules
                 .iter()
                 .find(|module| remove_ascii(&module.prefix) == com_candidate)
                 .unwrap();
             Some(if target_module.with_argument.unwrap_or(false) == false {
                 run_designated_module("".to_string(), com_candidate);
-                if cached_statics(&LOOP_MODE, false) == true {
-                    *SELECTION_INDEX.lock().unwrap() = 0;
+                if cached_statics(&LOOP_MODE, || false) == true {
+                    *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
                     Cmd::Replace(Movement::WholeBuffer, Some("".to_string()))
                 } else {
                     Cmd::Interrupt
@@ -1034,22 +1039,22 @@ impl ConditionalEventHandler for ListItemSelect {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        if *SELECTION_INDEX.lock().unwrap() == 0 {
+        if *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() == 0 {
             Some(Cmd::Complete)
         } else {
-            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, "".to_string())
+            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || "".to_string())
                 .split_whitespace()
                 .next()?
                 .to_string();
-            let target_module = CONFIG
+            let target_module = config()
                 .modules
                 .iter()
                 .find(|module| remove_ascii(&module.prefix) == com_candidate)
                 .unwrap();
             Some(if target_module.with_argument.unwrap_or(false) == false {
                 run_designated_module("".to_string(), com_candidate);
-                if cached_statics(&LOOP_MODE, false) == true {
-                    *SELECTION_INDEX.lock().unwrap() = 0;
+                if cached_statics(&LOOP_MODE, || false) == true {
+                    *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
                     Cmd::Replace(Movement::WholeBuffer, Some("".to_string()))
                 } else {
                     Cmd::Interrupt
@@ -1070,8 +1075,8 @@ impl ConditionalEventHandler for ListHome {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        *SELECTION_INDEX.lock().unwrap() = 0;
-        *HINT_BENCHMARK.lock().unwrap() = 0;
+        *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+        *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
         Some(Cmd::Repaint)
     }
 }
@@ -1085,11 +1090,11 @@ impl ConditionalEventHandler for ListEnd {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-        let hint_span = HINT_SPAN.lock().unwrap();
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         *hint_benchmark = *hint_span - suggestion_lines;
-        *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+        *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         Some(Cmd::Repaint)
     }
 }
@@ -1106,8 +1111,8 @@ impl ConditionalEventHandler for ViListGgHome {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            *SELECTION_INDEX.lock().unwrap() = 0;
-            *HINT_BENCHMARK.lock().unwrap() = 0;
+            *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+            *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
             Some(Cmd::Repaint)
         } else {
             None
@@ -1127,9 +1132,9 @@ impl ConditionalEventHandler for ViListGEnd {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-            *hint_benchmark = *HINT_SPAN.lock().unwrap() - cached_statics(&SUGGESTION_LINES, 0);
-            *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            *hint_benchmark = *HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap() - cached_statics(&SUGGESTION_LINES, || 0);
+            *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
             Some(Cmd::Repaint)
         } else {
             None
@@ -1149,13 +1154,13 @@ impl ConditionalEventHandler for ViListCtrlU {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
             if *hint_benchmark >= suggestion_lines {
                 *hint_benchmark -= suggestion_lines / 2;
             } else if suggestion_lines >= *hint_benchmark {
                 *hint_benchmark = 0;
-                *SELECTION_INDEX.lock().unwrap() = 0;
+                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
             }
             Some(Cmd::Repaint)
         } else {
@@ -1176,14 +1181,14 @@ impl ConditionalEventHandler for ViListCtrlD {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-            let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-            let hint_span = HINT_SPAN.lock().unwrap();
+            let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
             if *hint_span - suggestion_lines > *hint_benchmark {
                 *hint_benchmark += suggestion_lines / 2;
             } else {
                 *hint_benchmark = *hint_span - suggestion_lines;
-                *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
             }
             Some(Cmd::Repaint)
         } else {
@@ -1201,14 +1206,14 @@ impl ConditionalEventHandler for ListPageDown {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
-        let hint_span = HINT_SPAN.lock().unwrap();
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         if *hint_span - suggestion_lines > *hint_benchmark {
             *hint_benchmark += suggestion_lines;
         } else {
             *hint_benchmark = *hint_span - suggestion_lines;
-            *SELECTION_INDEX.lock().unwrap() = *SELECTION_SPAN.lock().unwrap();
+            *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         }
         Some(Cmd::Repaint)
     }
@@ -1223,13 +1228,13 @@ impl ConditionalEventHandler for ListPageUp {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, 0);
-        let mut hint_benchmark = HINT_BENCHMARK.lock().unwrap();
+        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
         if *hint_benchmark >= suggestion_lines {
             *hint_benchmark -= suggestion_lines;
         } else if suggestion_lines >= *hint_benchmark {
             *hint_benchmark = 0;
-            *SELECTION_INDEX.lock().unwrap() = 0;
+            *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
         }
         Some(Cmd::Repaint)
     }
@@ -1239,28 +1244,23 @@ impl ConditionalEventHandler for ListPageUp {
 //░█▀▀░█░█░█░█░█░░░░█░░░█░░█░█░█░█░▀▀█
 //░▀░░░▀▀▀░▀░▀░▀▀▀░░▀░░▀▀▀░▀▀▀░▀░▀░▀▀▀
 
-// function to initialize a lazy mutex as per the config file
-fn init_statics<T: Clone>(
-    lazy_value: &Lazy<Mutex<Option<T>>>,
-    config_value: Option<T>,
-    default_value: T,
-) {
+// function to initialize a mutex as per the config file
+fn init_statics<T: Clone>(cell: &OnceLock<Mutex<T>>, config_value: Option<T>, default_value: T) {
     let value = config_value.unwrap_or(default_value);
-    let mut lock = lazy_value.lock().unwrap();
-    *lock = Some(value);
+    let _ = cell.set(Mutex::new(value));
 }
 // function to retrieve a cached value with a default
-fn cached_statics<T: Clone>(lazy_value: &Lazy<Mutex<Option<T>>>, default_value: T) -> T {
-    let lock = lazy_value.lock().unwrap();
-    lock.clone().unwrap_or(default_value)
+fn cached_statics<T: Clone, F: FnOnce() -> T>(cell: &OnceLock<Mutex<T>>, default_fn: F) -> T {
+    let m = cell.get_or_init(|| Mutex::new(default_fn()));
+    m.lock().unwrap().clone()
 }
 
 // function to format vec<hints> according to configured modules, and to provide them to hinter
 fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
-    let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, "".to_string());
-    let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
+    let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, || "".to_string());
+    let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, || "".to_string());
 
-    let set = CONFIG
+    let set = config()
         .modules
         .iter()
         .map(|module| {
@@ -1297,7 +1297,7 @@ fn expand_env_vars(input: &str) -> String {
     let input = subshell_re
         .replace_all(input, |captures: &regex::Captures| {
             let command = &captures[1];
-            let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+            let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
             let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
             let mut shell_cmd = Command::new(cmd_parts[0]);
             for arg in &cmd_parts[1..] {
@@ -1325,7 +1325,7 @@ fn expand_env_vars(input: &str) -> String {
 // function to run module.cmd
 fn run_module_command(mod_cmd_arg: &str) {
     // format the shell command by which the module commands are launched
-    let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
     let mut shell_cmd = Command::new(cmd_parts[0]);
     for arg in &cmd_parts[1..] {
@@ -1345,7 +1345,7 @@ fn run_module_command_unbind_proc(mod_cmd_arg: &str) {
     let mut shell_cmd = Command::new("setsid");
     shell_cmd.arg("-f");
 
-    let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
     for arg in &cmd_parts[0..] {
         shell_cmd.arg(arg);
@@ -1377,7 +1377,7 @@ fn run_designated_module(prompt: String, prfx: String) {
         };
 
         // find the designated module
-        let target_module = CONFIG
+        let target_module = config()
             .modules
             .iter()
             .find(|module| remove_ascii(&module.prefix) == prfx)
@@ -1411,10 +1411,10 @@ fn run_designated_module(prompt: String, prfx: String) {
 // function to run general.callback
 fn general_callback() {
     // check if general.callback if set
-    let callback = cached_statics(&CALLBACK, "".to_string());
+    let callback = cached_statics(&CALLBACK, || "".to_string());
     if !callback.is_empty() {
         // format exec_cmd
-        let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+        let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
         let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
         let mut cb_cmd = Command::new(cmd_parts[0]);
         for arg in &cmd_parts[1..] {
@@ -1619,148 +1619,148 @@ fn main() {
     //initializing global variables
     init_statics(
         &EXEC_CMD,
-        CONFIG.general.exec_cmd.clone(),
+        config().general.exec_cmd.clone(),
         "sh -c".to_string(),
     );
     init_statics(
         &EXTERNAL_EDITOR,
-        CONFIG.general.external_editor.clone(),
+        config().general.external_editor.clone(),
         "".to_string(),
     );
     init_statics(
         &DEFAULT_MODULE,
-        CONFIG.general.default_module.clone(),
+        config().general.default_module.clone(),
         "".to_string(),
     );
     init_statics(
         &EMPTY_MODULE,
-        CONFIG.general.empty_module.clone(),
+        config().general.empty_module.clone(),
         "".to_string(),
     );
     init_statics(
         &CHEATSHEET_ENTRY,
-        CONFIG.general.cheatsheet_entry.clone(),
+        config().general.cheatsheet_entry.clone(),
         "?".to_string(),
     );
     init_statics(
         &CHEATSHEET_VIEWER,
-        CONFIG.general.cheatsheet_viewer.clone(),
+        config().general.cheatsheet_viewer.clone(),
         "less -R; clear".to_string(),
     );
-    init_statics(&VI_MODE, CONFIG.general.vi_mode, false);
-    init_statics(&ESC_TO_ABORT, CONFIG.general.esc_to_abort, true);
-    init_statics(&LOOP_MODE, CONFIG.general.loop_mode, false);
+    init_statics(&VI_MODE, config().general.vi_mode, false);
+    init_statics(&ESC_TO_ABORT, config().general.esc_to_abort, true);
+    init_statics(&LOOP_MODE, config().general.loop_mode, false);
     init_statics(
         &CLEAR_SCREEN_AFTER_EXECUTION,
-        CONFIG.general.clear_screen_after_execution,
+        config().general.clear_screen_after_execution,
         false,
     );
-    init_statics(&CALLBACK, CONFIG.general.callback.clone(), "".to_string());
+    init_statics(&CALLBACK, config().general.callback.clone(), "".to_string());
     init_statics(
         &HEADER_CMD,
-        CONFIG.interface.header_cmd.clone(),
+        config().interface.header_cmd.clone(),
         "".to_string(),
     );
     init_statics(
         &OVERLAY_CMD,
-        CONFIG.overlay.overlay_cmd.clone(),
+        config().overlay.overlay_cmd.clone(),
         "".to_string(),
     );
     init_statics(
         &HEADER_CMD_TRIMMED_LINES,
-        CONFIG.interface.header_cmd_trimmed_lines,
+        config().interface.header_cmd_trimmed_lines,
         0,
     );
     init_statics(
         &OVERLAY_TRIMMED_LINES,
-        CONFIG.overlay.overlay_trimmed_lines,
+        config().overlay.overlay_trimmed_lines,
         0,
     );
-    init_statics(&OVERLAY_HEIGHT, CONFIG.overlay.overlay_height, 0);
+    init_statics(&OVERLAY_HEIGHT, config().overlay.overlay_height, 0);
     init_statics(
         &HEADER,
-        CONFIG.interface.header.clone(),
+        config().interface.header.clone(),
         "otter-launcher: ".to_string(),
     );
     init_statics(
         &HEADER_CONCATENATE,
-        CONFIG.interface.header_concatenate,
+        config().interface.header_concatenate,
         false,
     );
     init_statics(
         &LIST_PREFIX,
-        CONFIG.interface.list_prefix.clone(),
+        config().interface.list_prefix.clone(),
         "".to_string(),
     );
     init_statics(
         &SELECTION_PREFIX,
-        CONFIG.interface.selection_prefix.clone(),
+        config().interface.selection_prefix.clone(),
         ">".to_string(),
     );
     init_statics(
         &PLACE_HOLDER,
-        CONFIG.interface.place_holder.clone(),
+        config().interface.place_holder.clone(),
         "type something".to_string(),
     );
     init_statics(
         &INDICATOR_WITH_ARG_MODULE,
-        CONFIG.interface.indicator_with_arg_module.clone(),
+        config().interface.indicator_with_arg_module.clone(),
         "".to_string(),
     );
     init_statics(
         &INDICATOR_NO_ARG_MODULE,
-        CONFIG.interface.indicator_no_arg_module.clone(),
+        config().interface.indicator_no_arg_module.clone(),
         "".to_string(),
     );
     init_statics(
         &SUGGESTION_MODE,
-        CONFIG.interface.suggestion_mode.clone(),
+        config().interface.suggestion_mode.clone(),
         "list".to_string(),
     );
-    init_statics(&SUGGESTION_LINES, CONFIG.interface.suggestion_lines, 1);
+    init_statics(&SUGGESTION_LINES, config().interface.suggestion_lines, 1);
     init_statics(
         &DEFAULT_MODULE_MESSAGE,
-        CONFIG.interface.default_module_message.clone(),
+        config().interface.default_module_message.clone(),
         "".to_string(),
     );
     init_statics(
         &EMPTY_MODULE_MESSAGE,
-        CONFIG.interface.empty_module_message.clone(),
+        config().interface.empty_module_message.clone(),
         "".to_string(),
     );
-    init_statics(&PREFIX_PADDING, CONFIG.interface.prefix_padding, 0);
+    init_statics(&PREFIX_PADDING, config().interface.prefix_padding, 0);
     init_statics(
         &PREFIX_COLOR,
-        CONFIG.interface.prefix_color.clone(),
+        config().interface.prefix_color.clone(),
         "".to_string(),
     );
     init_statics(
         &DESCRIPTION_COLOR,
-        CONFIG.interface.description_color.clone(),
+        config().interface.description_color.clone(),
         "\x1b[39m".to_string(),
     );
     init_statics(
         &PLACE_HOLDER_COLOR,
-        CONFIG.interface.place_holder_color.clone(),
+        config().interface.place_holder_color.clone(),
         "\x1b[30m".to_string(),
     );
     init_statics(
         &HINT_COLOR,
-        CONFIG.interface.hint_color.clone(),
+        config().interface.hint_color.clone(),
         "\x1b[30m".to_string(),
     );
-    init_statics(&LAYOUT_RIGHTWARD, CONFIG.interface.move_interface_right, 0);
-    init_statics(&LAYOUT_DOWNWARD, CONFIG.interface.move_interface_down, 0);
-    init_statics(&OVERLAY_RIGHTWARD, CONFIG.overlay.move_overlay_right, 0);
-    init_statics(&OVERLAY_DOWNWARD, CONFIG.overlay.move_overlay_down, 0);
+    init_statics(&LAYOUT_RIGHTWARD, config().interface.move_interface_right, 0);
+    init_statics(&LAYOUT_DOWNWARD, config().interface.move_interface_down, 0);
+    init_statics(&OVERLAY_RIGHTWARD, config().overlay.move_overlay_right, 0);
+    init_statics(&OVERLAY_DOWNWARD, config().overlay.move_overlay_down, 0);
     init_statics(
         &CUSTOMIZED_LIST_ORDER,
-        CONFIG.interface.customized_list_order,
+        config().interface.customized_list_order,
         false,
     );
 
     // rustyline editor setup
-    *SELECTION_INDEX.lock().unwrap() = 0;
+    *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
     let mut rl: Editor<OtterHelper, DefaultHistory> = Editor::new().unwrap();
     // set OtterHelper as hint and completion provider
     rl.set_helper(Some(OtterHelper {
@@ -1768,7 +1768,7 @@ fn main() {
     }));
 
     // check if esc_to_abort is on
-    if cached_statics(&ESC_TO_ABORT, true) {
+    if cached_statics(&ESC_TO_ABORT, || true) {
         rl.bind_sequence(
             KeyEvent::new('\x1b', Modifiers::NONE),
             EventHandler::Simple(Cmd::Interrupt),
@@ -1777,7 +1777,7 @@ fn main() {
     }
 
     // check if vi_mode is on, and set up keybinds accordingly
-    if cached_statics(&VI_MODE, false) {
+    if cached_statics(&VI_MODE, || false) {
         rl.set_edit_mode(EditMode::Vi);
         // set vi bindings
         rl.bind_sequence(
@@ -1812,7 +1812,7 @@ fn main() {
             KeyEvent::new('u', Modifiers::CTRL),
             EventHandler::Conditional(Box::from(ViListCtrlU)),
         );
-        if !cached_statics(&EXTERNAL_EDITOR, "".to_string()).is_empty() {
+        if !cached_statics(&EXTERNAL_EDITOR, || "".to_string()).is_empty() {
             rl.bind_sequence(
                 KeyEvent::new('v', Modifiers::NONE),
                 EventHandler::Conditional(Box::from(ExternalEditor)),
@@ -1836,7 +1836,7 @@ fn main() {
             KeyEvent::new('v', Modifiers::ALT),
             EventHandler::Conditional(Box::from(ListPageUp)),
         );
-        if !cached_statics(&EXTERNAL_EDITOR, "".to_string()).is_empty() {
+        if !cached_statics(&EXTERNAL_EDITOR, || "".to_string()).is_empty() {
             rl.bind_sequence(
                 KeyEvent::new('e', Modifiers::CTRL),
                 EventHandler::Conditional(Box::from(ExternalEditor)),
@@ -1917,13 +1917,13 @@ fn main() {
     // start the flow
     loop {
         // moving layout around
-        let layout_right = cached_statics(&LAYOUT_RIGHTWARD, 0);
-        let layout_down = cached_statics(&LAYOUT_DOWNWARD, 0);
-        let concatenation_switch = cached_statics(&HEADER_CONCATENATE, false);
+        let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
+        let layout_down = cached_statics(&LAYOUT_DOWNWARD, || 0);
+        let concatenation_switch = cached_statics(&HEADER_CONCATENATE, || false);
 
         // print from header commands
-        let header_cmd = cached_statics(&HEADER_CMD, "".to_string());
-        let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+        let header_cmd = cached_statics(&HEADER_CMD, String::new);
+        let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
         let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
         let mut shell_cmd = Command::new(cmd_parts[0]);
         for arg in &cmd_parts[1..] {
@@ -1933,7 +1933,7 @@ fn main() {
             .arg(&header_cmd)
             .output()
             .expect("Failed to launch header command...");
-        let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, 0);
+        let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, || 0);
         let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
         let lines: Vec<&str> = header_cmd_stdout.lines().collect();
         let remaining_lines = if lines.len() >= remove_lines_count {
@@ -1943,7 +1943,7 @@ fn main() {
         };
 
         // print header
-        let config_header = cached_statics(&HEADER, "sh -c".to_string());
+        let config_header = cached_statics(&HEADER, || "sh -c".to_string());
         let expanded_header = expand_env_vars(&config_header);
         let header_lines: Vec<&str> = expanded_header.split('\n').collect();
 
@@ -1985,7 +1985,7 @@ fn main() {
             remaining_lines, layout_down_string, concatenation, aligned_header,
         );
 
-        *HEADER_LINE_COUNT.lock().unwrap() = concatenated_header.lines().collect::<Vec<_>>().len();
+        *HEADER_LINE_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() = concatenated_header.lines().collect::<Vec<_>>().len();
 
         // run rustyline with configured header
         let prompt = rl.readline(&concatenated_header);
@@ -1998,8 +1998,8 @@ fn main() {
         let prompt = prompt.expect("failed to read prompt");
 
         // flow switches setup
-        let mut loop_switch = cached_statics(&LOOP_MODE, false);
-        let clear_switch = cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, false);
+        let mut loop_switch = cached_statics(&LOOP_MODE, || false);
+        let clear_switch = cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, || false);
 
         // clear screen if clear_screen_after_execution is on
         if clear_switch {
@@ -2009,7 +2009,7 @@ fn main() {
 
         // matching the prompted prefix with module prefixes to decide what to do
         let prompted_prfx = prompt.split_whitespace().next().unwrap_or("");
-        let module_prfx = CONFIG
+        let module_prfx = config()
             .modules
             .iter()
             .find(|module| remove_ascii(&module.prefix) == prompted_prfx);
@@ -2045,25 +2045,25 @@ fn main() {
                     }
                 // Condition 3: when no-arg modules is running with arguement
                 } else {
-                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, "".to_string()))
+                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, || "".to_string()))
                 }
             }
             // if user input doesn't start with some module prefixes
             _ => {
                 // Condition 1: when user input is empty, run the empty module
                 if prompt.is_empty() {
-                    run_designated_module(prompt, cached_statics(&EMPTY_MODULE, "".to_string()))
+                    run_designated_module(prompt, cached_statics(&EMPTY_MODULE, || "".to_string()))
                 // Condition 2: when helper keyword is passed, open cheatsheet in less
-                } else if prompt.trim_end() == cached_statics(&CHEATSHEET_ENTRY, "?".to_string()) {
+                } else if prompt.trim_end() == cached_statics(&CHEATSHEET_ENTRY, || "?".to_string()) {
                     // setup variables
-                    let prefix_color = cached_statics(&PREFIX_COLOR, "".to_string());
-                    let description_color = cached_statics(&DESCRIPTION_COLOR, "".to_string());
+                    let prefix_color = cached_statics(&PREFIX_COLOR, || "".to_string());
+                    let description_color = cached_statics(&DESCRIPTION_COLOR, || "".to_string());
                     let indicator_with_arg_module =
-                        &cached_statics(&INDICATOR_WITH_ARG_MODULE, "".to_string());
+                        &cached_statics(&INDICATOR_WITH_ARG_MODULE, || "".to_string());
                     let indicator_no_arg_module =
-                        &cached_statics(&INDICATOR_NO_ARG_MODULE, "".to_string());
+                        &cached_statics(&INDICATOR_NO_ARG_MODULE, || "".to_string());
                     // run general.cheatsheet.viewer
-                    let exec_cmd = cached_statics(&EXEC_CMD, "sh -c".to_string());
+                    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
                     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
                     let mut shell_cmd = Command::new(cmd_parts[0]);
                     for arg in &cmd_parts[1..] {
@@ -2071,7 +2071,7 @@ fn main() {
                     }
                     let mut child = shell_cmd
                         .arg(cached_statics(
-                            &CHEATSHEET_VIEWER,
+                            &CHEATSHEET_VIEWER, ||
                             "less -R; clear".to_string(),
                         ))
                         .stdin(Stdio::piped())
@@ -2079,7 +2079,7 @@ fn main() {
                     if let Ok(ref mut child) = child {
                         if let Some(stdin) = child.stdin.as_mut() {
                             // Format cheat sheet
-                            let mapped_modules = CONFIG
+                            let mapped_modules = config()
                                 .modules
                                 .iter()
                                 .map(|module| {
@@ -2088,7 +2088,7 @@ fn main() {
                                     } else {
                                         indicator_no_arg_module
                                     };
-                                    let width = CONFIG
+                                    let width = config()
                                         .modules
                                         .iter()
                                         .map(|line| remove_ascii(&line.prefix).len())
@@ -2128,7 +2128,7 @@ fn main() {
                     loop_switch = true;
                 // Condition 3: when no module is matched, run the default module
                 } else {
-                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, "".to_string()))
+                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, || "".to_string()))
                 }
             }
         }
