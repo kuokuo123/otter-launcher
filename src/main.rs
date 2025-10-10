@@ -437,6 +437,10 @@ impl Highlighter for OtterHelper {
                         && !line.is_empty()
                     {
                         format!("\x1b[{}G{}", layout_right + 1, line)
+                    } else if index <= *separator_count {
+                        line.to_string()
+                    } else if index > *separator_count + *selection_span && cached_statics(&FOOTER, || String::new()).contains(line) {
+                        line.to_string()
                     } else {
                         let parts: Vec<&str> = line.split_whitespace().collect();
                         if parts.len() >= 2 {
@@ -584,8 +588,7 @@ impl Hinter for OtterHelper {
 
         // hint mode behavior
         if suggestion_mode == "hint" {
-            let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
-            let foot_lines_hint_padded = footer_lines.lines().collect::<Vec<&str>>().join(&format!("\n\x1b[{}G", layout_right + 1));
+            let foot_lines_hint_mode = footer_lines.lines().collect::<Vec<&str>>().join("\n");
             if line.is_empty() {
                 // when nothing is typed
                 *COMPLETION_CANDIDATE
@@ -593,7 +596,7 @@ impl Hinter for OtterHelper {
                     .lock()
                     .unwrap() = "".to_string();
                 Some(ModuleHint {
-                    display: format!("{}{}{}", place_holder, "\n ".repeat(padded_line_count), foot_lines_hint_padded),
+                    display: format!("{}{}{}", place_holder, "\n ".repeat(padded_line_count), foot_lines_hint_mode),
                     completion: 0,
                     w_arg: None,
                 })
@@ -610,7 +613,7 @@ impl Hinter for OtterHelper {
                         indicator_no_arg_module,
                         "cheat sheet",
                         "\n ".repeat(padded_line_count),
-                        foot_lines_hint_padded
+                        foot_lines_hint_mode
                     )
                     .to_string(),
                     completion: line.len(),
@@ -639,7 +642,7 @@ impl Hinter for OtterHelper {
                                     .unwrap_or("")
                                     .to_string();
                                 // provide the found hint
-                                Some(i.suffix(line.len(), padded_line_count, &foot_lines_hint_padded))
+                                Some(i.suffix(line.len(), padded_line_count, &foot_lines_hint_mode))
                             } else {
                                 *COMPLETION_CANDIDATE
                                     .get_or_init(|| Mutex::new("".to_string()))
@@ -650,7 +653,7 @@ impl Hinter for OtterHelper {
                         })
                         .next()
                         .unwrap_or(ModuleHint {
-                            display: format!("\x1b[0m{}{}", "\n ".repeat(padded_line_count), foot_lines_hint_padded),
+                            display: format!("\x1b[0m{}{}", "\n ".repeat(padded_line_count), foot_lines_hint_mode),
                             completion: 0,
                             w_arg: None,
                         }),
