@@ -279,13 +279,22 @@ impl Completer for OtterHelper {
             }
         } else {
             // the behavior in list mode
-            if line.is_empty() && *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() == 0 {
+            if line.is_empty()
+                && *SELECTION_INDEX
+                    .get_or_init(|| Mutex::new(0))
+                    .lock()
+                    .unwrap()
+                    == 0
+            {
                 // when empty, complete with empty module
                 let cand = vec![Pair {
                     display: "".to_string(),
                     replacement: cached_statics(&EMPTY_MODULE, || "".to_string()) + " ",
                 }];
-                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+                *SELECTION_INDEX
+                    .get_or_init(|| Mutex::new(0))
+                    .lock()
+                    .unwrap() = 0;
                 Ok((0, cand))
             } else if com_candidate == " " {
                 // when no module is matched, complete with default module
@@ -293,7 +302,10 @@ impl Completer for OtterHelper {
                     display: "".to_string(),
                     replacement: cached_statics(&DEFAULT_MODULE, || "".to_string()) + " ",
                 }];
-                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+                *SELECTION_INDEX
+                    .get_or_init(|| Mutex::new(0))
+                    .lock()
+                    .unwrap() = 0;
                 Ok((0, cand))
             } else if pos == line.len() {
                 // normal behavior
@@ -301,14 +313,20 @@ impl Completer for OtterHelper {
                     display: "".to_string(),
                     replacement: com_candidate,
                 }];
-                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+                *SELECTION_INDEX
+                    .get_or_init(|| Mutex::new(0))
+                    .lock()
+                    .unwrap() = 0;
                 Ok((0, cand))
             } else {
                 let cand = vec![Pair {
                     display: "".to_string(),
                     replacement: "".to_string(),
                 }];
-                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+                *SELECTION_INDEX
+                    .get_or_init(|| Mutex::new(0))
+                    .lock()
+                    .unwrap() = 0;
                 Ok((pos, cand))
             }
         }
@@ -330,18 +348,32 @@ impl Highlighter for OtterHelper {
         let prefix_color = cached_statics(&PREFIX_COLOR, || "".to_string());
         let prefix_width = cached_statics(&PREFIX_PADDING, || 0);
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-        let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let mut selection_index = SELECTION_INDEX
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap();
         let mut selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let separator_count = SEPARATOR_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let filtered_hint_count = FILTERED_HINT_COUNT
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap();
+        let separator_count = SEPARATOR_COUNT
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap();
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
         let overlay_lines = cached_statics(&OVERLAY_LINES, || "".to_string());
         let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
         let overlay_down_cached = cached_statics(&OVERLAY_DOWNWARD, || 0);
         let overlay_up = format!(
             "\x1b[{}A",
-            hint.lines().collect::<Vec<&str>>().len() + *HEADER_LINE_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() - 2
+            hint.lines().collect::<Vec<&str>>().len()
+                + *HEADER_LINE_COUNT
+                    .get_or_init(|| Mutex::new(0))
+                    .lock()
+                    .unwrap()
+                - 2
         );
         let overlay_down = if overlay_down_cached == 0 {
             String::new()
@@ -450,20 +482,28 @@ impl Hinter for OtterHelper {
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 1);
         let hint_benchmark = *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let overlay_down = cached_statics(&OVERLAY_DOWNWARD, || 0);
-        let header_line_count = *HEADER_LINE_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let header_line_count = *HEADER_LINE_COUNT
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap();
 
         // form separator line, if any
         let mut separator_lines = cached_statics(&SEPARATOR, || "sh -c".to_string());
         if separator_lines.is_empty() {
             separator_lines = "".to_string();
-            *SEPARATOR_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+            *SEPARATOR_COUNT
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap() = 0;
         } else {
             let expanded_separator = expand_env_vars(&separator_lines);
             let prepared_separator_lines: Vec<&str> = expanded_separator.split('\n').collect();
-            *SEPARATOR_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() = prepared_separator_lines.len();
+            *SEPARATOR_COUNT
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap() = prepared_separator_lines.len();
             separator_lines = format!("\n{}", prepared_separator_lines.join("\n"));
         }
-
 
         // print from overlay commands, if any
         let overlay_cmd = cached_statics(&OVERLAY_CMD, || "".to_string());
@@ -494,7 +534,10 @@ impl Hinter for OtterHelper {
         };
 
         // store overlay lines into universial var, prep for highlighter use
-        *OVERLAY_LINES.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = overlay_lines.clone();
+        *OVERLAY_LINES
+            .get_or_init(|| Mutex::new("".to_string()))
+            .lock()
+            .unwrap() = overlay_lines.clone();
 
         // measure overlay row height, using either kitty or sixel or raw lines
         let overlay_height_cached = cached_statics(&OVERLAY_HEIGHT, || 0);
@@ -519,7 +562,9 @@ impl Hinter for OtterHelper {
         };
 
         // calculate overlay padding, to maintain layout when printing at window bottom
-        let mut padded_line_count = if overlay_height + overlay_down > header_line_count {
+        let mut padded_line_count = if overlay_height + overlay_down
+            > header_line_count
+        {
             overlay_height - header_line_count + overlay_down
         } else {
             0
@@ -529,7 +574,10 @@ impl Hinter for OtterHelper {
         if suggestion_mode == "hint" {
             if line.is_empty() {
                 // when nothing is typed
-                *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = "".to_string();
+                *COMPLETION_CANDIDATE
+                    .get_or_init(|| Mutex::new("".to_string()))
+                    .lock()
+                    .unwrap() = "".to_string();
                 Some(ModuleHint {
                     display: format!("{}{}", place_holder, "\n ".repeat(padded_line_count)),
                     completion: 0,
@@ -537,7 +585,10 @@ impl Hinter for OtterHelper {
                 })
             } else if line.trim_end() == cheatsheet_entry {
                 // when cheatsheet_entry is typed
-                *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = "?".to_string();
+                *COMPLETION_CANDIDATE
+                    .get_or_init(|| Mutex::new("".to_string()))
+                    .lock()
+                    .unwrap() = "?".to_string();
                 Some(ModuleHint {
                     display: format!(
                         "{} {}{}{}",
@@ -563,17 +614,22 @@ impl Hinter for OtterHelper {
                                 && remove_ascii(&i.display).starts_with(adjusted_line.trim_end())
                             {
                                 // set the first matched prefix as completion candidate
-                                *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() =
-                                    i.display
-                                        .split_whitespace()
-                                        .next()
-                                        .unwrap_or("")
-                                        .to_string()
-                                ;
+                                *COMPLETION_CANDIDATE
+                                    .get_or_init(|| Mutex::new("".to_string()))
+                                    .lock()
+                                    .unwrap() = i
+                                    .display
+                                    .split_whitespace()
+                                    .next()
+                                    .unwrap_or("")
+                                    .to_string();
                                 // provide the found hint
                                 Some(i.suffix(line.len(), padded_line_count))
                             } else {
-                                *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = "".to_string();
+                                *COMPLETION_CANDIDATE
+                                    .get_or_init(|| Mutex::new("".to_string()))
+                                    .lock()
+                                    .unwrap() = "".to_string();
                                 None
                             }
                         })
@@ -589,7 +645,10 @@ impl Hinter for OtterHelper {
             // list mode behavior
             let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, || "".to_string());
             let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, || "".to_string());
-            let selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let selection_index = SELECTION_INDEX
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap();
 
             // aggregate all the matched hint objects to form a single line that is presented as a list
             let mut aggregated_lines = self
@@ -631,38 +690,65 @@ impl Hinter for OtterHelper {
             filtered_items.extend(partitioned_lines.1);
 
             // make the number of filtered items globally accessible
-            *FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() = filtered_items.len();
+            *FILTERED_HINT_COUNT
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap() = filtered_items.len();
 
             // Check if there are enough filtered items after the skip
-            let agg_line =
-                if hint_benchmark + suggestion_lines > *FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() {
-                    // If not enough, default to taking from the start
-                    let join_range = &filtered_items
-                        [..usize::min(suggestion_lines, *FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap())];
-                    join_range.join("\n")
+            let agg_line = if hint_benchmark + suggestion_lines
+                > *FILTERED_HINT_COUNT
+                    .get_or_init(|| Mutex::new(0))
+                    .lock()
+                    .unwrap()
+            {
+                // If not enough, default to taking from the start
+                let join_range = &filtered_items[..usize::min(
+                    suggestion_lines,
+                    *FILTERED_HINT_COUNT
+                        .get_or_init(|| Mutex::new(0))
+                        .lock()
+                        .unwrap(),
+                )];
+                join_range.join("\n")
+            } else {
+                // If there are enough to take
+                let join_range = filtered_items
+                    .iter()
+                    .skip(hint_benchmark)
+                    .take(suggestion_lines)
+                    .copied()
+                    .collect::<Vec<_>>();
+                // calculate overlay padding, to maintain layout when printing at window bottom
+                let join_range_count = join_range.len();
+                padded_line_count = if overlay_height + overlay_down
+                    > header_line_count
+                        + join_range_count
+                        + *SEPARATOR_COUNT
+                            .get_or_init(|| Mutex::new(0))
+                            .lock()
+                            .unwrap()
+                {
+                    overlay_height + overlay_down
+                        - header_line_count
+                        - join_range_count
+                        - *SEPARATOR_COUNT
+                            .get_or_init(|| Mutex::new(0))
+                            .lock()
+                            .unwrap()
                 } else {
-                    // If there are enough to take
-                    let join_range = filtered_items
-                        .iter()
-                        .skip(hint_benchmark)
-                        .take(suggestion_lines)
-                        .copied()
-                        .collect::<Vec<_>>();
-                    // calculate overlay padding, to maintain layout when printing at window bottom
-                    let join_range_count = join_range.len();
-                    padded_line_count =
-                        if overlay_height + overlay_down > header_line_count + join_range_count {
-                            overlay_height + overlay_down - header_line_count - join_range_count
-                        } else {
-                            0
-                        };
-                    // debugging
-                    //print!("{}", padded_line_count);
-                    join_range.join("\n")
+                    0
                 };
+                // debugging
+                //print!("{}", padded_line_count);
+                join_range.join("\n")
+            };
 
             // set completion candidate according to list selection index
-            *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = if *selection_index == 0 {
+            *COMPLETION_CANDIDATE
+                .get_or_init(|| Mutex::new("".to_string()))
+                .lock()
+                .unwrap() = if *selection_index == 0 {
                 agg_line
                     .lines()
                     .nth(0)
@@ -697,22 +783,41 @@ impl Hinter for OtterHelper {
                             if agg_line.is_empty() {
                                 format!("\x1b[0mn{}", separator_lines)
                             } else {
-                                format!("{}\n{}{}", separator_lines, agg_line, "\n ".repeat(padded_line_count))
+                                format!(
+                                    "{}\n{}{}",
+                                    separator_lines,
+                                    agg_line,
+                                    "\n ".repeat(padded_line_count)
+                                )
                             }
                         } else {
                             // calculate overlay padding, to maintain layout when printing at window bottom
                             let empty_message_count = e_module.lines().collect::<Vec<_>>().len();
                             padded_line_count = if overlay_height + overlay_down
-                                > header_line_count + empty_message_count
+                                > header_line_count
+                                    + empty_message_count
+                                    + *SEPARATOR_COUNT
+                                        .get_or_init(|| Mutex::new(0))
+                                        .lock()
+                                        .unwrap()
                             {
                                 overlay_height + overlay_down
                                     - header_line_count
                                     - empty_message_count
+                                    - *SEPARATOR_COUNT
+                                        .get_or_init(|| Mutex::new(0))
+                                        .lock()
+                                        .unwrap()
                             } else {
                                 0
                             };
                             // if empty module is set
-                            format!("{}\n{}{}", separator_lines, e_module, "\n ".repeat(padded_line_count))
+                            format!(
+                                "{}\n{}{}",
+                                separator_lines,
+                                e_module,
+                                "\n ".repeat(padded_line_count)
+                            )
                         },
                     ),
                     completion: pos,
@@ -722,17 +827,32 @@ impl Hinter for OtterHelper {
                 // if something is typed
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
-                        *COMPLETION_CANDIDATE.get_or_init(|| Mutex::new("".to_string())).lock().unwrap() = "? ".to_string();
+                        *COMPLETION_CANDIDATE
+                            .get_or_init(|| Mutex::new("".to_string()))
+                            .lock()
+                            .unwrap() = "? ".to_string();
                         let cheatsheet_count = cheatsheet_entry.lines().collect::<Vec<_>>().len();
-                        padded_line_count = if overlay_height + overlay_down
+                        padded_line_count = if overlay_height
+                            + overlay_down
+                            + *SEPARATOR_COUNT
+                                .get_or_init(|| Mutex::new(0))
+                                .lock()
+                                .unwrap()
                             > header_line_count + cheatsheet_count
                         {
-                            overlay_height + overlay_down - header_line_count - cheatsheet_count
+                            overlay_height + overlay_down
+                                - header_line_count
+                                - cheatsheet_count
+                                - *SEPARATOR_COUNT
+                                    .get_or_init(|| Mutex::new(0))
+                                    .lock()
+                                    .unwrap()
                         } else {
                             0
                         };
                         format!(
-                            "\n{} {} {}{}",
+                            "{}\n{} {} {}{}",
+                            separator_lines,
                             cheatsheet_entry,
                             indicator_no_arg_module,
                             "cheat sheet",
@@ -746,15 +866,29 @@ impl Hinter for OtterHelper {
                         } else {
                             let default_message_count = d_module.lines().collect::<Vec<_>>().len();
                             padded_line_count = if overlay_height + overlay_down
-                                > header_line_count + default_message_count
+                                > header_line_count
+                                    + default_message_count
+                                    + *SEPARATOR_COUNT
+                                        .get_or_init(|| Mutex::new(0))
+                                        .lock()
+                                        .unwrap()
                             {
                                 overlay_height + overlay_down
                                     - header_line_count
                                     - default_message_count
+                                    - *SEPARATOR_COUNT
+                                        .get_or_init(|| Mutex::new(0))
+                                        .lock()
+                                        .unwrap()
                             } else {
                                 0
                             };
-                            format!("{}\n{}{}", separator_lines, d_module, "\n ".repeat(padded_line_count))
+                            format!(
+                                "{}\n{}{}",
+                                separator_lines,
+                                d_module,
+                                "\n ".repeat(padded_line_count)
+                            )
                         }
                     // if some module is matched
                     } else {
@@ -836,11 +970,17 @@ impl ConditionalEventHandler for ListItemUp {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let mut selection_index = SELECTION_INDEX
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-        let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let filtered_hint_count = FILTERED_HINT_COUNT
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap();
 
         if *selection_index > 1 {
             *selection_index -= 1;
@@ -874,9 +1014,15 @@ impl ConditionalEventHandler for ListItemDown {
         let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
         let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let mut selection_index = SELECTION_INDEX
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let filtered_hint_count = FILTERED_HINT_COUNT
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap();
 
         if *hint_benchmark <= *hint_span - suggestion_lines {
             if suggestion_lines == *selection_span {
@@ -919,9 +1065,15 @@ impl ConditionalEventHandler for ViListItemJ {
             let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
             let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
             let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let mut selection_index = SELECTION_INDEX
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap();
             let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let filtered_hint_count = FILTERED_HINT_COUNT
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap();
 
             if *hint_benchmark <= *hint_span - suggestion_lines {
                 if suggestion_lines == *selection_span {
@@ -964,11 +1116,17 @@ impl ConditionalEventHandler for ViListItemK {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let mut selection_index = SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let mut selection_index = SELECTION_INDEX
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap();
             let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
             let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
             let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-            let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let filtered_hint_count = FILTERED_HINT_COUNT
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap();
 
             if *selection_index > 1 {
                 *selection_index -= 1;
@@ -1002,7 +1160,12 @@ impl ConditionalEventHandler for ListItemEnter {
         _positive: bool,
         ctx: &EventContext,
     ) -> Option<Cmd> {
-        if *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() == 0 {
+        if *SELECTION_INDEX
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap()
+            == 0
+        {
             Some(Cmd::AcceptLine)
         } else {
             let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || "".to_string())
@@ -1017,7 +1180,10 @@ impl ConditionalEventHandler for ListItemEnter {
             Some(if target_module.with_argument.unwrap_or(false) == false {
                 run_designated_module("".to_string(), com_candidate);
                 if cached_statics(&LOOP_MODE, || false) == true {
-                    *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+                    *SELECTION_INDEX
+                        .get_or_init(|| Mutex::new(0))
+                        .lock()
+                        .unwrap() = 0;
                     Cmd::Replace(Movement::WholeBuffer, Some("".to_string()))
                 } else {
                     Cmd::Interrupt
@@ -1057,7 +1223,12 @@ impl ConditionalEventHandler for ListItemSelect {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        if *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() == 0 {
+        if *SELECTION_INDEX
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap()
+            == 0
+        {
             Some(Cmd::Complete)
         } else {
             let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || "".to_string())
@@ -1072,7 +1243,10 @@ impl ConditionalEventHandler for ListItemSelect {
             Some(if target_module.with_argument.unwrap_or(false) == false {
                 run_designated_module("".to_string(), com_candidate);
                 if cached_statics(&LOOP_MODE, || false) == true {
-                    *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+                    *SELECTION_INDEX
+                        .get_or_init(|| Mutex::new(0))
+                        .lock()
+                        .unwrap() = 0;
                     Cmd::Replace(Movement::WholeBuffer, Some("".to_string()))
                 } else {
                     Cmd::Interrupt
@@ -1093,7 +1267,10 @@ impl ConditionalEventHandler for ListHome {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+        *SELECTION_INDEX
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap() = 0;
         *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
         Some(Cmd::Repaint)
     }
@@ -1112,7 +1289,10 @@ impl ConditionalEventHandler for ListEnd {
         let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         *hint_benchmark = *hint_span - suggestion_lines;
-        *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        *SELECTION_INDEX
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         Some(Cmd::Repaint)
     }
 }
@@ -1129,7 +1309,10 @@ impl ConditionalEventHandler for ViListGgHome {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+            *SELECTION_INDEX
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap() = 0;
             *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
             Some(Cmd::Repaint)
         } else {
@@ -1151,8 +1334,12 @@ impl ConditionalEventHandler for ViListGEnd {
             && ctx.input_mode() == rustyline::InputMode::Command
         {
             let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            *hint_benchmark = *HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap() - cached_statics(&SUGGESTION_LINES, || 0);
-            *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            *hint_benchmark = *HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap()
+                - cached_statics(&SUGGESTION_LINES, || 0);
+            *SELECTION_INDEX
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
             Some(Cmd::Repaint)
         } else {
             None
@@ -1178,7 +1365,10 @@ impl ConditionalEventHandler for ViListCtrlU {
                 *hint_benchmark -= suggestion_lines / 2;
             } else if suggestion_lines >= *hint_benchmark {
                 *hint_benchmark = 0;
-                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+                *SELECTION_INDEX
+                    .get_or_init(|| Mutex::new(0))
+                    .lock()
+                    .unwrap() = 0;
             }
             Some(Cmd::Repaint)
         } else {
@@ -1206,7 +1396,10 @@ impl ConditionalEventHandler for ViListCtrlD {
                 *hint_benchmark += suggestion_lines / 2;
             } else {
                 *hint_benchmark = *hint_span - suggestion_lines;
-                *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+                *SELECTION_INDEX
+                    .get_or_init(|| Mutex::new(0))
+                    .lock()
+                    .unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
             }
             Some(Cmd::Repaint)
         } else {
@@ -1231,7 +1424,10 @@ impl ConditionalEventHandler for ListPageDown {
             *hint_benchmark += suggestion_lines;
         } else {
             *hint_benchmark = *hint_span - suggestion_lines;
-            *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            *SELECTION_INDEX
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         }
         Some(Cmd::Repaint)
     }
@@ -1252,7 +1448,10 @@ impl ConditionalEventHandler for ListPageUp {
             *hint_benchmark -= suggestion_lines;
         } else if suggestion_lines >= *hint_benchmark {
             *hint_benchmark = 0;
-            *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+            *SELECTION_INDEX
+                .get_or_init(|| Mutex::new(0))
+                .lock()
+                .unwrap() = 0;
         }
         Some(Cmd::Repaint)
     }
@@ -1773,7 +1972,11 @@ fn main() {
         config().interface.hint_color.clone(),
         "\x1b[30m".to_string(),
     );
-    init_statics(&LAYOUT_RIGHTWARD, config().interface.move_interface_right, 0);
+    init_statics(
+        &LAYOUT_RIGHTWARD,
+        config().interface.move_interface_right,
+        0,
+    );
     init_statics(&LAYOUT_DOWNWARD, config().interface.move_interface_down, 0);
     init_statics(&OVERLAY_RIGHTWARD, config().overlay.move_overlay_right, 0);
     init_statics(&OVERLAY_DOWNWARD, config().overlay.move_overlay_down, 0);
@@ -1784,7 +1987,10 @@ fn main() {
     );
 
     // rustyline editor setup
-    *SELECTION_INDEX.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+    *SELECTION_INDEX
+        .get_or_init(|| Mutex::new(0))
+        .lock()
+        .unwrap() = 0;
     let mut rl: Editor<OtterHelper, DefaultHistory> = Editor::new().unwrap();
     // set OtterHelper as hint and completion provider
     rl.set_helper(Some(OtterHelper {
@@ -1943,7 +2149,9 @@ fn main() {
         // delay startup if configured
         let delay_startup = cached_statics(&DELAY_STARTUP, || 0);
         if delay_startup > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(delay_startup.try_into().unwrap()));
+            std::thread::sleep(std::time::Duration::from_millis(
+                delay_startup.try_into().unwrap(),
+            ));
         }
 
         // moving layout around
@@ -2015,7 +2223,10 @@ fn main() {
             remaining_lines, layout_down_string, concatenation, aligned_header,
         );
 
-        *HEADER_LINE_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() = concatenated_header.lines().collect::<Vec<_>>().len();
+        *HEADER_LINE_COUNT
+            .get_or_init(|| Mutex::new(0))
+            .lock()
+            .unwrap() = concatenated_header.lines().collect::<Vec<_>>().len();
 
         // run rustyline with configured header
         let prompt = rl.readline(&concatenated_header);
@@ -2075,7 +2286,10 @@ fn main() {
                     }
                 // Condition 3: when no-arg modules is running with arguement
                 } else {
-                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, || "".to_string()))
+                    run_designated_module(
+                        prompt,
+                        cached_statics(&DEFAULT_MODULE, || "".to_string()),
+                    )
                 }
             }
             // if user input doesn't start with some module prefixes
@@ -2084,7 +2298,8 @@ fn main() {
                 if prompt.is_empty() {
                     run_designated_module(prompt, cached_statics(&EMPTY_MODULE, || "".to_string()))
                 // Condition 2: when helper keyword is passed, open cheatsheet in less
-                } else if prompt.trim_end() == cached_statics(&CHEATSHEET_ENTRY, || "?".to_string()) {
+                } else if prompt.trim_end() == cached_statics(&CHEATSHEET_ENTRY, || "?".to_string())
+                {
                     // setup variables
                     let prefix_color = cached_statics(&PREFIX_COLOR, || "".to_string());
                     let description_color = cached_statics(&DESCRIPTION_COLOR, || "".to_string());
@@ -2100,10 +2315,9 @@ fn main() {
                         shell_cmd.arg(arg);
                     }
                     let mut child = shell_cmd
-                        .arg(cached_statics(
-                            &CHEATSHEET_VIEWER, ||
-                            "less -R; clear".to_string(),
-                        ))
+                        .arg(cached_statics(&CHEATSHEET_VIEWER, || {
+                            "less -R; clear".to_string()
+                        }))
                         .stdin(Stdio::piped())
                         .spawn();
                     if let Ok(ref mut child) = child {
@@ -2158,7 +2372,10 @@ fn main() {
                     loop_switch = true;
                 // Condition 3: when no module is matched, run the default module
                 } else {
-                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, || "".to_string()))
+                    run_designated_module(
+                        prompt,
+                        cached_statics(&DEFAULT_MODULE, || "".to_string()),
+                    )
                 }
             }
         }
