@@ -445,7 +445,6 @@ impl Hinter for OtterHelper {
         let hint_benchmark = *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let overlay_down = cached_statics(&OVERLAY_DOWNWARD, || 0);
         let header_line_count = *HEADER_LINE_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let term_cell_height = term_cell_height_cached().unwrap_or(100);
 
         // print from overlay commands, if any
         let overlay_cmd = cached_statics(&OVERLAY_CMD, || "".to_string());
@@ -486,6 +485,7 @@ impl Hinter for OtterHelper {
                 r + overlay_line_count - 1
             } else if let Some(r) = sixel_rows(&overlay_lines) {
                 // convert pixels -> terminal rows using ceil
+                let term_cell_height = term_cell_height_cached().unwrap_or(100);
                 r * 6 / term_cell_height + overlay_line_count - 1
             } else {
                 overlay_line_count

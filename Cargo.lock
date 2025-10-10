@@ -151,8 +151,6 @@ dependencies = [
 name = "otter-launcher"
 version = "0.6.0"
 dependencies = [
- "libc",
- "nix",
  "regex",
  "rustyline",
  "rustyline-derive",
