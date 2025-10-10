@@ -74,6 +74,7 @@ struct General {
     loop_mode: Option<bool>,
     callback: Option<String>,
     external_editor: Option<String>,
+    delay_startup: Option<usize>,
 }
 
 #[derive(Deserialize, Default)]
@@ -156,6 +157,7 @@ static VI_MODE: OnceLock<Mutex<bool>> = OnceLock::new();
 static ESC_TO_ABORT: OnceLock<Mutex<bool>> = OnceLock::new();
 static CLEAR_SCREEN_AFTER_EXECUTION: OnceLock<Mutex<bool>> = OnceLock::new();
 static HEADER_CMD_TRIMMED_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
+static DELAY_STARTUP: OnceLock<Mutex<usize>> = OnceLock::new();
 static OVERLAY_TRIMMED_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
 static OVERLAY_HEIGHT: OnceLock<Mutex<usize>> = OnceLock::new();
 static HEADER: OnceLock<Mutex<String>> = OnceLock::new();
@@ -1655,6 +1657,7 @@ fn main() {
         false,
     );
     init_statics(&CALLBACK, config().general.callback.clone(), "".to_string());
+    init_statics(&DELAY_STARTUP, config().general.delay_startup, 0);
     init_statics(
         &HEADER_CMD,
         config().interface.header_cmd.clone(),
@@ -1915,6 +1918,12 @@ fn main() {
 
     // start the flow
     loop {
+        // delay startup if configured
+        let delay_startup = cached_statics(&DELAY_STARTUP, || 0);
+        if delay_startup > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(delay_startup.try_into().unwrap()));
+        }
+
         // moving layout around
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
         let layout_down = cached_statics(&LAYOUT_DOWNWARD, || 0);

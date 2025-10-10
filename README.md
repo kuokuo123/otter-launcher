@@ -95,6 +95,7 @@ cheatsheet_viewer = "less -R; clear" # command to show cheatsheet; through pipin
 clear_screen_after_execution = false
 loop_mode = false # don't quit after executing a module, useful with scratchpads
 external_editor = "nvim" # if set, press ctrl+e (or v in vi normal mode) to edit prompt in specified program
+delay_startup = 0 # sometimes the otter runs too fast even before the terminal window is ready; this slows it down by milliseconds; useful when chafa image is skewed
 #callback = "" # if set, will run after module execution; for example, calling swaymsg to adjust window size
 
 
@@ -143,7 +144,6 @@ move_overlay_down = 0
 
 
 # modules are defined as followed
-# otter-launcher runs cmd as a child process. Use "setsid -f" to unbind or fork the launched command, like normal shell scripting. While unbinding is useful for running gui programs, otter-launcher should retain the ability to run text-based programs.
 [[modules]]
 description = "search with google"
 prefix = "gg"
