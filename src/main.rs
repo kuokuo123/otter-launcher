@@ -83,6 +83,7 @@ struct Interface {
     header_cmd: Option<String>,
     header_cmd_trimmed_lines: Option<usize>,
     header_concatenate: Option<bool>,
+    separator: Option<String>,
     list_prefix: Option<String>,
     selection_prefix: Option<String>,
     place_holder: Option<String>,
@@ -162,6 +163,7 @@ static OVERLAY_TRIMMED_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
 static OVERLAY_HEIGHT: OnceLock<Mutex<usize>> = OnceLock::new();
 static HEADER: OnceLock<Mutex<String>> = OnceLock::new();
 static HEADER_CONCATENATE: OnceLock<Mutex<bool>> = OnceLock::new();
+static SEPARATOR: OnceLock<Mutex<String>> = OnceLock::new();
 static EXEC_CMD: OnceLock<Mutex<String>> = OnceLock::new();
 static DEFAULT_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
 static EMPTY_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
@@ -192,6 +194,7 @@ static OVERLAY_DOWNWARD: OnceLock<Mutex<usize>> = OnceLock::new();
 static CUSTOMIZED_LIST_ORDER: OnceLock<Mutex<bool>> = OnceLock::new();
 static OVERLAY_LINES: OnceLock<Mutex<String>> = OnceLock::new();
 static CELL_HEIGHT: OnceLock<usize> = OnceLock::new();
+static SEPARATOR_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
@@ -331,6 +334,7 @@ impl Highlighter for OtterHelper {
         let mut selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let filtered_hint_count = FILTERED_HINT_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let separator_count = SEPARATOR_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
         let overlay_lines = cached_statics(&OVERLAY_LINES, || "".to_string());
         let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
@@ -376,7 +380,7 @@ impl Highlighter for OtterHelper {
                 .lines()
                 .enumerate()
                 .map(|(index, line)| {
-                    if index == *selection_index && *selection_index > 0 {
+                    if index == *selection_index + *separator_count && *selection_index > 0 {
                         let parts: Vec<&str> = line.split_whitespace().collect();
                         if parts.len() >= 2 {
                             format!(
@@ -448,6 +452,19 @@ impl Hinter for OtterHelper {
         let overlay_down = cached_statics(&OVERLAY_DOWNWARD, || 0);
         let header_line_count = *HEADER_LINE_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap();
 
+        // form separator line, if any
+        let mut separator_lines = cached_statics(&SEPARATOR, || "sh -c".to_string());
+        if separator_lines.is_empty() {
+            separator_lines = "".to_string();
+            *SEPARATOR_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+        } else {
+            let expanded_separator = expand_env_vars(&separator_lines);
+            let prepared_separator_lines: Vec<&str> = expanded_separator.split('\n').collect();
+            *SEPARATOR_COUNT.get_or_init(|| Mutex::new(0)).lock().unwrap() = prepared_separator_lines.len();
+            separator_lines = format!("\n{}", prepared_separator_lines.join("\n"));
+        }
+
+
         // print from overlay commands, if any
         let overlay_cmd = cached_statics(&OVERLAY_CMD, || "".to_string());
         let overlay_lines = if !overlay_cmd.is_empty() {
@@ -487,7 +504,7 @@ impl Hinter for OtterHelper {
                 r + overlay_line_count - 1
             } else if let Some(r) = sixel_rows(&overlay_lines) {
                 // convert pixels -> terminal rows using ceil
-                let term_cell_height = term_cell_height_cached().unwrap_or(100);
+                let term_cell_height = term_cell_height_cached().unwrap_or(22);
                 r * 6 / term_cell_height + overlay_line_count - 1
             } else {
                 overlay_line_count
@@ -678,9 +695,9 @@ impl Hinter for OtterHelper {
                         // if empty module is not set
                         if e_module.is_empty() {
                             if agg_line.is_empty() {
-                                "".to_string()
+                                format!("\x1b[0mn{}", separator_lines)
                             } else {
-                                format!("\n{}{}", agg_line, "\n ".repeat(padded_line_count))
+                                format!("{}\n{}{}", separator_lines, agg_line, "\n ".repeat(padded_line_count))
                             }
                         } else {
                             // calculate overlay padding, to maintain layout when printing at window bottom
@@ -695,7 +712,7 @@ impl Hinter for OtterHelper {
                                 0
                             };
                             // if empty module is set
-                            format!("\n{}{}", e_module, "\n ".repeat(padded_line_count))
+                            format!("{}\n{}{}", separator_lines, e_module, "\n ".repeat(padded_line_count))
                         },
                     ),
                     completion: pos,
@@ -725,7 +742,7 @@ impl Hinter for OtterHelper {
                     } else if agg_line.is_empty() {
                         // check if default module message is set
                         if d_module.is_empty() {
-                            "\x1b[0m".to_string()
+                            format!("\x1b[0m{}", separator_lines)
                         } else {
                             let default_message_count = d_module.lines().collect::<Vec<_>>().len();
                             padded_line_count = if overlay_height + overlay_down
@@ -737,11 +754,11 @@ impl Hinter for OtterHelper {
                             } else {
                                 0
                             };
-                            format!("\n{}{}", d_module, "\n ".repeat(padded_line_count))
+                            format!("{}\n{}{}", separator_lines, d_module, "\n ".repeat(padded_line_count))
                         }
                     // if some module is matched
                     } else {
-                        format!("\n{}", agg_line)
+                        format!("{}\n{}", separator_lines, agg_line)
                     })
                     .to_string(),
                     completion: pos,
@@ -1522,7 +1539,7 @@ fn term_cell_height_cached() -> std::io::Result<usize> {
     if let Some(h) = CELL_HEIGHT.get() {
         return Ok(*h);
     }
-    let h = terminal_cell_height_px()?; // your existing fn
+    let h = terminal_cell_height_px()?;
     CELL_HEIGHT.set(h).ok();
     Ok(h)
 }
@@ -1688,6 +1705,11 @@ fn main() {
         &HEADER_CONCATENATE,
         config().interface.header_concatenate,
         false,
+    );
+    init_statics(
+        &SEPARATOR,
+        config().interface.separator.clone(),
+        "".to_string(),
     );
     init_statics(
         &LIST_PREFIX,
