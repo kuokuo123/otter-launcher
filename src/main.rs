@@ -84,6 +84,7 @@ struct Interface {
     header_cmd_trimmed_lines: Option<usize>,
     header_concatenate: Option<bool>,
     separator: Option<String>,
+    footer: Option<String>,
     list_prefix: Option<String>,
     selection_prefix: Option<String>,
     place_holder: Option<String>,
@@ -164,6 +165,7 @@ static OVERLAY_HEIGHT: OnceLock<Mutex<usize>> = OnceLock::new();
 static HEADER: OnceLock<Mutex<String>> = OnceLock::new();
 static HEADER_CONCATENATE: OnceLock<Mutex<bool>> = OnceLock::new();
 static SEPARATOR: OnceLock<Mutex<String>> = OnceLock::new();
+static FOOTER: OnceLock<Mutex<String>> = OnceLock::new();
 static EXEC_CMD: OnceLock<Mutex<String>> = OnceLock::new();
 static DEFAULT_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
 static EMPTY_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
@@ -217,9 +219,9 @@ impl ModuleHint {
             w_arg: w_arg,
         }
     }
-    fn suffix(&self, strip_chars: usize, padded_line_count: usize) -> Self {
+    fn suffix(&self, strip_chars: usize, padded_line_count: usize, footer: &str) -> Self {
         Self {
-            display: self.display.to_owned() + &"\n ".repeat(padded_line_count),
+            display: self.display.to_owned() + &"\n ".repeat(padded_line_count) + footer,
             completion: strip_chars,
             w_arg: self.w_arg,
         }
@@ -487,8 +489,8 @@ impl Hinter for OtterHelper {
             .lock()
             .unwrap();
 
-        // form separator line, if any
-        let mut separator_lines = cached_statics(&SEPARATOR, || "sh -c".to_string());
+        // form separator lines, if any
+        let mut separator_lines = cached_statics(&SEPARATOR, || String::new());
         if separator_lines.is_empty() {
             separator_lines = "".to_string();
             *SEPARATOR_COUNT
@@ -503,6 +505,16 @@ impl Hinter for OtterHelper {
                 .lock()
                 .unwrap() = prepared_separator_lines.len();
             separator_lines = format!("\n{}", prepared_separator_lines.join("\n"));
+        }
+
+        // form footer lines, if any
+        let mut footer_lines = cached_statics(&FOOTER, || String::new());
+        if footer_lines.is_empty() {
+            footer_lines = "".to_string();
+        } else {
+            let expanded_footer = expand_env_vars(&footer_lines);
+            let prepared_footer_lines: Vec<&str> = expanded_footer.split('\n').collect();
+            footer_lines = format!("\x1b[0m\n{}", prepared_footer_lines.join("\n"));
         }
 
         // print from overlay commands, if any
@@ -572,6 +584,8 @@ impl Hinter for OtterHelper {
 
         // hint mode behavior
         if suggestion_mode == "hint" {
+            let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
+            let foot_lines_hint_padded = footer_lines.lines().collect::<Vec<&str>>().join(&format!("\n\x1b[{}G", layout_right + 1));
             if line.is_empty() {
                 // when nothing is typed
                 *COMPLETION_CANDIDATE
@@ -579,7 +593,7 @@ impl Hinter for OtterHelper {
                     .lock()
                     .unwrap() = "".to_string();
                 Some(ModuleHint {
-                    display: format!("{}{}", place_holder, "\n ".repeat(padded_line_count)),
+                    display: format!("{}{}{}", place_holder, "\n ".repeat(padded_line_count), foot_lines_hint_padded),
                     completion: 0,
                     w_arg: None,
                 })
@@ -591,11 +605,12 @@ impl Hinter for OtterHelper {
                     .unwrap() = "?".to_string();
                 Some(ModuleHint {
                     display: format!(
-                        "{} {}{}{}",
+                        "{} {}{}{}{}",
                         cheatsheet_entry,
                         indicator_no_arg_module,
                         "cheat sheet",
-                        "\n ".repeat(padded_line_count)
+                        "\n ".repeat(padded_line_count),
+                        foot_lines_hint_padded
                     )
                     .to_string(),
                     completion: line.len(),
@@ -624,7 +639,7 @@ impl Hinter for OtterHelper {
                                     .unwrap_or("")
                                     .to_string();
                                 // provide the found hint
-                                Some(i.suffix(line.len(), padded_line_count))
+                                Some(i.suffix(line.len(), padded_line_count, &foot_lines_hint_padded))
                             } else {
                                 *COMPLETION_CANDIDATE
                                     .get_or_init(|| Mutex::new("".to_string()))
@@ -635,7 +650,7 @@ impl Hinter for OtterHelper {
                         })
                         .next()
                         .unwrap_or(ModuleHint {
-                            display: format!("\x1b[0m{}", "\n ".repeat(padded_line_count)),
+                            display: format!("\x1b[0m{}{}", "\n ".repeat(padded_line_count), foot_lines_hint_padded),
                             completion: 0,
                             w_arg: None,
                         }),
@@ -719,8 +734,10 @@ impl Hinter for OtterHelper {
                     .take(suggestion_lines)
                     .copied()
                     .collect::<Vec<_>>();
+
                 // calculate overlay padding, to maintain layout when printing at window bottom
                 let join_range_count = join_range.len();
+
                 padded_line_count = if overlay_height + overlay_down
                     > header_line_count
                         + join_range_count
@@ -739,8 +756,6 @@ impl Hinter for OtterHelper {
                 } else {
                     0
                 };
-                // debugging
-                //print!("{}", padded_line_count);
                 join_range.join("\n")
             };
 
@@ -775,17 +790,17 @@ impl Hinter for OtterHelper {
                 // if nothing has been typed
                 Some(ModuleHint {
                     display: format!(
-                        "{}{}",
+                        "{}{}{}{}",
                         // show place holder first
                         place_holder,
+                        separator_lines,
                         // if empty module is not set
                         if e_module.is_empty() {
                             if agg_line.is_empty() {
-                                format!("\x1b[0mn{}", separator_lines)
+                                format!("{}", "\x1b[0mn")
                             } else {
                                 format!(
-                                    "{}\n{}{}",
-                                    separator_lines,
+                                    "\n{}{}",
                                     agg_line,
                                     "\n ".repeat(padded_line_count)
                                 )
@@ -793,7 +808,7 @@ impl Hinter for OtterHelper {
                         } else {
                             // calculate overlay padding, to maintain layout when printing at window bottom
                             let empty_message_count = e_module.lines().collect::<Vec<_>>().len();
-                            padded_line_count = if overlay_height + overlay_down
+                            let padded_line_count_local = if overlay_height + overlay_down
                                 > header_line_count
                                     + empty_message_count
                                     + *SEPARATOR_COUNT
@@ -813,18 +828,19 @@ impl Hinter for OtterHelper {
                             };
                             // if empty module is set
                             format!(
-                                "{}\n{}{}",
-                                separator_lines,
+                                "\n{}{}",
                                 e_module,
-                                "\n ".repeat(padded_line_count)
+                                "\n ".repeat(padded_line_count_local)
                             )
                         },
+                        footer_lines
                     ),
                     completion: pos,
                     w_arg: None,
                 })
             } else {
                 // if something is typed
+                let agg_count = agg_line.lines().collect::<Vec<&str>>().len();
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
                         *COMPLETION_CANDIDATE
@@ -832,7 +848,7 @@ impl Hinter for OtterHelper {
                             .lock()
                             .unwrap() = "? ".to_string();
                         let cheatsheet_count = cheatsheet_entry.lines().collect::<Vec<_>>().len();
-                        padded_line_count = if overlay_height
+                        let padded_line_count_local = if overlay_height
                             + overlay_down
                             + *SEPARATOR_COUNT
                                 .get_or_init(|| Mutex::new(0))
@@ -851,12 +867,13 @@ impl Hinter for OtterHelper {
                             0
                         };
                         format!(
-                            "{}\n{} {} {}{}",
+                            "{}\n{} {} {}{}{}",
                             separator_lines,
                             cheatsheet_entry,
                             indicator_no_arg_module,
                             "cheat sheet",
-                            "\n ".repeat(padded_line_count)
+                            "\n ".repeat(padded_line_count_local),
+                            footer_lines
                         )
                     // if no module is matched
                     } else if agg_line.is_empty() {
@@ -865,7 +882,7 @@ impl Hinter for OtterHelper {
                             format!("\x1b[0m{}", separator_lines)
                         } else {
                             let default_message_count = d_module.lines().collect::<Vec<_>>().len();
-                            padded_line_count = if overlay_height + overlay_down
+                            let padded_line_count_local = if overlay_height + overlay_down
                                 > header_line_count
                                     + default_message_count
                                     + *SEPARATOR_COUNT
@@ -884,15 +901,34 @@ impl Hinter for OtterHelper {
                                 0
                             };
                             format!(
-                                "{}\n{}{}",
+                                "{}\n{}{}{}",
                                 separator_lines,
                                 d_module,
-                                "\n ".repeat(padded_line_count)
+                                "\n ".repeat(padded_line_count_local),
+                                footer_lines
                             )
                         }
                     // if some module is matched
                     } else {
-                        format!("{}\n{}", separator_lines, agg_line)
+                        let padded_line_count_local = if overlay_height + overlay_down
+                            > header_line_count
+                                + agg_count
+                                + *SEPARATOR_COUNT
+                                    .get_or_init(|| Mutex::new(0))
+                                    .lock()
+                                    .unwrap()
+                        {
+                            overlay_height + overlay_down
+                                - header_line_count
+                                - agg_count
+                                - *SEPARATOR_COUNT
+                                    .get_or_init(|| Mutex::new(0))
+                                    .lock()
+                                    .unwrap()
+                        } else {
+                            0
+                        };
+                        format!("{}\n{}{}{}", separator_lines, agg_line, "\n ".repeat(padded_line_count_local), footer_lines)
                     })
                     .to_string(),
                     completion: pos,
@@ -1908,6 +1944,11 @@ fn main() {
     init_statics(
         &SEPARATOR,
         config().interface.separator.clone(),
+        "".to_string(),
+    );
+    init_statics(
+        &FOOTER,
+        config().interface.footer.clone(),
         "".to_string(),
     );
     init_statics(
