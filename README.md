@@ -1,7 +1,7 @@
 
 # otter-launcher
 
-![cover_pic](./assets/default.png)
+![cover_pic](./assets/cover.png)
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
@@ -282,27 +282,29 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
-## Fastfetch & Krabby
+## Clean List
 
-![Fastfetch Config](./assets/fastfetch.png)
+![List Config](./assets/list.png)
 
 ``` toml
-[interface]
-header_cmd = "fastfetch --structure break:colors:break:os:wm:shell:kernel:term:uptime:datetime:break --key-type icon --logo-type data --logo \"$(krabby name pikachu --no-title)\""
-header = "  \u001B[7;1m otter-launcher \u001B[0m "
-header_cmd_trimmed_lines = 1
-list_prefix = "    \u001B[36m-\u001B[0m "
-selection_prefix = "    \u001B[31;1m> "
-place_holder = ""
+header = """
+ \u001B[34;1m \u001B[0m $USER@$(echo $HOSTNAME)        \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
+  \u001B[34;1m \u001B[0;1m """
+list_prefix = "    "
+selection_prefix = " \u001B[31;1m ▌ "
+indicator_with_arg_module = ""
+indicator_no_arg_module = ""
+place_holder = "type & search"
+default_module_message = "    \u001B[33msearch\u001B[0m the internet"
 suggestion_mode = "list"
-suggestion_lines = 5
-indicator_with_arg_module = "\u001B[31m^\u001B[0m "
-indicator_no_arg_module = "\u001B[31m$\u001B[0m "
-prefix_padding = 3
+suggestion_lines = 4
 prefix_color = "\u001B[33m"
+prefix_padding = 3
 description_color = "\u001B[39m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
+move_interface_down = 1
+move_interface_right = 1
 ```
 
 ## Image Protocol
