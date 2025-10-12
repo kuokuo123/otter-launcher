@@ -15,8 +15,6 @@ The core concept is making these behaviours possible:
 
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Use your wm's window rules to control its window size.
 
-Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [fsel](https://github.com/Mjoyufull/fsel) (developing) as a module to launch desktop apps. 
-
 # Demo
 
 Workflow
@@ -265,8 +263,9 @@ Some recommendations of tui utilities that works really well:
 - Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
 - Spotify: [spotify_player](https://github.com/aome510/spotify-player)
 - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
+- More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
 
-More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
+It's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [fsel](https://github.com/Mjoyufull/fsel) (developing) as a module to launch desktop apps, because the default app module is just a simple fzf script that find into regular POSIX application dirs and flatpak. If you install apps from other sources, they may not show up. A dedicated desktop app launcher should overcome this shortage. 
 
 # Examples for Styling
 
