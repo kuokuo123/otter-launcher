@@ -244,9 +244,7 @@ find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding
 
 # Integration
 
-Otter-launcher works well with tui programs. Also, module.cmd can be scripted to adjust window sizes.
-
-In the below example, otter-launcher changes window size before and after running pulsemixer by calling swaymsg:
+Otter-launcher works well with tui programs, and module.cmd can be scripted to adjust window sizes. In the below example, otter-launcher changes window size before and after running pulsemixer by calling swaymsg:
 
 ``` toml
 [[modules]]
@@ -265,7 +263,7 @@ Some recommendations of tui utilities that works really well:
 - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
 - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
 
-It's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [fsel](https://github.com/Mjoyufull/fsel) (developing) as a module to launch desktop apps. The default module is just a simple script that find into regular POSIX dirs and flatpak. If your apps are from different sources, they won't show.
+Also, it's recommended to setup a dedicated desktop app launcher as a module, like [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [fsel](https://github.com/Mjoyufull/fsel) (developing). The one that comes in default config is just a simple script finding into regular POSIX dirs and flatpak. If your apps are from different sources, it won't show.
 
 # Examples for Styling
 
