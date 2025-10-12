@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# This is a bash script that toggles otter-launcher with foot terminal.
+# Modify foot --app-id to others, for example alacritty --class, if you use other emulators.
+# When run, otter-launcher will be launched if not already running, be focused if running but not being focused, and be closed when already running and focused.
+
+app="otter-launcher"
+TERMINAL="foot"
+
+if [[ -z $(niri msg windows | grep 'App ID: "otter-launcher"') ]]
+then
+    $TERMINAL --app-id "$app" -T "$app" -e sh -c "sleep 0.02 && $app"
+else
+    if [[ -z $(niri msg -j windows | jq '.[] | select(.is_focused==true).app_id' | rg "$app") ]];
+	then
+	  niri msg action focus-window --id $(niri msg -j windows | jq ".[] | select(.app_id==\"$app\").id");
+	else
+	    niri msg action close-window;
+    fi
+fi

@@ -265,7 +265,7 @@ Some recommendations of tui utilities that works really well:
 - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
 - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
 
-It's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [fsel](https://github.com/Mjoyufull/fsel) (developing) as a module to launch desktop apps, because the default app module is just a simple fzf script that find into regular POSIX application dirs and flatpak. If you install apps from other sources, they may not show up. A dedicated desktop app launcher should overcome this shortage. 
+It's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [fsel](https://github.com/Mjoyufull/fsel) (developing) as a module to launch desktop apps. The default module is just a simple script that find into regular POSIX dirs and flatpak. If your apps are from different sources, they won't show.
 
 # Examples for Styling
 
