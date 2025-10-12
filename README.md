@@ -1,7 +1,7 @@
 
 # otter-launcher
 
-![cover_pic](./assets/soothing.png)
+![cover_pic](./assets/default.png)
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
@@ -63,11 +63,11 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 2. Create a config file mannually
 
-The default config file looks for /etc/otter-launcher/pikachu.example, which is in the repos's config_example folder. You can modify the config file to either remove this line from overlay_cmd or point to the pikachu.
+Create a config at $HOME/.config/otter-launcher/config.toml. The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) looks for /etc/otter-launcher/[pikachu.example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to show a chafa image. You can modify the config file to remove this line from overlay_cmd.
 
 # Configuration
 
-Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml, which is included with AUR installation.
+Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml, which is included in AUR installation.
 
 The confing file encompasses four parts:
 
@@ -76,9 +76,9 @@ The confing file encompasses four parts:
 - [overlay] includes options releated to image integration
 - [[modules]] can be configured through bash scripting in an unlimited number
 
-All the available are listed below, and can also be found in [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
+All the available options are listed below and in the [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
-Since v0.6.0, the default config comes with a pikachu to demonstrate how image integration works.
+Since v0.6.1, the default config comes with a chafa otter to demonstrate how image integration works.
 
 ![Example Config](./assets/default.png)
 
@@ -94,41 +94,40 @@ cheatsheet_entry = "?" # when prompted, will show a list of configured modules
 cheatsheet_viewer = "less -R; clear" # command to show cheatsheet; through piping stdout
 clear_screen_after_execution = false
 loop_mode = false # don't quit after executing a module, useful with scratchpads
-external_editor = "nvim" # if set, press ctrl+e (or v in vi normal mode) to edit prompt in specified program
+external_editor = "vi" # if set, press ctrl+e (or v in vi normal mode) to edit prompt in specified program
 delay_startup = 0 # sometimes the otter runs too fast even before the terminal window is ready; this slows it down by milliseconds; useful when chafa image is skewed
 #callback = "" # if set, will run after module execution; for example, calling swaymsg to adjust window size
 
 
 # ANSI color codes are allowed. However, \x1b should be replaced with \u001B, because the rust toml crate cannot read \x as an escaped character
 [interface]
-# use three quotes to write longer commands
+# use three quotes to write longer codes
 header = """
-                   \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1) \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
-  \u001B[34;1m$USER@$(printf $HOSTNAME)
- \u001B[0;1m """
+  \u001B[34;1m$USER@$(printf $HOSTNAME)\u001B[0m     \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')
+  """
 header_cmd = "" # run a command and print stdout above the header
 header_cmd_trimmed_lines = 0 # remove trailing lines from header_cmd output, in case of some programs appending excessive empty lines
 header_concatenate = false # print header and header_cmd output to the same line, default to false
-place_holder = "type and search" # at the input field
+place_holder = "otterly awesome" # at the input field
 suggestion_mode = "list" # available options: list, hint
-separator = "" # add a line between intput field and suggestion list; only effective in list mode
+separator = "                      \u001B[90mmodules ────────────────" # add a line between intput field and suggestion list; only effective in list mode
 footer = "" # add a line after suggestion list
 suggestion_lines = 4 # 0 to disable suggestions and tab completion
 list_prefix = "  "
-selection_prefix = "\u001B[31;1m> "
+selection_prefix = "\u001B[31;1m▌ "
 prefix_padding = 3 # format prefixes to have a uniformed width
 default_module_message = "  \u001B[33msearch\u001B[0m the internet" # shown when the default module is in use
 empty_module_message = "" # shown when the empty module is in use
 customized_list_order = false # false to list modules alphabetically; true to list as per the configured order in the below [[modules]] section
-indicator_with_arg_module = "\u001B[31m^\u001B[0m " # the sign showing whether a module should run with an argument
-indicator_no_arg_module = "\u001B[31m$\u001B[0m "
+indicator_with_arg_module = "^ " # the sign showing whether a module should run with an argument
+indicator_no_arg_module = "$ "
 # below color options affect all modules; per-module coloring can be configured using ansi codes individually
 prefix_color = "\u001B[33m"
 description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m" # suggestion color in hint mode
 # move the interface rightward or downward
-move_interface_right = 23
+move_interface_right = 20
 move_interface_down = 1
 
 
@@ -139,15 +138,15 @@ overlay_cmd = """
 cat /etc/otter-launcher/pikachu.example \
 || echo -e "The file pickachu.example is not found. Pikachu can be at the below blank area. Fix this by modifying the overlay_cmd option in your config file.\n\n"
 """
-overlay_trimmed_lines = 1 # remove trailing lines from overlay_cmd output
+overlay_trimmed_lines = 0 # remove trailing lines from overlay_cmd output
 overlay_height = 0 # set overlay size; 0 to be auto; 1 is one line, 2 two lines, etc; kitty & sixel image size can be determined automatically; others should be set mannually
-move_overlay_right = 2 # move the overlay layer around for theming
+move_overlay_right = 0 # move the overlay layer around for theming
 move_overlay_down = 0
 
 
 # modules are defined as followed
 [[modules]]
-description = "search with google"
+description = "google search"
 prefix = "gg"
 cmd = "xdg-open https://www.google.com/search?q='{}'" # try wm's exec command for unbinding if 'setsid -f' does not work as expected, eg. 'hyprctl dispatch exec'
 with_argument = true # if true, {} in cmd will be replaced with user input. if not explicitly set, taken as false.
@@ -156,7 +155,7 @@ unbind_proc = true # run cmd in a forked shell as opposed to as a child process;
 
 # fzf is needed to run below functions
 [[modules]]
-description = "launch programs"
+description = "desktop programs"
 prefix = "app"
 cmd = """
 desktop_file() {
@@ -166,7 +165,7 @@ find "$HOME/.local/share/applications" -name "*.desktop" 2>/dev/null
 find /var/lib/flatpak/exports/share/applications -name "*.desktop" 2>/dev/null
 find "$HOME/.local/share/flatpak/exports/share/applications" -name "*.desktop" 2>/dev/null
 }
-selected="$(desktop_file | sed 's/.desktop$//g' | sort | fzf -m -d / --with-nth -1 --reverse --padding 1,3 --prompt 'Launch Apps: ')"
+selected="$(desktop_file | sed 's/.desktop$//g' | sort | fzf --reverse --padding 1,3 --info-command 'echo -e " desktop apps ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' -m -d / --with-nth -1 )"
 [ -z "$selected" ] && exit
 echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $line)"; done
 """
@@ -184,7 +183,7 @@ case $1 in
 "reboot") systemctl reboot ;;
 "shutdown") systemctl poweroff ;;
 esac fi }
-power $(echo -e 'reboot\nshutdown\nlogout\nsuspend\nhibernate' | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Power Menu: ' | tail -1)
+power $(echo -e 'reboot\nshutdown\nlogout\nsuspend\nhibernate' | fzf --reverse --padding 1,2 --info-command 'printf " power menu ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' | tail -1)
 """
 
 [[modules]]
@@ -228,17 +227,18 @@ with_argument = true
 url_encode = true
 unbind_proc = true
 
-# fd is needed to run below functions
 [[modules]]
 description = "open files (fzf)"
 prefix = "fo"
-cmd = "fd --type f | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Files: ' | setsid -f xargs -r -I [] xdg-open '[]'"
+cmd = """
+find $HOME -type f -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding 1,3 --info-command 'printf " files ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | setsid -f xargs -r -I [] xdg-open '[]'
+"""
 
 [[modules]]
-description = "open folders (yazi)"
+description = "open dirs (yazi)"
 prefix = "yz"
 cmd = """
-fd --type d | fzf --with-nth -1 --reverse --padding 1,3 --prompt 'Open Folders: ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
+find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding 1,3 --info-command 'printf " directories ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
 """
 ```
 
