@@ -13,7 +13,9 @@ The core concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [fsel](https://github.com/Mjoyufull/fsel) (developing) as a module to launch desktop apps. Use your wm's window rules to control its window size.
+Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Use your wm's window rules to control its window size.
+
+Also, it's recommended to setup [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [fsel](https://github.com/Mjoyufull/fsel) (developing) as a module to launch desktop apps. 
 
 # Demo
 
@@ -63,11 +65,11 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 2. Create a config file mannually
 
-Create a config at $HOME/.config/otter-launcher/config.toml. The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) looks for /etc/otter-launcher/[pikachu.example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to show a chafa image. You can modify the config file to remove this line from overlay_cmd.
+Put a config at $HOME/.config/otter-launcher/config.toml. The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) looks for /etc/otter-launcher/[pikachu.example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to show a chafa image. You can modify the config file to remove this line from overlay_cmd.
 
 # Configuration
 
-Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If that file is missing, it looks into /etc/otter-launcher/config.toml, which is included in AUR installation.
+Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in AUR installation.
 
 The confing file encompasses four parts:
 
@@ -76,9 +78,9 @@ The confing file encompasses four parts:
 - [overlay] includes options releated to image integration
 - [[modules]] can be configured through bash scripting in an unlimited number
 
-All the available options are listed below and in the [config_example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example). Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
+All the available options are listed below. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
-Since v0.6.1, the default config comes with a chafa otter to demonstrate how image integration works.
+Since v0.6.1, the default config comes with riced fzf modules, and a chafa otter to demonstrate how image integration works. v0.6.0 comes with a pikachu.
 
 ![Example Config](./assets/default.png)
 
@@ -244,7 +246,7 @@ find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding
 
 # Integration
 
-Otter-launcher works well with tui programs. When launching programs, module.cmd can be scripted to adjust window sizes.
+Otter-launcher works well with tui programs. Also, module.cmd can be scripted to adjust window sizes.
 
 In the below example, otter-launcher changes window size before and after running pulsemixer by calling swaymsg:
 
@@ -366,7 +368,7 @@ move_interface_down = 2
 
 ## Image to the Right
 
-This config also renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png) by overlay_cmd, and then move the image overlay to the right.
+This config also renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png) using overlay_cmd, and then move the overlay to the right.
 
 ![Prinny Config](./assets/prinny.png)
 
