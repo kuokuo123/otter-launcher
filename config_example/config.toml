@@ -56,8 +56,8 @@ prefix_padding = 3 # format prefixes to have a uniformed width
 default_module_message = "  \u001B[33msearch\u001B[0m the internet" # shown when the default module is in use
 empty_module_message = "" # shown when the empty module is in use
 customized_list_order = false # false to list modules alphabetically; true to list as per the configured order in the below [[modules]] section
-indicator_with_arg_module = "^ " # the sign showing whether a module should run with an argument
-indicator_no_arg_module = "$ "
+indicator_with_arg_module = "" # the sign showing whether a module should run with an argument
+indicator_no_arg_module = ""
 # below color options affect all modules; per-module coloring can be configured using ansi codes individually
 prefix_color = "\u001B[33m"
 description_color = "\u001B[39m"
@@ -168,12 +168,12 @@ unbind_proc = true
 description = "open files (fzf)"
 prefix = "fo"
 cmd = """
-find $HOME -type f -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding 1,3 --info-command 'printf " files ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | setsid -f xargs -r -I [] xdg-open '[]'
+find $HOME -type f -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding 1,3 --info-command 'printf " files ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter ' ' --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | setsid -f xargs -r -I [] xdg-open '[]'
 """
 
 [[modules]]
 description = "open dirs (yazi)"
 prefix = "yz"
 cmd = """
-find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding 1,3 --info-command 'printf " directories ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
+find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding 1,3 --info-command 'printf " directories ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter ' ' --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
 """
