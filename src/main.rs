@@ -2108,7 +2108,7 @@ fn main() {
         );
         if !cached_statics(&EXTERNAL_EDITOR, || "".to_string()).is_empty() {
             rl.bind_sequence(
-                KeyEvent::new('e', Modifiers::CTRL),
+                KeyEvent::new('e', Modifiers::ALT),
                 EventHandler::Conditional(Box::from(ExternalEditor)),
             );
         }
