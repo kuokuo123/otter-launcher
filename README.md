@@ -3,8 +3,6 @@
 
 ![cover_pic](./assets/cover.png)
 
-![cover_pic2](./assets/cover2.png)
-
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
 The core concept is making these behaviours possible:
@@ -38,6 +36,8 @@ External Editor & List Selection
 ![Menu Demo](./assets/demo_menu.gif)
 
 # Features
+
+![cover_pic2](./assets/cover2.png)
 
 - modularized to run different commands
 - vi and emacs keybinds
