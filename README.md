@@ -297,31 +297,6 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
-## Clean List
-
-![List Config](./assets/list.png)
-
-``` toml
-header = """
- \u001B[34;1m \u001B[0m $USER@$(echo $HOSTNAME)        \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
-  \u001B[34;1m \u001B[0;1m """
-list_prefix = "    "
-selection_prefix = " \u001B[31;1m ▌ "
-indicator_with_arg_module = ""
-indicator_no_arg_module = ""
-place_holder = "type & search"
-default_module_message = "    \u001B[33msearch\u001B[0m the internet"
-suggestion_mode = "list"
-suggestion_lines = 4
-prefix_color = "\u001B[33m"
-prefix_padding = 3
-description_color = "\u001B[39m"
-place_holder_color = "\u001B[90m"
-hint_color = "\u001B[90m"
-move_interface_down = 1
-move_interface_right = 1
-```
-
 ## Pfetch
 
 ![pfetch](./assets/pfetch.png)
