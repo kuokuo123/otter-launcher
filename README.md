@@ -425,12 +425,21 @@ hint_color = "\u001B[90m"
 
 ![cover_pic2](./assets/cover2.png)
 
-Use header_cmd to print "otter-launch" at the desired location, with overlay_cmd printing a sixel [shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp).
+This custom script use ansi control codes to print texts to the right of a sixel [shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp). Modify the script to suit your need.
 
 ```toml
 [interface]
+
 header_cmd = """
-move_right=17
+# The text to be printed should be written between the two "EOF"s
+# The path of the image to be displayed
+image_file="$HOME/.config/otter-launcher/images/images_other/otter_shocked.webp"
+# Set the image's width and height, which decide the position of printed texts
+image_width=17
+image_height=6
+# pad the image with spaces
+image_padding_top=1
+image_padding_left=2
 printed_lines=$(cat << EOF
 \u001B[90m
 ░█▀█░▀█▀░▀█▀░█▀▀░█▀█░░░░░ ░ ░
@@ -441,10 +450,35 @@ printed_lines=$(cat << EOF
 ░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀░ ░ ░
 EOF
 )
-echo -e "$printed_lines" | while IFS= read -r line; do
-  printf '\u001B[%dG%s\n' "$((move_right))" "$line"
-done
+
+# main function
+function chafa-text() {
+  # pad printed_lines with empty lines to the height of the image
+  line_count=$(echo "$printed_lines" | wc -l)
+  additional_lines=$((image_height - line_count))
+  for (( i=0; i<additional_lines; i++ )); do
+    printed_lines+="\n"
+  done
+  # Render the image with chafa at the padded position
+  if (( $image_padding_top > 0 )); then
+    printf '\n%.0s' $(seq 1 $image_padding_top)
+  fi
+  chafa --size $((image_width))x$((image_height)) "$image_file" | while IFS= read -r line; do
+  printf "\u001B[$((image_padding_left))G"
+    printf '\u001B[%dG%s\n' "$((image_padding_left + 1))" "$line"
+  done
+  # Move cursor to the starting line of the image
+  printf "\u001B[$((image_height + 1))A"
+  # Move each of printed_lines' start position to image_width + 1
+  echo -e "$printed_lines" | while IFS= read -r line; do
+    printf '\u001B[%dG%s\n' "$((image_width))" "$line"
+  done
+}
+
+# run the function
+chafa-text
 """
+
 header = """
   \u001B[31;1m \u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
   \u001B[31;1m>>\u001B[0;1m """
@@ -456,10 +490,4 @@ prefix_color = "\u001B[33m"
 description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[90m"
-
-[overlay]
-overlay_cmd = "chafa -s x6 $HOME/.config/otter-launcher/otter_shocked.webp"
-move_overlay_right = 2
-move_overlay_down = 1
-
 ```
