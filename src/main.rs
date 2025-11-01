@@ -44,6 +44,8 @@ use std::{
     process::{Command, Stdio},
     str::from_utf8,
     sync::{Mutex, OnceLock},
+    thread,
+    time::Duration,
 };
 use urlencoding::encode;
 
@@ -195,6 +197,7 @@ static CUSTOMIZED_LIST_ORDER: OnceLock<Mutex<bool>> = OnceLock::new();
 static OVERLAY_LINES: OnceLock<Mutex<String>> = OnceLock::new();
 static CELL_HEIGHT: OnceLock<usize> = OnceLock::new();
 static SEPARATOR_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
+static CTRLX_LOCK: OnceLock<Mutex<usize>> = OnceLock::new();
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
@@ -962,7 +965,7 @@ impl ConditionalEventHandler for ExternalEditor {
     ) -> Option<Cmd> {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
-            || ctx.mode() == rustyline::EditMode::Emacs
+            || ctx.mode() == rustyline::EditMode::Emacs && *CTRLX_LOCK.get_or_init(|| Mutex::new(0)).lock().unwrap() == 1
         {
             let editor = cached_statics(&EXTERNAL_EDITOR, || "".to_string());
             let mut file_path = env::temp_dir();
@@ -1002,6 +1005,27 @@ impl ConditionalEventHandler for ExternalEditor {
         } else {
             None
         }
+    }
+}
+
+struct CTRLX;
+impl ConditionalEventHandler for CTRLX {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        _ctx: &EventContext,
+    ) -> Option<Cmd> {
+        let mut ctrlx_lock = CTRLX_LOCK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        if *ctrlx_lock == 0 {
+            *ctrlx_lock = 1;
+            thread::spawn(|| {
+                thread::sleep(Duration::from_millis(1500));
+                *CTRLX_LOCK.get().unwrap().lock().unwrap() = 0;
+            });
+        };
+        None
     }
 }
 
@@ -2108,7 +2132,11 @@ fn main() {
         );
         if !cached_statics(&EXTERNAL_EDITOR, || "".to_string()).is_empty() {
             rl.bind_sequence(
-                KeyEvent::new('e', Modifiers::ALT),
+                KeyEvent::new('x', Modifiers::CTRL),
+                EventHandler::Conditional(Box::from(CTRLX)),
+            );
+            rl.bind_sequence(
+                KeyEvent::new('e', Modifiers::CTRL),
                 EventHandler::Conditional(Box::from(ExternalEditor)),
             );
         }
