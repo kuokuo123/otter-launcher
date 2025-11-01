@@ -82,7 +82,6 @@ struct Interface {
     header: Option<String>,
     header_cmd: Option<String>,
     header_cmd_trimmed_lines: Option<usize>,
-    header_concatenate: Option<bool>,
     separator: Option<String>,
     footer: Option<String>,
     list_prefix: Option<String>,
@@ -163,7 +162,6 @@ static DELAY_STARTUP: OnceLock<Mutex<usize>> = OnceLock::new();
 static OVERLAY_TRIMMED_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
 static OVERLAY_HEIGHT: OnceLock<Mutex<usize>> = OnceLock::new();
 static HEADER: OnceLock<Mutex<String>> = OnceLock::new();
-static HEADER_CONCATENATE: OnceLock<Mutex<bool>> = OnceLock::new();
 static SEPARATOR: OnceLock<Mutex<String>> = OnceLock::new();
 static FOOTER: OnceLock<Mutex<String>> = OnceLock::new();
 static EXEC_CMD: OnceLock<Mutex<String>> = OnceLock::new();
@@ -439,7 +437,9 @@ impl Highlighter for OtterHelper {
                         format!("\x1b[{}G{}", layout_right + 1, line)
                     } else if index <= *separator_count {
                         line.to_string()
-                    } else if index > *separator_count + *selection_span && cached_statics(&FOOTER, || String::new()).contains(line) {
+                    } else if index > *separator_count + *selection_span
+                        && cached_statics(&FOOTER, || String::new()).contains(line)
+                    {
                         line.to_string()
                     } else {
                         let parts: Vec<&str> = line.split_whitespace().collect();
@@ -578,9 +578,7 @@ impl Hinter for OtterHelper {
         };
 
         // calculate overlay padding, to maintain layout when printing at window bottom
-        let mut padded_line_count = if overlay_height + overlay_down
-            > header_line_count
-        {
+        let mut padded_line_count = if overlay_height + overlay_down > header_line_count {
             overlay_height - header_line_count + overlay_down
         } else {
             0
@@ -596,7 +594,12 @@ impl Hinter for OtterHelper {
                     .lock()
                     .unwrap() = "".to_string();
                 Some(ModuleHint {
-                    display: format!("{}{}{}", place_holder, "\n ".repeat(padded_line_count), foot_lines_hint_mode),
+                    display: format!(
+                        "{}{}{}",
+                        place_holder,
+                        "\n ".repeat(padded_line_count),
+                        foot_lines_hint_mode
+                    ),
                     completion: 0,
                     w_arg: None,
                 })
@@ -653,7 +656,11 @@ impl Hinter for OtterHelper {
                         })
                         .next()
                         .unwrap_or(ModuleHint {
-                            display: format!("\x1b[0m{}{}", "\n ".repeat(padded_line_count), foot_lines_hint_mode),
+                            display: format!(
+                                "\x1b[0m{}{}",
+                                "\n ".repeat(padded_line_count),
+                                foot_lines_hint_mode
+                            ),
                             completion: 0,
                             w_arg: None,
                         }),
@@ -802,11 +809,7 @@ impl Hinter for OtterHelper {
                             if agg_line.is_empty() {
                                 format!("{}", "\x1b[0mn")
                             } else {
-                                format!(
-                                    "\n{}{}",
-                                    agg_line,
-                                    "\n ".repeat(padded_line_count)
-                                )
+                                format!("\n{}{}", agg_line, "\n ".repeat(padded_line_count))
                             }
                         } else {
                             // calculate overlay padding, to maintain layout when printing at window bottom
@@ -830,11 +833,7 @@ impl Hinter for OtterHelper {
                                 0
                             };
                             // if empty module is set
-                            format!(
-                                "\n{}{}",
-                                e_module,
-                                "\n ".repeat(padded_line_count_local)
-                            )
+                            format!("\n{}{}", e_module, "\n ".repeat(padded_line_count_local))
                         },
                         footer_lines
                     ),
@@ -931,7 +930,13 @@ impl Hinter for OtterHelper {
                         } else {
                             0
                         };
-                        format!("{}\n{}{}{}", separator_lines, agg_line, "\n ".repeat(padded_line_count_local), footer_lines)
+                        format!(
+                            "{}\n{}{}{}",
+                            separator_lines,
+                            agg_line,
+                            "\n ".repeat(padded_line_count_local),
+                            footer_lines
+                        )
                     })
                     .to_string(),
                     completion: pos,
@@ -1940,20 +1945,11 @@ fn main() {
         "otter-launcher: ".to_string(),
     );
     init_statics(
-        &HEADER_CONCATENATE,
-        config().interface.header_concatenate,
-        false,
-    );
-    init_statics(
         &SEPARATOR,
         config().interface.separator.clone(),
         "".to_string(),
     );
-    init_statics(
-        &FOOTER,
-        config().interface.footer.clone(),
-        "".to_string(),
-    );
+    init_statics(&FOOTER, config().interface.footer.clone(), "".to_string());
     init_statics(
         &LIST_PREFIX,
         config().interface.list_prefix.clone(),
@@ -2201,7 +2197,6 @@ fn main() {
         // moving layout around
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
         let layout_down = cached_statics(&LAYOUT_DOWNWARD, || 0);
-        let concatenation_switch = cached_statics(&HEADER_CONCATENATE, || false);
 
         // print from header commands
         let header_cmd = cached_statics(&HEADER_CMD, String::new);
@@ -2215,14 +2210,21 @@ fn main() {
             .arg(&header_cmd)
             .output()
             .expect("Failed to launch header command...");
-        let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, || 0);
-        let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
-        let lines: Vec<&str> = header_cmd_stdout.lines().collect();
-        let remaining_lines = if lines.len() >= remove_lines_count {
-            lines[..lines.len() - remove_lines_count].join("\n")
+        if output.status.success() {
+            let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, || 0);
+            let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
+            let lines: Vec<&str> = header_cmd_stdout.lines().collect();
+            let remaining_lines = if lines.len() >= remove_lines_count {
+                lines[..lines.len() - remove_lines_count].join("\n")
+            } else {
+                "not enough lines of header_cmd output to be trimmed".to_string()
+            };
+            if !remaining_lines.is_empty() {
+                println!("{}", remaining_lines);
+            }
         } else {
-            "not enough lines of header_cmd output to be trimmed".to_string()
-        };
+            eprintln!("header_cmd failed to run with status: {}", output.status);
+        }
 
         // print header
         let config_header = cached_statics(&HEADER, || "sh -c".to_string());
@@ -2235,21 +2237,8 @@ fn main() {
         } else {
             "".to_string()
         };
-        let concatenation = if concatenation_switch || header_cmd.is_empty() {
-            ""
-        } else {
-            "\n"
-        };
-        let layout_right_padding = if concatenation_switch {
-            "".to_string()
-        } else {
-            format!("\x1b[{}G", layout_right + 1)
-        };
-        let repeated_spaces = if concatenation_switch {
-            "".to_string()
-        } else {
-            " ".repeat(layout_right)
-        };
+        let layout_right_padding = format!("\x1b[{}G", layout_right + 1);
+        let repeated_spaces = " ".repeat(layout_right);
         let padded_lines: Vec<String> = header_lines
             .iter()
             .map(|line| {
@@ -2261,19 +2250,15 @@ fn main() {
             .collect();
         let aligned_header = padded_lines.join("\n");
 
-        // check if header_cmd and header should be concatenated, form header content accordingly
-        let concatenated_header = format!(
-            "{}{}{}{}",
-            remaining_lines, layout_down_string, concatenation, aligned_header,
-        );
+        let header = format!("{}{}", layout_down_string, aligned_header,);
 
         *HEADER_LINE_COUNT
             .get_or_init(|| Mutex::new(0))
             .lock()
-            .unwrap() = concatenated_header.lines().collect::<Vec<_>>().len();
+            .unwrap() = header.lines().collect::<Vec<_>>().len();
 
         // run rustyline with configured header
-        let prompt = rl.readline(&concatenated_header);
+        let prompt = rl.readline(&header);
         match prompt {
             Ok(_) => {}
             Err(_) => {
