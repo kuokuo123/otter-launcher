@@ -1,6 +1,8 @@
 
 # otter-launcher
 
+![cover_pic2](./assets/cover2.png)
+
 ![cover_pic](./assets/cover.png)
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
@@ -36,8 +38,6 @@ External Editor & List Selection
 ![Menu Demo](./assets/demo_menu.gif)
 
 # Features
-
-![cover_pic2](./assets/cover2.png)
 
 - modularized to run different commands
 - vi and emacs keybinds
@@ -420,4 +420,47 @@ prefix_color = "\u001B[33m"
 description_color = "\u001B[39m"
 place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
+```
+
+## Otter Shocked
+
+![cover_pic2](./assets/cover2.png)
+
+Use header_cmd to print "otter-launch" at the desired location, with overlay_cmd printing a sixel [shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp).
+
+```toml
+[interface]
+header_cmd = """
+move_right=17
+printed_lines=$(cat << EOF
+\u001B[90m
+░█▀█░▀█▀░▀█▀░█▀▀░█▀█░░░░░ ░ ░
+░█░█░░█░░░█░░█▀▀░█▀▄░▀▀▀░ ░ ░
+░▀▀▀░░▀░░░▀░░▀▀▀░▀░▀░░░░░ ░ ░
+░█░░░█▀█░█░█░█▀█░█▀▀░█░█░ ░ ░
+░█░░░█▀█░█░█░█░█░█░░░█▀█░ ░ ░
+░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀░ ░ ░
+EOF
+)
+echo -e "$printed_lines" | while IFS= read -r line; do
+  printf '\u001B[%dG%s\n' "$((move_right))" "$line"
+done
+"""
+header = """
+  \u001B[31;1m \u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
+  \u001B[31;1m>>\u001B[0;1m """
+indicator_with_arg_module = "$ "
+indicator_no_arg_module = "^ "
+place_holder = "type something..."
+suggestion_mode = "hint"
+prefix_color = "\u001B[33m"
+description_color = "\u001B[39m"
+place_holder_color = "\u001B[30m"
+hint_color = "\u001B[90m"
+
+[overlay]
+overlay_cmd = "chafa -s x6 $HOME/.config/otter-launcher/otter_shocked.webp"
+move_overlay_right = 2
+move_overlay_down = 1
+
 ```
