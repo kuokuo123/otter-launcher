@@ -69,6 +69,10 @@ Put a config at $HOME/.config/otter-launcher/config.toml. The [default config](h
 
 Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in AUR installation.
 
+The default config comes with a [chafa capybara](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to demonstrate how image integration works. Remove the capybara by modifying overlay_cmd in the config file.
+
+![Example Config](./assets/default.png)
+
 The confing file encompasses four parts:
 
 - [general] includes generic options
@@ -77,10 +81,6 @@ The confing file encompasses four parts:
 - [[modules]] can be configured through bash scripting in an unlimited number
 
 All the available options are listed below. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
-
-Since v0.6.1, the default config comes with riced fzf modules, and a chafa otter to demonstrate how image integration works. v0.6.0 comes with a pikachu.
-
-![Example Config](./assets/default.png)
 
 ``` toml
 [general]
@@ -110,9 +110,9 @@ header_cmd_trimmed_lines = 0 # remove trailing lines from header_cmd output, in 
 header_concatenate = false # print header and header_cmd output to the same line, default to false
 place_holder = "otterly awesome" # at the input field
 suggestion_mode = "list" # available options: list, hint
-separator = "                      \u001B[90mmodules ────────────────" # add a line between intput field and suggestion list; only effective in list mode
+separator = "                  \u001B[90mmodules ────────────────" # add a line between intput field and suggestion list; only effective in list mode
 footer = "" # add a line after suggestion list
-suggestion_lines = 4 # 0 to disable suggestions and tab completion
+suggestion_lines = 3 # 0 to disable suggestions and tab completion
 list_prefix = "  "
 selection_prefix = "\u001B[31;1m▌ "
 prefix_padding = 3 # format prefixes to have a uniformed width
@@ -127,7 +127,7 @@ description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m" # suggestion color in hint mode
 # move the interface rightward or downward
-move_interface_right = 20
+move_interface_right = 16
 move_interface_down = 1
 
 

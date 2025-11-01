@@ -47,9 +47,9 @@ header_cmd_trimmed_lines = 0 # remove trailing lines from header_cmd output, in 
 header_concatenate = false # print header and header_cmd output to the same line, default to false
 place_holder = "otterly awesome" # at the input field
 suggestion_mode = "list" # available options: list, hint
-separator = "                      \u001B[90mmodules ────────────────" # add a line between intput field and suggestion list; only effective in list mode
+separator = "                  \u001B[90mmodules ────────────────" # add a line between intput field and suggestion list; only effective in list mode
 footer = "" # add a line after suggestion list
-suggestion_lines = 4 # 0 to disable suggestions and tab completion
+suggestion_lines = 3 # 0 to disable suggestions and tab completion
 list_prefix = "  "
 selection_prefix = "\u001B[31;1m▌ "
 prefix_padding = 3 # format prefixes to have a uniformed width
@@ -64,7 +64,7 @@ description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[30m" # suggestion color in hint mode
 # move the interface rightward or downward
-move_interface_right = 20
+move_interface_right = 16
 move_interface_down = 1
 
 
@@ -102,7 +102,7 @@ find "$HOME/.local/share/applications" -name "*.desktop" 2>/dev/null
 find /var/lib/flatpak/exports/share/applications -name "*.desktop" 2>/dev/null
 find "$HOME/.local/share/flatpak/exports/share/applications" -name "*.desktop" 2>/dev/null
 }
-selected="$(desktop_file | sed 's/.desktop$//g' | sort | fzf --reverse --padding 1,3 --info-command 'echo -e " desktop apps ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter " " --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' -m -d / --with-nth -1 )"
+selected="$(desktop_file | sed 's/.desktop$//g' | sort | fzf --padding 1,3 --info-command 'echo -e " desktop apps ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter " " --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' -m -d / --with-nth -1 )"
 [ -z "$selected" ] && exit
 echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $line)"; done
 """
@@ -120,7 +120,7 @@ case $1 in
 "reboot") systemctl reboot ;;
 "shutdown") systemctl poweroff ;;
 esac fi }
-power $(echo -e 'reboot\nshutdown\nlogout\nsuspend\nhibernate' | fzf --reverse --padding 1,2 --info-command 'printf " power menu ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter " " --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' | tail -1)
+power $(echo -e 'reboot\nshutdown\nlogout\nsuspend\nhibernate' | fzf --padding 1,2 --info-command 'printf " power menu ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter " " --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' | tail -1)
 """
 
 [[modules]]
@@ -168,12 +168,12 @@ unbind_proc = true
 description = "open files (fzf)"
 prefix = "fo"
 cmd = """
-find $HOME -type f -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding 1,3 --info-command 'printf " files ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter ' ' --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | setsid -f xargs -r -I [] xdg-open '[]'
+find $HOME -type f -not -path '*/.cache/*' 2>/dev/null | fzf --padding 1,3 --info-command 'printf " files ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter ' ' --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | setsid -f xargs -r -I [] xdg-open '[]'
 """
 
 [[modules]]
 description = "open dirs (yazi)"
 prefix = "yz"
 cmd = """
-find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding 1,3 --info-command 'printf " directories ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter ' ' --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
+find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --padding 1,3 --info-command 'printf " directories ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter ' ' --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
 """
