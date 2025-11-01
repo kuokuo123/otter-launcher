@@ -13,7 +13,17 @@ The core concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder. Use your wm's window rules to control its window size.
+Use your wm's window rules to control its window size. Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
+
+# Table of Contents
+
+- [Overview](#otter-launcher)
+- [Demo](#demo)
+- [Features](#features)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Integration](#integration)
+- [Stylling](#styling)
 
 # Demo
 
@@ -269,7 +279,7 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
 
 4. It's recommended to setup a dedicated desktop app launcher as a module, like [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash) or [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
 
-# Examples for Styling
+# Styling
 
 ## Two Liner in Hint Mode
 
