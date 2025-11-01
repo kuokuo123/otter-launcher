@@ -2164,20 +2164,12 @@ fn main() {
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
-        KeyEvent::new('j', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListItemDown)),
-    );
-    rl.bind_sequence(
         KeyEvent(KeyCode::Down, Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListItemDown)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Down, Modifiers::CTRL),
         EventHandler::Conditional(Box::from(ListItemDown)),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('k', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Up, Modifiers::NONE),
@@ -2202,10 +2194,6 @@ fn main() {
     rl.bind_sequence(
         KeyEvent(KeyCode::Left, Modifiers::CTRL),
         EventHandler::Simple(Cmd::Kill(Movement::BackwardChar(1))),
-    );
-    rl.bind_sequence(
-        KeyEvent::new('l', Modifiers::CTRL),
-        EventHandler::Conditional(Box::from(ListItemSelect)),
     );
     rl.bind_sequence(
         KeyEvent(KeyCode::Right, Modifiers::NONE),
