@@ -322,6 +322,28 @@ move_interface_down = 1
 move_interface_right = 1
 ```
 
+## Pfetch
+
+![pfetch](./assets/pfetch.png)
+
+Fastfetch loses colors in piping, whilst other fetches don't. Here's an example using pfetch.
+
+``` toml
+[interface]
+header_cmd = "printf '\n'; pfetch"
+header_cmd_trimmed_lines = 2
+header = """
+    \u001B[36;7;1m otter- \u001B[0m      \u001B[34;1mlaunch\u001B[0;1m """
+indicator_with_arg_module = "$ "
+indicator_no_arg_module = "^ "
+place_holder = "type & search"
+suggestion_mode = "hint"
+prefix_color = "\u001B[33m"
+description_color = "\u001B[39m"
+place_holder_color = "\u001B[30m"
+hint_color = "\u001B[90m"
+```
+
 ## Image Protocol
 
 This config uses chafa in header_cmd to render the image.
@@ -425,11 +447,14 @@ hint_color = "\u001B[90m"
 
 ![cover_pic2](./assets/cover2.png)
 
-This custom script use ansi control codes to print texts to the right of a sixel [shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp). Modify the script to suit your need.
+This custom script use ansi control codes to print texts to the right of a sixel [shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp). Modify the script to suit your needs.
 
 ```toml
-[interface]
+# delay startup to wait for sixel execution
+[general]
+delay_startup = 10
 
+[interface]
 header_cmd = """
 # The text to be printed should be written between the two "EOF"s
 # The path of the image to be displayed
