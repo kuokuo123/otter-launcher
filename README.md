@@ -67,9 +67,9 @@ Put a config at $HOME/.config/otter-launcher/config.toml. The [default config](h
 
 # Configuration
 
-Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in AUR installation.
+Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation.
 
-The default config comes with a [chafa capybara](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to demonstrate how image integration works. Remove the capybara by modifying overlay_cmd in the config file.
+The default config comes with a [capybara](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to demonstrate how image integration works. Remove it by modifying overlay_cmd in the config file.
 
 ![Example Config](./assets/default.png)
 
@@ -244,7 +244,9 @@ find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding
 
 # Integration
 
-Otter-launcher works well with tui programs, and module.cmd can be scripted to adjust window sizes. In the below example, otter-launcher changes window size before and after running pulsemixer by calling swaymsg:
+Otter-launcher works well with tui, cli programs, and bash pipelines. Some trick tips:
+
+1. [[modules]].cmd can be scripted to adjust window sizes. For example:
 
 ``` toml
 [[modules]]
@@ -253,17 +255,19 @@ prefix = "vol"
 cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pulsemixer; swaymsg [app_id=otter-launcher] resize set width 600 px height 60 px"
 ```
 
-Some recommendations of tui utilities that works really well:
+2. Check out the [wiki page](https://github.com/kuokuo123/otter-launcher/wiki) to see more integration examples, like vpn, ppd, cups, wifi, etc.
 
-- Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) [fsel](https://github.com/Mjoyufull/fsel)
-- Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
-- Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
-- Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
-- Spotify: [spotify_player](https://github.com/aome510/spotify-player)
-- Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
-- More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
+3. Some tui utilities that works really well:
 
-Also, it's recommended to setup a dedicated desktop app launcher as a module, like [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (more mature) or [fsel](https://github.com/Mjoyufull/fsel) (developing). The one that comes in default config is just a simple script finding into regular POSIX dirs and flatpak. If your apps are from different sources, it won't show.
+    - Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) [fsel](https://github.com/Mjoyufull/fsel)
+    - Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
+    - Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
+    - Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
+    - Spotify: [spotify_player](https://github.com/aome510/spotify-player)
+    - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
+    - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
+
+4. It's recommended to setup a dedicated desktop app launcher as a module, like [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash) or [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
 
 # Examples for Styling
 
