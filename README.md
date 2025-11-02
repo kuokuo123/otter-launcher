@@ -15,7 +15,7 @@ The core concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-Use your wm's window rules to control its window size. Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
+Use your wm's window rules to control its window size, and make it large enough to contain the printed content to prevent a skewed layout. Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
 # Table of Contents
 
@@ -92,7 +92,7 @@ The confing file encompasses four parts:
 - [overlay] includes options releated to image integration
 - [[modules]] can be configured through bash scripting in an unlimited number
 
-All the available options are listed below. Also, check [more examples of module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
+All the available options are listed below. Also, check [more examples for module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
 ``` toml
 [general]
@@ -106,7 +106,7 @@ cheatsheet_entry = "?" # when prompted, will show a list of configured modules
 cheatsheet_viewer = "less -R; clear" # command to show cheatsheet; through piping stdout
 clear_screen_after_execution = false
 loop_mode = false # don't quit after executing a module, useful with scratchpads
-external_editor = "vi" # if set, press alt+e (or v in vi normal mode) to edit prompt in the specified program
+external_editor = "vi" # if set, press ctrl+x ctrl+ee (or v in vi normal mode) to edit prompt in the specified program
 delay_startup = 0 # sometimes the otter runs too fast even before the terminal window is ready; this slows it down by milliseconds; useful when chafa image is skewed
 #callback = "" # if set, will run after module execution; for example, calling swaymsg to adjust window size
 
