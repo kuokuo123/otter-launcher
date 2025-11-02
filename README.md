@@ -150,7 +150,7 @@ cat /etc/otter-launcher/pikachu.example \
 || echo -e "The file pickachu.example is not found. Pikachu can be at the below blank area. Fix this by modifying the overlay_cmd option in your config file.\n\n"
 """
 overlay_trimmed_lines = 0 # remove trailing lines from overlay_cmd output
-overlay_height = 0 # set overlay size; 0 to be auto; 1 is one line, 2 two lines, etc; kitty & sixel image size can be determined automatically; others should be set mannually
+overlay_height = 0 # set overlay size; 0 to be auto; 1 is one line, 2 two lines, etc; kitty & sixel image size can be determined automatically; others should be set mannually; try modify this whenever you meet issues releated to image height
 move_overlay_right = 0 # move the overlay layer around for theming
 move_overlay_down = 0
 
@@ -159,10 +159,10 @@ move_overlay_down = 0
 [[modules]]
 description = "google search"
 prefix = "gg"
-cmd = "xdg-open https://www.google.com/search?q='{}'" # try wm's exec command for unbinding if 'setsid -f' does not work as expected, eg. 'hyprctl dispatch exec'
+cmd = "xdg-open https://www.google.com/search?q='{}'"
 with_argument = true # if true, {} in cmd will be replaced with user input. if not explicitly set, taken as false.
 url_encode = true # should be true when calling webpages; this ensures special characters in url being readable to browsers; taken as false if not explicitly set
-unbind_proc = true # run cmd in a forked shell as opposed to as a child process; useful for launching gui programs; taken as false if not explicitly set
+unbind_proc = true # run cmd in a forked shell as opposed to as a child process (simply by prepending setsid -f to the configured cmd); useful for launching gui programs; taken as false if not explicitly set; try wm's exec command for unbinding if this option goes wrong (like swaymsg exec)
 
 # fzf is needed to run below functions
 [[modules]]
@@ -278,7 +278,9 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
     - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
     - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
 
-4. It's recommended to setup a dedicated desktop app launcher as a module, like [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash) or [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
+4. It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash speed). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
+
+5. If you want to change the window size of the external editor, call a wrapper script at general.external_editor. Examples of such a wrapper is in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder.
 
 # Styling
 
@@ -431,15 +433,19 @@ delay_startup = 10
 
 [interface]
 header_cmd = """
-# The text to be printed should be written between the two "EOF"s
+
 # The path of the image to be displayed
 image_file="$HOME/.config/otter-launcher/images/images_other/otter_shocked.webp"
+
 # Set the image's width and height, which decide the position of printed texts
 image_width=17
 image_height=6
+
 # pad the image with spaces
 image_padding_top=1
 image_padding_left=2
+
+# The text to be printed should be written between the two "EOF"s
 printed_lines=$(cat << EOF
 \u001B[90m
 ░█▀█░▀█▀░▀█▀░█▀▀░█▀█░░░░░ ░ ░

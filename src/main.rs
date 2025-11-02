@@ -1636,9 +1636,9 @@ fn run_module_command_unbind_proc(mod_cmd_arg: &str) {
     shell_cmd
         .arg("setsid -f ".to_owned() + mod_cmd_arg)
         .spawn()
-        .expect("failed to launch run_module_command()")
+        .expect("failed to launch run_module_command_unbind_proc()")
         .wait()
-        .expect("failed to wait for run_module_command()");
+        .expect("failed to wait for run_module_command_unbind_proc()");
 }
 
 // function to run empty & default modules
@@ -2313,10 +2313,10 @@ fn main() {
                 if module.with_argument.unwrap_or(false) {
                     if module.unbind_proc.unwrap_or(false) {
                         run_module_command_unbind_proc(
-                            &module.cmd.replace("{}", &argument).to_string(),
+                            &module.cmd.replace("{}", &argument),
                         );
                     } else {
-                        run_module_command(&module.cmd.replace("{}", &argument).to_string());
+                        run_module_command(&module.cmd.replace("{}", &argument));
                     }
                 // Condition 2: when user input is exactly the same as the no-arg module
                 } else if remove_ascii(&module.prefix) == prompt.trim_end() {

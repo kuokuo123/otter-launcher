@@ -75,7 +75,7 @@ cat /etc/otter-launcher/pikachu.example \
 || echo -e "The file pickachu.example is not found. Pikachu can be at the below blank area. Fix this by modifying the overlay_cmd option in your config file.\n\n"
 """
 overlay_trimmed_lines = 0 # remove trailing lines from overlay_cmd output
-overlay_height = 0 # set overlay size; 0 to be auto; 1 is one line, 2 two lines, etc; kitty & sixel image size can be determined automatically; others should be set mannually
+overlay_height = 0 # set overlay size; 0 to be auto; 1 is one line, 2 two lines, etc; kitty & sixel image size can be determined automatically; others should be set mannually; try modify this whenever you meet issues releated to image height
 move_overlay_right = 0 # move the overlay layer around for theming
 move_overlay_down = 0
 
@@ -84,10 +84,10 @@ move_overlay_down = 0
 [[modules]]
 description = "google search"
 prefix = "gg"
-cmd = "xdg-open https://www.google.com/search?q='{}'" # try wm's exec command for unbinding if 'setsid -f' does not work as expected, eg. 'hyprctl dispatch exec'
+cmd = "xdg-open https://www.google.com/search?q='{}'"
 with_argument = true # if true, {} in cmd will be replaced with user input. if not explicitly set, taken as false.
 url_encode = true # should be true when calling webpages; this ensures special characters in url being readable to browsers; taken as false if not explicitly set
-unbind_proc = true # run cmd in a forked shell as opposed to as a child process; useful for launching gui programs; taken as false if not explicitly set
+unbind_proc = true # run cmd in a forked shell as opposed to as a child process (simply by prepending setsid -f to the configured cmd); useful for launching gui programs; taken as false if not explicitly set
 
 # fzf is needed to run below functions
 [[modules]]
