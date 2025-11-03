@@ -26,6 +26,12 @@ The core concept is making these behaviours possible:
 
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
+<div align="center">
+
+![cover_pic](./assets/cover.png)
+
+</div>
+
 # Features
 
 - modularized to run different commands
@@ -44,7 +50,6 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 <div align="center">
 
 ![cover2](./assets/cover2.png)
-![cover_pic](./assets/cover.png)
 
 </div>
 
