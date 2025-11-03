@@ -301,18 +301,24 @@ hint_color = "\u001B[90m"
 
 ## Pfetch
 
-![pfetch](./assets/pfetch.png)
+![fastfetch](./assets/fastfetch.png)
 
-Fastfetch loses colors in piping, whilst other fetches don't. Here's an example using pfetch.
+Since v0.6.4 fastfetch in interface.header_cmd is supported. It works without extra settings.
+
+However, fastfetch comes with its own "pipe mode" that sometimes does not pipe colors, so using it in overlay.overlay_cmd will need an extra switch "fastfetch --pipe false". 
 
 ``` toml
 [interface]
-header_cmd = "printf '\n'; pfetch"
-header_cmd_trimmed_lines = 2
-header = """
-    \u001B[36;7;1m otter- \u001B[0m      \u001B[34;1mlaunch\u001B[0;1m """
-indicator_with_arg_module = "$ "
-indicator_no_arg_module = "^ "
+header_cmd = """
+printf "\n"
+fastfetch \
+    --structure colors:break:title:os:shell:kernel:uptime \
+    --logo-print-remaining false \
+    --logo-height 8 \
+    --logo-padding-left 3 \
+    --sixel $HOME/.config/otter-launcher/images/images_squ/archlinux_chan.jpg
+"""
+header = "   \u001B[33;1m  otterly awesome \u001B[0m  \u001B[36;1m:\u001B[0;1m "
 place_holder = "type & search"
 suggestion_mode = "hint"
 prefix_color = "\u001B[33m"
