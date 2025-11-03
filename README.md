@@ -10,19 +10,7 @@
 
 ![fastfetch](./assets/fastfetch.png)
 
-![cover2](./assets/cover2.png)
-
 </div>
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Demo](#demo)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Integration](#integration)
-- [Stylling](#styling)
 
 ## Overview
 
@@ -38,12 +26,6 @@ The core concept is making these behaviours possible:
 
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
-<div align="center">
-
-![cover_pic](./assets/cover.png)
-
-</div>
-
 # Features
 
 - modularized to run different commands
@@ -58,6 +40,23 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 - callback function
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - minimalist, blazingly fast, keyboard-centric
+
+<div align="center">
+
+![cover2](./assets/cover2.png)
+![cover_pic](./assets/cover.png)
+
+</div>
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Demo](#demo)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Integration](#integration)
+- [Stylling](#styling)
 
 # Demo
 
