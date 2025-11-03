@@ -965,7 +965,8 @@ impl ConditionalEventHandler for ExternalEditor {
     ) -> Option<Cmd> {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
-            || ctx.mode() == rustyline::EditMode::Emacs && *CTRLX_LOCK.get_or_init(|| Mutex::new(0)).lock().unwrap() == 1
+            || ctx.mode() == rustyline::EditMode::Emacs
+                && *CTRLX_LOCK.get_or_init(|| Mutex::new(0)).lock().unwrap() == 1
         {
             let editor = cached_statics(&EXTERNAL_EDITOR, || "".to_string());
             let mut file_path = env::temp_dir();
@@ -2211,31 +2212,26 @@ fn main() {
         let layout_down = cached_statics(&LAYOUT_DOWNWARD, || 0);
 
         // print from header commands
+        let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, || 0);
         let header_cmd = cached_statics(&HEADER_CMD, String::new);
-        let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
-        let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-        let mut shell_cmd = Command::new(cmd_parts[0]);
-        for arg in &cmd_parts[1..] {
-            shell_cmd.arg(arg);
-        }
-        let output = shell_cmd
-            .arg(&header_cmd)
-            .output()
-            .expect("Failed to launch header command...");
-        if output.status.success() {
-            let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, || 0);
-            let header_cmd_stdout = from_utf8(&output.stdout).unwrap();
-            let lines: Vec<&str> = header_cmd_stdout.lines().collect();
-            let remaining_lines = if lines.len() >= remove_lines_count {
-                lines[..lines.len() - remove_lines_count].join("\n")
-            } else {
-                "not enough lines of header_cmd output to be trimmed".to_string()
-            };
-            if !remaining_lines.is_empty() {
-                println!("{}", remaining_lines);
+        if !header_cmd.is_empty() {
+            let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+            let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+            let mut shell_cmd = Command::new(cmd_parts[0]);
+            for arg in &cmd_parts[1..] {
+                shell_cmd.arg(arg);
             }
-        } else {
-            eprintln!("header_cmd failed to run with status: {}", output.status);
+            let status = shell_cmd
+                .arg(&header_cmd)
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .status()
+                .expect("Failed to launch header command...");
+
+            if !status.success() {
+                eprintln!("header_cmd failed to run with status: {}", status);
+            }
+            println!("\x1b[{}A", remove_lines_count + 1)
         }
 
         // print header
@@ -2312,9 +2308,7 @@ fn main() {
                 // Condition 1: when the selected module runs with arguement
                 if module.with_argument.unwrap_or(false) {
                     if module.unbind_proc.unwrap_or(false) {
-                        run_module_command_unbind_proc(
-                            &module.cmd.replace("{}", &argument),
-                        );
+                        run_module_command_unbind_proc(&module.cmd.replace("{}", &argument));
                     } else {
                         run_module_command(&module.cmd.replace("{}", &argument));
                     }
