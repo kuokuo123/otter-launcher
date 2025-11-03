@@ -3,11 +3,10 @@
 
 <div align="center">
 
+![cover2](./assets/cover2.png)
+
   ![License](https://img.shields.io/badge/license-GPL_3.0-blue?style=flat-square)
   ![written in Rust](https://img.shields.io/badge/language-rust-red.svg?style=flat-square)
-
-![fastfetch](./assets/fastfetch.png)
-![cover2](./assets/cover2.png)
 
 </div>
 
@@ -25,6 +24,7 @@
 
 <div align="center">
 
+![fastfetch](./assets/fastfetch.png)
 
 </div>
 
