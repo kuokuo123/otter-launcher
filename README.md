@@ -1,18 +1,22 @@
 
-# otter-launcher
-
 <div align="center">
 
-![cover2](./assets/cover2.png)
+![fastfetch](./assets/logo2.png)
+
+*minimalist, blazingly fast, keyboard-centric*
 
   ![License](https://img.shields.io/badge/license-GPL_3.0-blue?style=flat-square)
   ![written in Rust](https://img.shields.io/badge/language-rust-red.svg?style=flat-square)
+
+![fastfetch](./assets/fastfetch.png)
+
+![cover2](./assets/cover2.png)
 
 </div>
 
 ## Table of Contents
 
-- [Overview](#otter-launcher)
+- [Overview](#overview)
 - [Features](#features)
 - [Demo](#demo)
 - [Installation](#installation)
@@ -21,12 +25,6 @@
 - [Stylling](#styling)
 
 ## Overview
-
-<div align="center">
-
-![fastfetch](./assets/fastfetch.png)
-
-</div>
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
@@ -40,13 +38,13 @@ The core concept is making these behaviours possible:
 
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
-# Features
-
 <div align="center">
 
 ![cover_pic](./assets/cover.png)
 
 </div>
+
+# Features
 
 - modularized to run different commands
 - vi and emacs keybinds
