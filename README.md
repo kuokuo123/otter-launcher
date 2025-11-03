@@ -2,7 +2,7 @@
 # otter-launcher
 
 ![fastfetch](./assets/fastfetch.png)
-![cover_pic](./assets/cover.png)
+![cover2](./assets/cover2.png)
 
 ## Table of Contents
 
@@ -28,7 +28,7 @@ The core concept is making these behaviours possible:
 
 Use your wm's window rules to control its window size, and make it large enough to contain the printed content to prevent a skewed layout. Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
-![cover2](./assets/cover2.png)
+![cover_pic](./assets/cover.png)
 
 # Features
 
@@ -82,20 +82,20 @@ Put a config at $HOME/.config/otter-launcher/config.toml. The [default config](h
 
 # Configuration
 
-Otter-launcher reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation.
+Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation.
 
 The default config comes with a [capybara](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to demonstrate how image integration works. Remove it by modifying overlay_cmd in the config file.
 
 ![Example Config](./assets/default.png)
 
-The confing file encompasses four parts:
+The confing has four sections:
 
 - [general] includes generic options
 - [interface] includes options related to user interface
 - [overlay] includes options releated to image integration
 - [[modules]] can be configured through bash scripting in an unlimited number
 
-All the available options are listed below. Also, check [more examples for module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
+All the available options are listed below. Check [more examples for module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
 ``` toml
 [general]
@@ -258,7 +258,7 @@ find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding
 
 # Integration
 
-Otter-launcher works well with tui, cli programs, and bash pipelines. Some trick tips:
+Otter-launcher works well with tui, cli programs, and bash pipelines. Some tricktips:
 
 1. [[modules]].cmd can be scripted to adjust window sizes. For example:
 
@@ -308,7 +308,7 @@ hint_color = "\u001B[90m"
 
 Since v0.6.4 fastfetch in interface.header_cmd is supported. It works without extra settings.
 
-However, fastfetch comes with its own "pipe mode" that sometimes does not pipe colors, so using it in overlay.overlay_cmd will need an extra switch "fastfetch --pipe false". 
+However, fastfetch comes with its own "pipe mode" that sometimes does not pipe colors, so using it in overlay.overlay_cmd should turn an extra switch "fastfetch --pipe false". 
 
 ``` toml
 [interface]
@@ -332,7 +332,7 @@ hint_color = "\u001B[90m"
 
 ## Image Protocol
 
-This config uses chafa in header_cmd to render the image.
+Using chafa in header_cmd to render the image.
 
 ![Foot Config](./assets/foot.png)
 
@@ -359,7 +359,7 @@ hint_color = "\u001B[90m"
 
 ## Image to the Left
 
-This config renders chafa image by overlay_cmd at the left, and move the whole inteface to the right.
+Rendering chafa image by overlay_cmd at the left, moving the inteface to the right.
 
 ![Chafa-text Config](./assets/soothing.png)
 
@@ -390,7 +390,7 @@ move_interface_down = 2
 
 ## Image to the Right
 
-This config also renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png) using overlay_cmd, and then move the overlay to the right.
+This config renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png) using overlay_cmd, and then move the overlay right.
 
 ![Prinny Config](./assets/prinny.png)
 
