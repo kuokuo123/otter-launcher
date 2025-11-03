@@ -1,9 +1,20 @@
 
 # otter-launcher
 
-![cover_pic2](./assets/cover2.png)
-
+![fastfetch](./assets/fastfetch.png)
 ![cover_pic](./assets/cover.png)
+
+## Table of Contents
+
+- [Overview](#otter-launcher)
+- [Features](#features)
+- [Demo](#demo)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Integration](#integration)
+- [Stylling](#styling)
+
+## Overview
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
@@ -17,25 +28,7 @@ The core concept is making these behaviours possible:
 
 Use your wm's window rules to control its window size, and make it large enough to contain the printed content to prevent a skewed layout. Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
-# Table of Contents
-
-- [Overview](#otter-launcher)
-- [Demo](#demo)
-- [Features](#features)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Integration](#integration)
-- [Stylling](#styling)
-
-# Demo
-
-Workflow
-
-![Demo Gif](./assets/demo.gif)
-
-External Editor & List Selection
-
-![Menu Demo](./assets/demo_menu.gif)
+![cover2](./assets/cover2.png)
 
 # Features
 
@@ -51,6 +44,16 @@ External Editor & List Selection
 - callback function
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - minimalist, blazingly fast, keyboard-centric
+
+# Demo
+
+Workflow
+
+![Demo Gif](./assets/demo.gif)
+
+External Editor & List Selection
+
+![Menu Demo](./assets/demo_menu.gif)
 
 # Installation
 
@@ -299,7 +302,7 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
-## Pfetch
+## Fastfetch
 
 ![fastfetch](./assets/fastfetch.png)
 
