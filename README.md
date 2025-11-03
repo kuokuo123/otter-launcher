@@ -1,8 +1,15 @@
 
 # otter-launcher
 
+<div align="center">
+
+  ![License](https://img.shields.io/badge/license-GPL_3.0-blue?style=flat-square)
+  ![written in Rust](https://img.shields.io/badge/language-rust-red.svg?style=flat-square)
+
 ![fastfetch](./assets/fastfetch.png)
 ![cover2](./assets/cover2.png)
+
+</div>
 
 ## Table of Contents
 
@@ -16,6 +23,11 @@
 
 ## Overview
 
+<div align="center">
+
+
+</div>
+
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
 
 The core concept is making these behaviours possible:
@@ -26,11 +38,15 @@ The core concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-Use your wm's window rules to control its window size, and make it large enough to contain the printed content to prevent a skewed layout. Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
+Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
+
+# Features
+
+<div align="center">
 
 ![cover_pic](./assets/cover.png)
 
-# Features
+</div>
 
 - modularized to run different commands
 - vi and emacs keybinds
@@ -47,13 +63,21 @@ Use your wm's window rules to control its window size, and make it large enough 
 
 # Demo
 
-Workflow
+> Workflow
+
+<div align="center">
 
 ![Demo Gif](./assets/demo.gif)
 
-External Editor & List Selection
+</div>
+
+>External editor, list selection, and cheatsheet
+
+<div align="center">
 
 ![Menu Demo](./assets/demo_menu.gif)
+
+</div>
 
 # Installation
 
@@ -86,7 +110,11 @@ Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks 
 
 The default config comes with a [capybara](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to demonstrate how image integration works. Remove it by modifying overlay_cmd in the config file.
 
+<div align="center">
+
 ![Example Config](./assets/default.png)
+
+</div>
 
 The confing has four sections:
 
@@ -260,7 +288,9 @@ find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding
 
 Otter-launcher works well with tui, cli programs, and bash pipelines. Some tricktips:
 
-1. [[modules]].cmd can be scripted to adjust window sizes. For example:
+1. Use your wm's window rules to control its window size, and make it large enough to contain the printed content to prevent a skewed layout.
+
+2. [[modules]].cmd can be scripted to adjust window sizes. For example:
 
 ``` toml
 [[modules]]
@@ -269,9 +299,9 @@ prefix = "vol"
 cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pulsemixer; swaymsg [app_id=otter-launcher] resize set width 600 px height 60 px"
 ```
 
-2. Check out the [wiki page](https://github.com/kuokuo123/otter-launcher/wiki) to see more integration examples, like vpn, ppd, cups, wifi, etc.
+3. Check out the [wiki page](https://github.com/kuokuo123/otter-launcher/wiki) to see more integration examples, like vpn, ppd, cups, wifi, etc.
 
-3. Some tui utilities that works really well:
+4. Some tui utilities that works really well:
 
     - Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) [fsel](https://github.com/Mjoyufull/fsel)
     - Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
@@ -281,15 +311,19 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
     - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
     - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
 
-4. It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash speed). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
+5. It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash speed). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
 
-5. If you want to change the window size of the external editor, call a wrapper script at general.external_editor. Examples of such a wrapper is in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder.
+6. If you want to change the window size of the external editor, call a wrapper script at general.external_editor. Examples of such a wrapper is in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder.
 
 # Styling
 
 ## Two Liner in Hint Mode
 
+<div align="center">
+
 ![Two_liner Config](./assets/two_liner.png)
+
+</div>
 
 ```toml
 [interface]
@@ -304,7 +338,11 @@ hint_color = "\u001B[90m"
 
 ## Fastfetch
 
+<div align="center">
+
 ![fastfetch](./assets/fastfetch.png)
+
+</div>
 
 Since v0.6.4 fastfetch in interface.header_cmd is supported. It works without extra settings.
 
@@ -334,9 +372,13 @@ hint_color = "\u001B[90m"
 
 Using chafa in header_cmd to render the image.
 
+<div align="center">
+
 ![Foot Config](./assets/foot.png)
 
 [Image Source: Artist Kat Corrigan & MWMO Stormwater Park](https://www.mwmo.org/learn/visit-us/exhibits/waterways-and-otterways/)
+
+</div>
 
 ``` toml
 [interface]
@@ -361,7 +403,11 @@ hint_color = "\u001B[90m"
 
 Rendering chafa image by overlay_cmd at the left, moving the inteface to the right.
 
+<div align="center">
+
 ![Chafa-text Config](./assets/soothing.png)
+
+</div>
 
 ```toml
 [overlay]
@@ -392,7 +438,11 @@ move_interface_down = 2
 
 This config renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png) using overlay_cmd, and then move the overlay right.
 
+<div align="center">
+
 ![Prinny Config](./assets/prinny.png)
+
+</div>
 
 ```toml
 [overlay]
@@ -431,7 +481,11 @@ hint_color = "\u001B[90m"
 
 ## Otter Shocked
 
+<div align="center">
+
 ![cover_pic2](./assets/cover2.png)
+
+</div>
 
 This custom script use ansi control codes to print texts to the right of a sixel [shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp). Modify the script to suit your needs.
 
