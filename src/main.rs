@@ -1609,7 +1609,7 @@ fn expand_env_vars(input: &str) -> String {
 }
 
 // function to run module.cmd
-fn run_module_command(mod_cmd_arg: &str) {
+fn run_module_command(mod_cmd_arg: String) {
     // format the shell command by which the module commands are launched
     let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
@@ -1657,41 +1657,18 @@ fn run_designated_module(prompt: String, prfx: String) {
 
         // run the module's command
         if target_module.unbind_proc.unwrap_or(false) {
-            run_module_command(
-                &("setsid -f ".to_owned() + &target_module
-                    .cmd
-                    .replace("{}", &prompt_wo_prefix)),
-            );
+            run_module_command(format!(
+                "setsid -f {}",
+                target_module.cmd.replace("{}", &prompt_wo_prefix)
+            ));
         } else {
             run_module_command(
-                &target_module
+                target_module
                     .cmd
                     .replace("{}", &prompt_wo_prefix)
                     .to_string(),
             );
         }
-    }
-}
-
-// function to run general.callback
-fn general_callback() {
-    // check if general.callback if set
-    let callback = cached_statics(&CALLBACK, || "".to_string());
-    if !callback.is_empty() {
-        // format exec_cmd
-        let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
-        let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-        let mut cb_cmd = Command::new(cmd_parts[0]);
-        for arg in &cmd_parts[1..] {
-            cb_cmd.arg(arg);
-        }
-        // run callback
-        cb_cmd
-            .arg(callback)
-            .spawn()
-            .expect("failed to launch general.callback")
-            .wait()
-            .expect("failed to wait the execution of general.callback");
     }
 }
 
@@ -1749,7 +1726,6 @@ fn kitty_rows(s: &str) -> Option<usize> {
 }
 
 // functions to measure sixel graphics height (raster row, not terminal row, string between ESC P and ST)
-#[inline]
 fn sixel_block_raster_rows(body: &str) -> Option<usize> {
     // sixel data starts after the first 'q'
     let idx = body.find('q')?;
@@ -2291,16 +2267,19 @@ fn main() {
                 // Condition 1: when the selected module runs with arguement
                 if module.with_argument.unwrap_or(false) {
                     if module.unbind_proc.unwrap_or(false) {
-                        run_module_command(&("setsid -f ".to_owned() + &module.cmd.replace("{}", &argument)));
+                        run_module_command(format!(
+                            "setsid -f {}",
+                            module.cmd.replace("{}", &argument)
+                        ));
                     } else {
-                        run_module_command(&module.cmd.replace("{}", &argument));
+                        run_module_command(module.cmd.replace("{}", &argument));
                     }
                 // Condition 2: when user input is exactly the same as the no-arg module
                 } else if remove_ascii(&module.prefix) == prompt.trim_end() {
                     if module.unbind_proc.unwrap_or(false) {
-                        run_module_command(&("setsid -f ".to_owned() + &module.cmd));
+                        run_module_command(format!("setsid -f {}", module.cmd));
                     } else {
-                        run_module_command(&module.cmd);
+                        run_module_command(module.cmd.to_owned());
                     }
                 // Condition 3: when no-arg modules is running with arguement
                 } else {
@@ -2399,7 +2378,11 @@ fn main() {
         }
 
         // run general.callback
-        general_callback();
+        let callback = cached_statics(&CALLBACK, || "".to_string());
+        if !callback.is_empty() {
+            run_module_command(format!("setsid -f {}",callback))
+        }
+
         // if not in loop_mode, quit the process
         if !loop_switch {
             break;
