@@ -2239,6 +2239,12 @@ fn main() {
         let mut loop_switch = cached_statics(&LOOP_MODE, || false);
         let clear_switch = cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, || false);
 
+        // clear screen if clear_screen_after_execution is on
+        if clear_switch {
+            print!("\x1B[2J\x1B[1;1H");
+            std::io::stdout().flush().expect("failed to flush stdout");
+        }
+
         // matching the prompted prefix with module prefixes to decide what to do
         let prompted_prfx = prompt.split_whitespace().next().unwrap_or("");
         let module_prfx = config()
@@ -2376,12 +2382,6 @@ fn main() {
         let callback = cached_statics(&CALLBACK, || "".to_string());
         if !callback.is_empty() {
             run_module_command(format!("setsid -f {}",callback))
-        }
-
-        // clear screen if clear_screen_after_execution is on
-        if clear_switch {
-            print!("\x1B[2J\x1B[1;1H");
-            std::io::stdout().flush().expect("failed to flush stdout");
         }
 
         // if not in loop_mode, quit the process
