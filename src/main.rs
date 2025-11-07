@@ -561,7 +561,7 @@ impl Hinter for OtterHelper {
         // measure overlay row height, using either kitty or sixel or raw lines
         let overlay_height_cached = cached_statics(&OVERLAY_HEIGHT, || 0);
         let overlay_height = if overlay_height_cached == 0 {
-            let overlay_line_count = overlay_lines.lines().collect::<Vec<_>>().len();
+            let overlay_line_count = overlay_lines.lines().count();
             if let Some(r) = kitty_rows(&overlay_lines) {
                 r + overlay_line_count - 1
             } else if let Some(r) = sixel_rows(&overlay_lines) {
@@ -572,7 +572,7 @@ impl Hinter for OtterHelper {
                 overlay_line_count
             }
         } else {
-            let overlay_line_count = overlay_lines.lines().collect::<Vec<_>>().len();
+            let overlay_line_count = overlay_lines.lines().count();
             if overlay_height_cached >= overlay_line_count {
                 overlay_height_cached
             } else {
@@ -816,7 +816,7 @@ impl Hinter for OtterHelper {
                             }
                         } else {
                             // calculate overlay padding, to maintain layout when printing at window bottom
-                            let empty_message_count = e_module.lines().collect::<Vec<_>>().len();
+                            let empty_message_count = e_module.lines().count();
                             let padded_line_count_local = if overlay_height + overlay_down
                                 > header_line_count
                                     + empty_message_count
@@ -852,7 +852,7 @@ impl Hinter for OtterHelper {
                             .get_or_init(|| Mutex::new("".to_string()))
                             .lock()
                             .unwrap() = "? ".to_string();
-                        let cheatsheet_count = cheatsheet_entry.lines().collect::<Vec<_>>().len();
+                        let cheatsheet_count = cheatsheet_entry.lines().count();
                         let padded_line_count_local = if overlay_height
                             + overlay_down
                             + *SEPARATOR_COUNT
@@ -886,7 +886,7 @@ impl Hinter for OtterHelper {
                         if d_module.is_empty() {
                             format!("\x1b[0m{}", separator_lines)
                         } else {
-                            let default_message_count = d_module.lines().collect::<Vec<_>>().len();
+                            let default_message_count = d_module.lines().count();
                             let padded_line_count_local = if overlay_height + overlay_down
                                 > header_line_count
                                     + default_message_count
@@ -2219,10 +2219,11 @@ fn main() {
 
         let header = format!("{}{}", layout_down_string, aligned_header,);
 
+        // calculate header lines and make it globaly accesible
         *HEADER_LINE_COUNT
             .get_or_init(|| Mutex::new(0))
             .lock()
-            .unwrap() = header.lines().collect::<Vec<_>>().len();
+            .unwrap() = header.lines().count();
 
         // run rustyline with configured header
         let prompt = rl.readline(&header);
@@ -2237,12 +2238,6 @@ fn main() {
         // flow switches setup
         let mut loop_switch = cached_statics(&LOOP_MODE, || false);
         let clear_switch = cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, || false);
-
-        // clear screen if clear_screen_after_execution is on
-        if clear_switch {
-            print!("\x1B[2J\x1B[1;1H");
-            std::io::stdout().flush().expect("failed to flush stdout");
-        }
 
         // matching the prompted prefix with module prefixes to decide what to do
         let prompted_prfx = prompt.split_whitespace().next().unwrap_or("");
@@ -2381,6 +2376,12 @@ fn main() {
         let callback = cached_statics(&CALLBACK, || "".to_string());
         if !callback.is_empty() {
             run_module_command(format!("setsid -f {}",callback))
+        }
+
+        // clear screen if clear_screen_after_execution is on
+        if clear_switch {
+            print!("\x1B[2J\x1B[1;1H");
+            std::io::stdout().flush().expect("failed to flush stdout");
         }
 
         // if not in loop_mode, quit the process
