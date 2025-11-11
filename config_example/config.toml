@@ -101,7 +101,7 @@ find "$HOME/.local/share/applications" -name "*.desktop" 2>/dev/null
 find /var/lib/flatpak/exports/share/applications -name "*.desktop" 2>/dev/null
 find "$HOME/.local/share/flatpak/exports/share/applications" -name "*.desktop" 2>/dev/null
 }
-selected="$(desktop_file | sed 's/.desktop$//g' | sort | fzf --padding 1,3 --info-command 'echo -e " desktop apps ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter " " --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' -m -d / --with-nth -1 )"
+selected="$(desktop_file | awk -F/ '{name=$NF; sub(/\.desktop$/, "", name); print name}' | sort -k1,1 | cut -f2- | fzf --padding 1,3 --info-command 'echo -e " desktop apps ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter " " --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' -m -d / --with-nth -1 )"
 [ -z "$selected" ] && exit
 echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $line)"; done
 """

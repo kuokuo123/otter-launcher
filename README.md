@@ -8,7 +8,13 @@
   ![License](https://img.shields.io/badge/license-GPL_3.0-blue?style=flat-square)
   ![written in Rust](https://img.shields.io/badge/language-rust-red.svg?style=flat-square)
 
+</div>
+
+<div align="center">
+
 ![fastfetch](./assets/fastfetch.png)
+
+![cover_pic](./assets/cover.png)
 
 </div>
 
@@ -26,13 +32,7 @@ The core concept is making these behaviours possible:
 
 Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
-<div align="center">
-
-![cover_pic](./assets/cover.png)
-
-</div>
-
-# Features
+## Features
 
 - modularized to run different commands
 - vi and emacs keybinds
@@ -63,7 +63,7 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 - [Integration](#integration)
 - [Stylling](#styling)
 
-# Demo
+## Demo
 
 > Workflow
 
@@ -81,7 +81,7 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 
 </div>
 
-# Installation
+## Installation
 
 ### AUR
 
@@ -106,7 +106,7 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 Put a config at $HOME/.config/otter-launcher/config.toml. The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) looks for /etc/otter-launcher/[pikachu.example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to show a chafa image. You can modify the config file to remove this line from overlay_cmd.
 
-# Configuration
+## Configuration
 
 Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation.
 
@@ -209,7 +209,7 @@ find "$HOME/.local/share/applications" -name "*.desktop" 2>/dev/null
 find /var/lib/flatpak/exports/share/applications -name "*.desktop" 2>/dev/null
 find "$HOME/.local/share/flatpak/exports/share/applications" -name "*.desktop" 2>/dev/null
 }
-selected="$(desktop_file | sed 's/.desktop$//g' | sort | fzf --reverse --padding 1,3 --info-command 'echo -e " desktop apps ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter " " --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' -m -d / --with-nth -1 )"
+selected="$(desktop_file | awk -F/ '{name=$NF; sub(/\.desktop$/, "", name); print name}' | sort -k1,1 | cut -f2- | fzf --reverse --padding 1,3 --info-command 'echo -e " desktop apps ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter " " --pointer " ▌" --color "bg+:-1,pointer:1,info:8,separator:8,scrollbar:0" --prompt '  ' -m -d / --with-nth -1 )"
 [ -z "$selected" ] && exit
 echo "$selected" | while read -r line ; do setsid -f gtk-launch "$(basename $line)"; done
 """
@@ -286,7 +286,7 @@ find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding
 """
 ```
 
-# Integration
+## Integration
 
 Otter-launcher works well with tui, cli programs, and bash pipelines. Some tricktips:
 
@@ -315,11 +315,11 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
 
 5. It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash speed). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
 
-6. If you want to change the window size of the external editor, call a wrapper script at general.external_editor. Examples of such a wrapper is in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder.
+6. If you want to change the window size of the external editor, call a wrapper script at general.external_editor. Examples of such a wrapper are in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder.
 
-# Styling
+## Styling
 
-## Two Liner in Hint Mode
+### Two Liner in Hint Mode
 
 <div align="center">
 
@@ -338,7 +338,7 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
-## Fastfetch
+### Fastfetch
 
 <div align="center">
 
@@ -370,7 +370,7 @@ place_holder_color = "\u001B[30m"
 hint_color = "\u001B[90m"
 ```
 
-## Image Protocol
+### Image Protocol
 
 Using chafa in header_cmd to render the image.
 
@@ -401,7 +401,7 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
-## Image to the Left
+### Image to the Left
 
 Rendering chafa image by overlay_cmd at the left, moving the inteface to the right.
 
@@ -436,7 +436,7 @@ move_interface_right = 20
 move_interface_down = 2
 ```
 
-## Image to the Right
+### Image to the Right
 
 This config renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png) using overlay_cmd, and then move the overlay right.
 
@@ -481,7 +481,7 @@ place_holder_color = "\u001B[90m"
 hint_color = "\u001B[90m"
 ```
 
-## Otter Shocked
+### Otter Shocked
 
 <div align="center">
 

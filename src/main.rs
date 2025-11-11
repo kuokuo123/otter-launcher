@@ -40,8 +40,7 @@ use std::{
     fs::{self, OpenOptions},
     io::{self, Read, Write},
     path::Path,
-    process,
-    process::{Command, Stdio},
+    process::{self,Command, Stdio},
     str::from_utf8,
     sync::{Mutex, OnceLock},
     thread,
@@ -1619,7 +1618,11 @@ fn run_module_command(mod_cmd_arg: String) {
     }
     // run module cmd
     shell_cmd
-        .arg(mod_cmd_arg)
+        .arg(mod_cmd_arg);
+    if cached_statics(&LOOP_MODE, || false) {
+        shell_cmd.stderr(Stdio::null());
+    }
+    shell_cmd
         .spawn()
         .expect("failed to launch run_module_command()")
         .wait()
@@ -2237,13 +2240,12 @@ fn main() {
 
         // flow switches setup
         let mut loop_switch = cached_statics(&LOOP_MODE, || false);
-        let clear_switch = cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, || false);
 
         // clear screen if clear_screen_after_execution is on
-        if clear_switch {
+        if cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, || false) {
             print!("\x1B[2J\x1B[1;1H");
-            std::io::stdout().flush().expect("failed to flush stdout");
-        }
+            std::io::stdout().flush().expect("failed to flush stdout")
+        };
 
         // matching the prompted prefix with module prefixes to decide what to do
         let prompted_prfx = prompt.split_whitespace().next().unwrap_or("");
