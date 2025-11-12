@@ -176,3 +176,18 @@ prefix = "yz"
 cmd = """
 find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --padding 1,3 --info-command 'printf " directories ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter ' ' --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
 """
+
+[[modules]]
+description = "ChatGPT prompt"
+prefix = "gpt"
+with_argument = true
+unbind_proc = true
+cmd = """
+function chat {
+  encoded="$(jq -sRr @uri)"
+  exec xdg-open "https://chat.openai.com/?prompt=$encoded"
+}
+chat <<'EOF'
+{}
+EOF
+"""

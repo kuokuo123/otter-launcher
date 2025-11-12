@@ -284,6 +284,21 @@ prefix = "yz"
 cmd = """
 find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --reverse --padding 1,3 --info-command 'printf " directories ($FZF_POS/$FZF_TOTAL_COUNT)"' --cycle --gutter ' ' --pointer ' ▌' --color 'bg+:-1,pointer:1,info:8,separator:8,scrollbar:0' --prompt '  ' | xargs -r -I [] setsid -f "$(echo $TERM | sed 's/xterm-//g')" -e yazi '[]'
 """
+
+[[modules]]
+description = "ChatGPT prompt"
+prefix = "gpt"
+with_argument = true
+unbind_proc = true
+cmd = """
+function chat {
+  encoded="$(jq -sRr @uri)"
+  exec xdg-open "https://chat.openai.com/?prompt=$encoded"
+}
+chat <<'EOF'
+{}
+EOF
+"""
 ```
 
 ## Integration
@@ -316,6 +331,45 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
 5. It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash speed). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
 
 6. If you want to change the window size of the external editor, call a wrapper script at general.external_editor. Examples of such a wrapper are in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder.
+
+7. Running otter in wayland's layer shell surface like rofi is possible, but without perceivable benefit. This should be done through a terminal capable of running in layer shell like kitty, because otter as a tui program can only run within a terminal. Below is an example using [kitten panel](https://sw.kovidgoyal.net/kitty/kittens/panel/) in niri:
+
+```
+binds {
+        Mod+Space { 
+            spawn-sh "pkill otter-launcher || \
+            kitten panel -1 \
+                --layer=overlay \
+                --edge=center-sized \
+                --lines=8 \
+                --columns=40 \
+                --move-to-active-monitor \
+                --focus-policy exclusive \
+                --app-id=otter-launcher \
+                otter-launcher"; }
+}
+```
+
+8. You can also run otter with general.loop_mode like a daemon, and hide it after command execution using general.callback. However, kitten panel currently has issues with wayland's multi-monitor setup as it cannot unhide layer shell at the focused monitor. An example for such a config in niri:
+
+```
+binds {
+    Mod+Space {
+        spawn-sh "kitten @ \
+            --to=unix:/tmp/panel-nchat \
+            resize-os-window \
+            --action=toggle-visibility || \
+        kitten panel \
+            -o allow_remote_control=socket-only \
+            --listen-on=unix:/tmp/panel-nchat \
+            --layer=overlay \
+            --edge=center \
+            --move-to-active-monitor \
+            --focus-policy exclusive \
+            --app-id=nchat \
+            nchat"; }
+}
+```
 
 ## Styling
 
