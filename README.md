@@ -356,18 +356,20 @@ binds {
 binds {
     Mod+Space {
         spawn-sh "kitten @ \
-            --to=unix:/tmp/panel-nchat \
+            --to=unix:/tmp/panel-otter \
             resize-os-window \
             --action=toggle-visibility || \
         kitten panel \
             -o allow_remote_control=socket-only \
-            --listen-on=unix:/tmp/panel-nchat \
+            --listen-on=unix:/tmp/panel-otter \
             --layer=overlay \
-            --edge=center \
+            --edge=center-sized \
+            --lines=8 \
+            --columns=40 \
             --move-to-active-monitor \
             --focus-policy exclusive \
-            --app-id=nchat \
-            nchat"; }
+            --app-id=otter-launcher \
+            otter-launcher"; }
 }
 ```
 
