@@ -1629,6 +1629,26 @@ fn run_module_command(mod_cmd_arg: String) {
         .expect("failed to wait for run_module_command()");
 }
 
+fn run_module_command_unbind_proc(mod_cmd_arg: String) {
+    // format the shell command by which the module commands are launched
+    let mut shell_cmd = Command::new("setsid");
+    shell_cmd.arg("-f");
+
+    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+    for arg in &cmd_parts[0..] {
+        shell_cmd.arg(arg);
+    }
+
+    // run module cmd
+    shell_cmd
+        .arg(mod_cmd_arg)
+        .spawn()
+        .expect("failed to launch run_module_command_unbind_proc()")
+        .wait()
+        .expect("failed to wait for run_module_command_unbind_proc()");
+}
+
 // function to run empty & default modules
 fn run_designated_module(prompt: String, prfx: String) {
     // test if the designated module is set
@@ -1660,10 +1680,12 @@ fn run_designated_module(prompt: String, prfx: String) {
 
         // run the module's command
         if target_module.unbind_proc.unwrap_or(false) {
-            run_module_command(format!(
-                "setsid -f {}",
-                target_module.cmd.replace("{}", &prompt_wo_prefix)
-            ));
+            run_module_command_unbind_proc(
+                target_module
+                    .cmd
+                    .replace("{}", &prompt_wo_prefix)
+                    .to_string(),
+            );
         } else {
             run_module_command(
                 target_module
@@ -2270,17 +2292,14 @@ fn main() {
                 // Condition 1: when the selected module runs with arguement
                 if module.with_argument.unwrap_or(false) {
                     if module.unbind_proc.unwrap_or(false) {
-                        run_module_command(format!(
-                            "setsid -f {}",
-                            module.cmd.replace("{}", &argument)
-                        ));
+                        run_module_command_unbind_proc(module.cmd.replace("{}", &argument));
                     } else {
                         run_module_command(module.cmd.replace("{}", &argument));
                     }
                 // Condition 2: when user input is exactly the same as the no-arg module
                 } else if remove_ascii(&module.prefix) == prompt.trim_end() {
                     if module.unbind_proc.unwrap_or(false) {
-                        run_module_command(format!("setsid -f {}", module.cmd));
+                        run_module_command_unbind_proc(module.cmd.to_owned());
                     } else {
                         run_module_command(module.cmd.to_owned());
                     }
@@ -2383,7 +2402,7 @@ fn main() {
         // run general.callback
         let callback = cached_statics(&CALLBACK, || "".to_string());
         if !callback.is_empty() {
-            run_module_command(format!("setsid -f {}",callback))
+            run_module_command_unbind_proc(callback)
         }
 
         // if not in loop_mode, quit the process
