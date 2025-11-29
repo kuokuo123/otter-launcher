@@ -670,8 +670,8 @@ impl Hinter for OtterHelper {
             }
         } else {
             // list mode behavior
-            let e_module = cached_statics(&EMPTY_MODULE_MESSAGE, || "".to_string());
-            let d_module = cached_statics(&DEFAULT_MODULE_MESSAGE, || "".to_string());
+            let e_module = expand_env_vars(&cached_statics(&EMPTY_MODULE_MESSAGE, || "".to_string()));
+            let d_module = expand_env_vars(&cached_statics(&DEFAULT_MODULE_MESSAGE, || "".to_string()));
             let selection_index = SELECTION_INDEX
                 .get_or_init(|| Mutex::new(0))
                 .lock()
