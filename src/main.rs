@@ -806,14 +806,8 @@ impl Hinter for OtterHelper {
                         // show place holder first
                         place_holder,
                         separator_lines,
-                        // if empty module is not set
-                        if e_module.is_empty() {
-                            if agg_line.is_empty() {
-                                format!("{}", "\x1b[0mn")
-                            } else {
-                                format!("\n{}{}", agg_line, "\n ".repeat(padded_line_count))
-                            }
-                        } else {
+                        // if empty module is set && no module selected
+                        if !e_module.is_empty() && *selection_index == 0 {
                             // calculate overlay padding, to maintain layout when printing at window bottom
                             let empty_message_count = e_module.lines().count();
                             let padded_line_count_local = if overlay_height + overlay_down
@@ -836,6 +830,12 @@ impl Hinter for OtterHelper {
                             };
                             // if empty module is set
                             format!("\n{}{}", e_module, "\n ".repeat(padded_line_count_local))
+                        } else {
+                            if agg_line.is_empty() {
+                                format!("{}", "\x1b[0mn")
+                            } else {
+                                format!("\n{}{}", agg_line, "\n ".repeat(padded_line_count))
+                            }
                         },
                         footer_lines
                     ),
