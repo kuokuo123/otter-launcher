@@ -1575,36 +1575,65 @@ fn remove_ascii(text: &str) -> String {
 
 // function to expand env
 fn expand_env_vars(input: &str) -> String {
-    // define regex for both variable replacement and subshell execution
-    let var_re = regex::Regex::new(r"\$([A-Za-z_][A-Za-z0-9_]*)").unwrap();
-    let subshell_re = regex::Regex::new(r"\$\(([^)]+)\)").unwrap();
-    // replace subshells with command output
-    let input = subshell_re
-        .replace_all(input, |captures: &regex::Captures| {
-            let command = &captures[1];
-            let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
-            let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-            let mut shell_cmd = Command::new(cmd_parts[0]);
-            for arg in &cmd_parts[1..] {
-                shell_cmd.arg(arg);
-            }
-            // run the captured command
-            let output = shell_cmd.arg(command).output();
-            // collect and return command output, trim to remove new line, default to empty on failure
-            match output {
-                Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
-                Err(_) => String::new(),
-            }
-        })
-        .into_owned();
+    let mut result = String::new();
+    let chars: Vec<char> = input.chars().collect();
+    let mut i = 0;
 
-    // replace environment variables with their values
+    while i < chars.len() {
+        // look for $(
+        if chars[i] == '$' && i + 1 < chars.len() && chars[i + 1] == '(' {
+            // find matching )
+            let mut depth = 1;
+            let mut j = i + 2; // start after "$("
+            while j < chars.len() && depth > 0 {
+                match chars[j] {
+                    '(' => depth += 1,
+                    ')' => depth -= 1,
+                    _ => {}
+                }
+                j += 1;
+            }
+
+            if depth == 0 {
+                // command is between i+2 and j-1
+                let command: String = chars[i + 2..j - 1].iter().collect();
+                let output = run_subshell(&command);
+                result.push_str(&output);
+                i = j;
+                continue;
+            } else {
+                // no matching closing ), treat "$(" literally
+                result.push(chars[i]);
+                i += 1;
+                continue;
+            }
+        }
+
+        // not a subshell, just copy
+        result.push(chars[i]);
+        i += 1;
+    }
+
+    // Now handle $VARS (but not numeric like $1)
+    let var_re = regex::Regex::new(r"\$([A-Za-z_][A-Za-z0-9_]*)").unwrap();
     var_re
-        .replace_all(&input, |captures: &regex::Captures| {
-            let var_name = &captures[1];
-            env::var(var_name).unwrap_or_else(|_| String::new())
+        .replace_all(&result, |caps: &regex::Captures| {
+            env::var(&caps[1]).unwrap_or_default()
         })
         .into_owned()
+}
+
+fn run_subshell(cmd: &str) -> String {
+    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+    let mut shell_cmd = Command::new(cmd_parts[0]);
+    for arg in &cmd_parts[1..] {
+        shell_cmd.arg(arg);
+    }
+    match shell_cmd.arg(cmd).output() {
+        Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
+        Err(_) => String::new(),
+    }
 }
 
 // function to run module.cmd
