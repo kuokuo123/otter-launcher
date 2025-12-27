@@ -1581,7 +1581,6 @@ fn remove_ascii(text: &str) -> String {
 
 /// Find the best fuzzy match for input among module prefixes.
 /// Returns Some(module) if similarity >= threshold, None otherwise.
-/// Uses normalized Levenshtein which handles character insertions/deletions well.
 fn fuzzy_match_prefix<'a>(input: &str, modules: &'a [Module]) -> Option<&'a Module> {
     let threshold = cached_statics(&FUZZY_THRESHOLD, || 0.6);
     let min_len = cached_statics(&FUZZY_MIN_LENGTH, || 2);
@@ -1594,13 +1593,26 @@ fn fuzzy_match_prefix<'a>(input: &str, modules: &'a [Module]) -> Option<&'a Modu
 
     for module in modules {
         let prefix = remove_ascii(&module.prefix);
-        // normalized_levenshtein returns 1.0 for identical, 0.0 for completely different
-        let similarity = strsim::normalized_levenshtein(input, &prefix);
 
-        if similarity >= threshold
-            && (best_match.is_none() || similarity > best_match.unwrap().1)
-        {
-            best_match = Some((module, similarity));
+        // Scoring priority:
+        // 1. prefix.starts_with(input) -> 1.0 (e.g. "ki" -> "kill")
+        // 2. prefix.ends_with(input) -> 0.95 (e.g. "ur" -> "aur", "ill" -> "kill")
+        // 3. prefix.contains(input) -> 0.9 (substring match)
+        // 4. Jaro-Winkler for general typos
+        let score = if prefix.starts_with(input) {
+            1.0
+        } else if prefix.ends_with(input) {
+            0.95
+        } else if prefix.contains(input) {
+            0.9
+        } else {
+            strsim::jaro_winkler(input, &prefix)
+        };
+
+        if score >= threshold {
+            if best_match.is_none() || score > best_match.unwrap().1 {
+                best_match = Some((module, score));
+            }
         }
     }
 
@@ -2366,21 +2378,23 @@ fn main() {
                         .to_string()
                 };
 
-                // Condition 1: when the selected module runs with arguement
+                // Condition 1: when the selected module runs with argument
                 if module.with_argument.unwrap_or(false) {
                     if module.unbind_proc.unwrap_or(false) {
                         run_module_command_unbind_proc(module.cmd.replace("{}", &argument));
                     } else {
                         run_module_command(module.cmd.replace("{}", &argument));
                     }
-                // Condition 2: when user input is exactly the same as the no-arg module
-                } else if remove_ascii(&module.prefix) == prompt.trim_end() {
+                // Condition 2: no-arg module (exact OR fuzzy match accepted)
+                } else if remove_ascii(&module.prefix) == prompt.trim_end()
+                    || prompted_prfx == prompt.trim_end()
+                {
                     if module.unbind_proc.unwrap_or(false) {
                         run_module_command_unbind_proc(module.cmd.to_owned());
                     } else {
                         run_module_command(module.cmd.to_owned());
                     }
-                // Condition 3: when no-arg modules is running with arguement
+                // Condition 3: no-arg module with extra argument -> run default
                 } else {
                     run_designated_module(
                         prompt,
