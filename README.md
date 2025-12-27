@@ -1,12 +1,11 @@
-
 <div align="center">
 
 ![fastfetch](./assets/logo2.png)
 
-*minimalist, blazingly fast, keyboard-centric*
+_minimalist, blazingly fast, keyboard-centric_
 
-  ![License](https://img.shields.io/badge/license-GPL_3.0-blue?style=flat-square)
-  ![written in Rust](https://img.shields.io/badge/language-rust-red.svg?style=flat-square)
+![License](https://img.shields.io/badge/license-GPL_3.0-blue?style=flat-square)
+![written in Rust](https://img.shields.io/badge/language-rust-red.svg?style=flat-square)
 
 </div>
 
@@ -73,7 +72,7 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 
 </div>
 
->External editor, list selection, and cheatsheet
+> External editor, list selection, and cheatsheet
 
 <div align="center">
 
@@ -127,7 +126,7 @@ The confing has four sections:
 
 All the available options are listed below. Check [more examples for module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
 
-``` toml
+```toml
 [general]
 default_module = "gg" # module to run when no prefix is matched
 empty_module = "app" # run with an empty prompt
@@ -142,6 +141,9 @@ loop_mode = false # don't quit after executing a module, useful with scratchpads
 external_editor = "vi" # if set, press ctrl+x ctrl+ee (or v in vi normal mode) to edit prompt in the specified program
 delay_startup = 0 # sometimes the otter runs too fast even before the terminal window is ready; this slows it down by milliseconds; useful when chafa image is skewed
 #callback = "" # if set, will run after module execution; for example, calling swaymsg to adjust window size
+fuzzy_prefix = false # enable fuzzy prefix matching for typo tolerance
+fuzzy_min_length = 2 # minimum chars before fuzzy activates
+fuzzy_threshold = 0.6 # similarity threshold (0.0-1.0)
 
 
 # ANSI color codes are allowed. However, \x1b should be replaced with \u001B, because the rust toml crate cannot read \x as an escaped character
@@ -309,7 +311,7 @@ Otter-launcher works well with tui, cli programs, and bash pipelines. Some trick
 
 2. [[modules]].cmd can be scripted to adjust window sizes. For example:
 
-``` toml
+```toml
 [[modules]]
 description = "pulsemixer for audio control"
 prefix = "vol"
@@ -320,13 +322,13 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
 
 4. Some tui utilities that works really well:
 
-    - Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) [fsel](https://github.com/Mjoyufull/fsel)
-    - Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
-    - Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
-    - Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
-    - Spotify: [spotify_player](https://github.com/aome510/spotify-player)
-    - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
-    - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
+   - Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) [fsel](https://github.com/Mjoyufull/fsel)
+   - Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
+   - Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
+   - Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
+   - Spotify: [spotify_player](https://github.com/aome510/spotify-player)
+   - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
+   - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
 
 5. It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash speed). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
 
@@ -336,7 +338,7 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
 
 ```
 binds {
-        Mod+Space { 
+        Mod+Space {
             spawn-sh "pkill otter-launcher || \
             kitten panel -1 \
                 --layer=overlay \
@@ -404,9 +406,9 @@ hint_color = "\u001B[90m"
 
 Since v0.6.4 fastfetch in interface.header_cmd is supported. It works without extra settings.
 
-However, fastfetch comes with its own "pipe mode" that sometimes does not pipe colors, so using it in overlay.overlay_cmd should turn an extra switch "fastfetch --pipe false". 
+However, fastfetch comes with its own "pipe mode" that sometimes does not pipe colors, so using it in overlay.overlay_cmd should turn an extra switch "fastfetch --pipe false".
 
-``` toml
+```toml
 [interface]
 header_cmd = """
 printf "\n"
@@ -438,7 +440,7 @@ Using chafa in header_cmd to render the image.
 
 </div>
 
-``` toml
+```toml
 [interface]
 header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/images_other/waterways_and_otterways.jpg"
 header_cmd_trimmed_lines = 1

@@ -76,6 +76,9 @@ struct General {
     callback: Option<String>,
     external_editor: Option<String>,
     delay_startup: Option<usize>,
+    fuzzy_prefix: Option<bool>,
+    fuzzy_min_length: Option<usize>,
+    fuzzy_threshold: Option<f64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -197,6 +200,9 @@ static OVERLAY_LINES: OnceLock<Mutex<String>> = OnceLock::new();
 static CELL_HEIGHT: OnceLock<usize> = OnceLock::new();
 static SEPARATOR_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
 static CTRLX_LOCK: OnceLock<Mutex<usize>> = OnceLock::new();
+static FUZZY_PREFIX: OnceLock<Mutex<bool>> = OnceLock::new();
+static FUZZY_MIN_LENGTH: OnceLock<Mutex<usize>> = OnceLock::new();
+static FUZZY_THRESHOLD: OnceLock<Mutex<f64>> = OnceLock::new();
 
 //░█░█░▀█▀░█▀█░▀█▀░░░▄▀░░░░█▀▀░█▀█░█▄█░█▀█░█░░░█▀▀░▀█▀░▀█▀░█▀█░█▀█
 //░█▀█░░█░░█░█░░█░░░░▄█▀░░░█░░░█░█░█░█░█▀▀░█░░░█▀▀░░█░░░█░░█░█░█░█
@@ -1573,6 +1579,46 @@ fn remove_ascii(text: &str) -> String {
     re.replace_all(text, "").to_string()
 }
 
+/// Find the best fuzzy match for input among module prefixes.
+/// Returns Some(module) if similarity >= threshold, None otherwise.
+fn fuzzy_match_prefix<'a>(input: &str, modules: &'a [Module]) -> Option<&'a Module> {
+    let threshold = cached_statics(&FUZZY_THRESHOLD, || 0.6);
+    let min_len = cached_statics(&FUZZY_MIN_LENGTH, || 2);
+
+    if input.len() < min_len {
+        return None;
+    }
+
+    let mut best_match: Option<(&Module, f64)> = None;
+
+    for module in modules {
+        let prefix = remove_ascii(&module.prefix);
+
+        // Scoring priority:
+        // 1. prefix.starts_with(input) -> 1.0 (e.g. "ki" -> "kill")
+        // 2. prefix.ends_with(input) -> 0.95 (e.g. "ur" -> "aur", "ill" -> "kill")
+        // 3. prefix.contains(input) -> 0.9 (substring match)
+        // 4. Jaro-Winkler for general typos
+        let score = if prefix.starts_with(input) {
+            1.0
+        } else if prefix.ends_with(input) {
+            0.95
+        } else if prefix.contains(input) {
+            0.9
+        } else {
+            strsim::jaro_winkler(input, &prefix)
+        };
+
+        if score >= threshold {
+            if best_match.is_none() || score > best_match.unwrap().1 {
+                best_match = Some((module, score));
+            }
+        }
+    }
+
+    best_match.map(|(m, _)| m)
+}
+
 // function to expand env
 fn expand_env_vars(input: &str) -> String {
     let mut result = String::new();
@@ -2059,6 +2105,9 @@ fn main() {
         config().interface.customized_list_order,
         false,
     );
+    init_statics(&FUZZY_PREFIX, config().general.fuzzy_prefix, false);
+    init_statics(&FUZZY_MIN_LENGTH, config().general.fuzzy_min_length, 2);
+    init_statics(&FUZZY_THRESHOLD, config().general.fuzzy_threshold, 0.6);
 
     // rustyline editor setup
     *SELECTION_INDEX
@@ -2300,10 +2349,21 @@ fn main() {
 
         // matching the prompted prefix with module prefixes to decide what to do
         let prompted_prfx = prompt.split_whitespace().next().unwrap_or("");
+
+        // Try exact match first
         let module_prfx = config()
             .modules
             .iter()
             .find(|module| remove_ascii(&module.prefix) == prompted_prfx);
+
+        // If no exact match and fuzzy is enabled, try fuzzy match
+        let module_prfx = module_prfx.or_else(|| {
+            if cached_statics(&FUZZY_PREFIX, || false) {
+                fuzzy_match_prefix(prompted_prfx, &config().modules)
+            } else {
+                None
+            }
+        });
 
         match module_prfx {
             // if user input starts with some module prefixes
@@ -2318,21 +2378,23 @@ fn main() {
                         .to_string()
                 };
 
-                // Condition 1: when the selected module runs with arguement
+                // Condition 1: when the selected module runs with argument
                 if module.with_argument.unwrap_or(false) {
                     if module.unbind_proc.unwrap_or(false) {
                         run_module_command_unbind_proc(module.cmd.replace("{}", &argument));
                     } else {
                         run_module_command(module.cmd.replace("{}", &argument));
                     }
-                // Condition 2: when user input is exactly the same as the no-arg module
-                } else if remove_ascii(&module.prefix) == prompt.trim_end() {
+                // Condition 2: no-arg module (exact OR fuzzy match accepted)
+                } else if remove_ascii(&module.prefix) == prompt.trim_end()
+                    || prompted_prfx == prompt.trim_end()
+                {
                     if module.unbind_proc.unwrap_or(false) {
                         run_module_command_unbind_proc(module.cmd.to_owned());
                     } else {
                         run_module_command(module.cmd.to_owned());
                     }
-                // Condition 3: when no-arg modules is running with arguement
+                // Condition 3: no-arg module with extra argument -> run default
                 } else {
                     run_designated_module(
                         prompt,
