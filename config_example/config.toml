@@ -34,6 +34,9 @@ loop_mode = false # don't quit after executing a module, useful with scratchpads
 external_editor = "vi" # if set, press ctrl+x ctrl+ee (or v in vi normal mode) to edit prompt in the specified program
 delay_startup = 0 # sometimes the otter runs too fast even before the terminal window is ready; this slows it down by milliseconds; useful when chafa image is skewed
 #callback = "" # if set, will run after module execution; for example, calling swaymsg to adjust window size
+fuzzy_prefix = false # enable fuzzy matching for prefixes; "ill" can match "kill"
+fuzzy_min_length = 2 # minimum input length before fuzzy matching activates
+fuzzy_threshold = 0.7 # similarity threshold (0.0-1.0); higher = stricter matching
 
 
 # ANSI color codes are allowed. However, \x1b should be replaced with \u001B, because the rust toml crate cannot read \x as an escaped character
