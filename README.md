@@ -143,7 +143,7 @@ delay_startup = 0 # sometimes the otter runs too fast even before the terminal w
 #callback = "" # if set, will run after module execution; for example, calling swaymsg to adjust window size
 fuzzy_prefix = false # enable fuzzy prefix matching for typo tolerance
 fuzzy_min_length = 2 # minimum chars before fuzzy activates
-fuzzy_threshold = 0.7 # similarity threshold (0.0-1.0)
+fuzzy_threshold = 0.6 # similarity threshold (0.0-1.0)
 
 
 # ANSI color codes are allowed. However, \x1b should be replaced with \u001B, because the rust toml crate cannot read \x as an escaped character

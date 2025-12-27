@@ -1581,8 +1581,9 @@ fn remove_ascii(text: &str) -> String {
 
 /// Find the best fuzzy match for input among module prefixes.
 /// Returns Some(module) if similarity >= threshold, None otherwise.
+/// Uses normalized Levenshtein which handles character insertions/deletions well.
 fn fuzzy_match_prefix<'a>(input: &str, modules: &'a [Module]) -> Option<&'a Module> {
-    let threshold = cached_statics(&FUZZY_THRESHOLD, || 0.7);
+    let threshold = cached_statics(&FUZZY_THRESHOLD, || 0.6);
     let min_len = cached_statics(&FUZZY_MIN_LENGTH, || 2);
 
     if input.len() < min_len {
@@ -1593,7 +1594,8 @@ fn fuzzy_match_prefix<'a>(input: &str, modules: &'a [Module]) -> Option<&'a Modu
 
     for module in modules {
         let prefix = remove_ascii(&module.prefix);
-        let similarity = strsim::jaro_winkler(input, &prefix);
+        // normalized_levenshtein returns 1.0 for identical, 0.0 for completely different
+        let similarity = strsim::normalized_levenshtein(input, &prefix);
 
         if similarity >= threshold
             && (best_match.is_none() || similarity > best_match.unwrap().1)
@@ -2093,7 +2095,7 @@ fn main() {
     );
     init_statics(&FUZZY_PREFIX, config().general.fuzzy_prefix, false);
     init_statics(&FUZZY_MIN_LENGTH, config().general.fuzzy_min_length, 2);
-    init_statics(&FUZZY_THRESHOLD, config().general.fuzzy_threshold, 0.7);
+    init_statics(&FUZZY_THRESHOLD, config().general.fuzzy_threshold, 0.6);
 
     // rustyline editor setup
     *SELECTION_INDEX
