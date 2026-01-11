@@ -1544,25 +1544,33 @@ fn cached_statics<T: Clone, F: FnOnce() -> T>(cell: &OnceLock<Mutex<T>>, default
 
 // function to print help
 fn print_help() {
-    println!("\x1b[4motter-launcher:\x1b[0m");
     println!(
-        "A terminal script launcher featuring vi & emacs keybinds. Repo: https://github.com/kuokuo123/otter-launcher"
-    );
-    println!();
-    println!("\x1b[4mUsage:\x1b[0m");
-    println!("otter-launcher [OPTIONS] [ARGUMENTS]...");
-    println!();
-    println!("\x1b[4mOptions:\x1b[0m");
-    println!("  -h, --help     Show help");
-    println!("  -v, --version  Show version");
-    println!();
-    println!("\x1b[4mBehavior:\x1b[0m");
-    println!(
-        "  1. Without OPTIONS nor ARGUMENTS, TUI interface will be shown for interacting with configured modules."
-    );
-    println!("  2. If OPTIONS are given, only help or version messages will be shown.");
-    println!(
-        "  3. If ARGUMENTS are given without OPTIONS, ARGUMENTS are taken as a direct user prompt. All configured modules are effective without entering the TUI interface."
+        "\
+\x1b[4motter-launcher:\x1b[0m
+Modularized script launcher featuring vi & emacs keybinds.
+Repo: https://github.com/kuokuo123/otter-launcher
+Released under the GNU GPL v3.0.
+
+\x1b[4mUsage:\x1b[0m
+  otter-launcher [OPTIONS] [ARGUMENTS]...
+
+\x1b[4mOptions:\x1b[0m
+  -h, --help     Show help
+  -v, --version  Show version
+
+\x1b[4mBehavior:\x1b[0m
+1. Running without OPTIONS nor ARGUMENTS opens the prompting interface,
+   where user input is processed to launch configured modules.
+2. If OPTIONS are given, only help or version messages will be printed.
+3. If ARGUMENTS are given, they are taken as a direct user prompt.
+   All configured modules are effective without entering the TUI interface.
+
+\x1b[4mConfig:\x1b[0m
+Modules are specified in a TOML config file, which is expected to be found 
+at one of the below positions by priorities:
+
+  1. $HOME/.config/otter-launcher/config.toml
+  2. /etc/otter-launcher/config.toml"
     );
 }
 
