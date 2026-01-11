@@ -1545,7 +1545,9 @@ fn cached_statics<T: Clone, F: FnOnce() -> T>(cell: &OnceLock<Mutex<T>>, default
 // function to print help
 fn print_help() {
     println!("\x1b[4motter-launcher:\x1b[0m");
-    println!("A terminal script launcher featuring vi & emacs keybinds. Repo: https://github.com/kuokuo123/otter-launcher");
+    println!(
+        "A terminal script launcher featuring vi & emacs keybinds. Repo: https://github.com/kuokuo123/otter-launcher"
+    );
     println!();
     println!("\x1b[4mUsage:\x1b[0m");
     println!("otter-launcher [OPTIONS] [ARGUMENTS]...");
@@ -1555,9 +1557,13 @@ fn print_help() {
     println!("  -v, --version  Show version");
     println!();
     println!("\x1b[4mBehavior:\x1b[0m");
-    println!( "  1. Without OPTIONS nor ARGUMENTS, TUI interface will be shown for interacting with configured modules.");
-    println!( "  2. If OPTIONS are given, only help or version messages will be shown.");
-    println!( "  3. If ARGUMENTS are given without OPTIONS, ARGUMENTS are taken as a direct user prompt. All configured modules are effective without entering the TUI interface.");
+    println!(
+        "  1. Without OPTIONS nor ARGUMENTS, TUI interface will be shown for interacting with configured modules."
+    );
+    println!("  2. If OPTIONS are given, only help or version messages will be shown.");
+    println!(
+        "  3. If ARGUMENTS are given without OPTIONS, ARGUMENTS are taken as a direct user prompt. All configured modules are effective without entering the TUI interface."
+    );
 }
 
 // function to print version
@@ -1598,7 +1604,7 @@ fn remove_ascii(text: &str) -> String {
     re.replace_all(text, "").to_string()
 }
 
-// function to expand env
+// function to expand env and variables
 fn expand_env_vars(input: &str) -> String {
     let mut result = String::new();
     let chars: Vec<char> = input.chars().collect();
@@ -1639,7 +1645,7 @@ fn expand_env_vars(input: &str) -> String {
         i += 1;
     }
 
-    // Now handle $VARS (but not numeric like $1)
+    // $VARS (but not numeric like $1)
     let var_re = regex::Regex::new(r"\$([A-Za-z_][A-Za-z0-9_]*)").unwrap();
     var_re
         .replace_all(&result, |caps: &regex::Captures| {
@@ -1651,12 +1657,24 @@ fn expand_env_vars(input: &str) -> String {
 fn run_subshell(cmd: &str) -> String {
     let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+
     let mut shell_cmd = Command::new(cmd_parts[0]);
     for arg in &cmd_parts[1..] {
         shell_cmd.arg(arg);
     }
+
     match shell_cmd.arg(cmd).output() {
-        Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
+        Ok(output) => {
+            let mut s = String::from_utf8_lossy(&output.stdout).to_string();
+            // remove ONE trailing newline like a shell would
+            if s.ends_with('\n') {
+                s.pop();
+            }
+            if s.ends_with('\r') {
+                s.pop();
+            } // handle CRLF
+            s
+        }
         Err(_) => String::new(),
     }
 }
