@@ -45,6 +45,7 @@ Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/o
 - cheat sheet
 - callback function
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
+- cli mode to launch modules directly (eg. "otter-launcher app" to enter app menu directly)
 - minimalist, blazingly fast, keyboard-centric
 
 <div align="center">
