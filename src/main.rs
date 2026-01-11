@@ -40,7 +40,7 @@ use std::{
     fs::{self, OpenOptions},
     io::{self, Read, Write},
     path::Path,
-    process::{self,Command, Stdio},
+    process::{self, Command, Stdio},
     str::from_utf8,
     sync::{Mutex, OnceLock},
     thread,
@@ -670,8 +670,10 @@ impl Hinter for OtterHelper {
             }
         } else {
             // list mode behavior
-            let e_module = expand_env_vars(&cached_statics(&EMPTY_MODULE_MESSAGE, || "".to_string()));
-            let d_module = expand_env_vars(&cached_statics(&DEFAULT_MODULE_MESSAGE, || "".to_string()));
+            let e_module =
+                expand_env_vars(&cached_statics(&EMPTY_MODULE_MESSAGE, || "".to_string()));
+            let d_module =
+                expand_env_vars(&cached_statics(&DEFAULT_MODULE_MESSAGE, || "".to_string()));
             let selection_index = SELECTION_INDEX
                 .get_or_init(|| Mutex::new(0))
                 .lock()
@@ -1540,6 +1542,29 @@ fn cached_statics<T: Clone, F: FnOnce() -> T>(cell: &OnceLock<Mutex<T>>, default
     m.lock().unwrap().clone()
 }
 
+// function to print help
+fn print_help() {
+    println!("\x1b[4motter-launcher:\x1b[0m");
+    println!("A terminal script launcher featuring vi & emacs keybinds. Repo: https://github.com/kuokuo123/otter-launcher");
+    println!();
+    println!("\x1b[4mUsage:\x1b[0m");
+    println!("otter-launcher [OPTIONS] [ARGUMENTS]...");
+    println!();
+    println!("\x1b[4mOptions:\x1b[0m");
+    println!("  -h, --help     Show help");
+    println!("  -v, --version  Show version");
+    println!();
+    println!("\x1b[4mBehavior:\x1b[0m");
+    println!( "  1. Without OPTIONS nor ARGUMENTS, TUI interface will be shown for interacting with configured modules.");
+    println!( "  2. If OPTIONS are given, only help or version messages will be shown.");
+    println!( "  3. If ARGUMENTS are given without OPTIONS, ARGUMENTS are taken as a direct user prompt. All configured modules are effective without entering the TUI interface.");
+}
+
+// function to print version
+fn print_version() {
+    println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+}
+
 // function to format vec<hints> according to configured modules, and to provide them to hinter
 fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
     let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, || "".to_string());
@@ -1646,8 +1671,7 @@ fn run_module_command(mod_cmd_arg: String) {
         shell_cmd.arg(arg);
     }
     // run module cmd
-    shell_cmd
-        .arg(mod_cmd_arg);
+    shell_cmd.arg(mod_cmd_arg);
     if cached_statics(&LOOP_MODE, || false) {
         shell_cmd.stderr(Stdio::null());
     }
@@ -2279,8 +2303,25 @@ fn main() {
             .lock()
             .unwrap() = header.lines().count();
 
-        // run rustyline with configured header
-        let prompt = rl.readline(&header);
+        // if launched with arguments, do not enter rustyline editor
+        let args: Vec<String> = env::args().skip(1).collect();
+        let prompt = if let Some(arg) = args.first() {
+            match arg.as_str() {
+                "-h" | "--help" => {
+                    print_help();
+                    std::process::exit(0);
+                }
+                "-v" | "--version" => {
+                    print_version();
+                    std::process::exit(0);
+                }
+                _ => Ok(args.join(" ")),
+            }
+        } else {
+            // if launched without arguments, run rustyline with configured header
+            rl.readline(&header)
+        };
+
         match prompt {
             Ok(_) => {}
             Err(_) => {
