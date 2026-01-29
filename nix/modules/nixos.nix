@@ -28,10 +28,12 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        home.packages = [ otter-launcher ];
+        environment = {
+          systemPackages = [ otter-launcher ];
 
-        environment.etc."otter-launcher/config.toml" = lib.mkIf (cfg.settings != { }) {
-          source = toml-format.generate "otter-launcher-config" cfg.settings;
+          etc."otter-launcher/config.toml" = lib.mkIf (cfg.settings != { }) {
+            source = toml-format.generate "otter-launcher-config" cfg.settings;
+          };
         };
       };
     };
