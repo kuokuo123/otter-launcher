@@ -126,7 +126,7 @@ struct Module {
 // load toml config
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
-fn load_config() -> Config {
+fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     let home_dir = env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let xdg_config_path = format!("{}/.config/otter-launcher/config.toml", home_dir);
 
@@ -136,13 +136,14 @@ fn load_config() -> Config {
         "/etc/otter-launcher/config.toml".to_string()
     };
 
-    let contents = fs::read_to_string(config_file).unwrap_or_default();
-    toml::from_str(&contents).expect("cannot read contents from config_file")
+    let configs = fs::read_to_string(config_file)?;
+
+    Ok(toml::from_str(&configs)?)
 }
 
 #[inline]
 fn config() -> &'static Config {
-    CONFIG.get_or_init(load_config)
+    CONFIG.get_or_init(|| load_config().unwrap())
 }
 
 // use oncelock mutex to make important variables globally accessible (repeatedly used config values, list selection, and completion related stuff)
@@ -535,8 +536,7 @@ impl Hinter for OtterHelper {
             }
             let output = shell_cmd
                 .arg(&overlay_cmd)
-                .output()
-                .expect("Failed to launch overlay command...");
+                .output().ok()?;
             let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, || 0);
             let overlay_cmd_stdout = from_utf8(&output.stdout).unwrap();
             let lines: Vec<&str> = overlay_cmd_stdout.lines().collect();
@@ -980,8 +980,7 @@ impl ConditionalEventHandler for ExternalEditor {
                     .truncate(true)
                     .open(&file_path);
 
-                write!(file.expect("cannot write to temp file"), "{}", ctx.line())
-                    .expect("failed when writing to the temp file");
+                write!(file.ok()?, "{}", ctx.line()).ok()?;
             }
 
             let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
@@ -1548,7 +1547,7 @@ fn print_help() {
         "\
 \x1b[4motter-launcher (ot):\x1b[0m
 
-A modularized script launcher featuring vi & emacs keybinds, released under the GNU GPL v3.0.
+A modularized script launcher featuring vi & emacs keybinds, released under the GNU GPL v3.0 license.
 
 \x1b[4mUsage:\x1b[0m
 
@@ -1561,20 +1560,20 @@ otter-launcher [OPTIONS] [ARGUMENTS]...
 
 \x1b[4mBehavior:\x1b[0m
 
-Running without ARGUMENTS opens TUI interface, where user input launches the matched module.
+1. Running without ARGUMENTS opens TUI interface, where user input launches the matched module.
 
-ARGUMENTS are taken as a direct user prompt without using the TUI interface. All configured modules are effective.
+2. ARGUMENTS are taken as a direct prompt without resorting to the TUI. All configured modules are effective.
 
-If OPTIONS are given, help or version messages will be printed.
+3. If OPTIONS are given, help or version messages will be printed.
 
 \x1b[4mConfiguration:\x1b[0m
 
-Modules are specified in a TOML config file, which is expected to be found at one of the below positions by priorities:
+Modules are specified in a TOML config file, which is expected to be at one of the below positions:
 
 1. $HOME/.config/otter-launcher/config.toml
 2. /etc/otter-launcher/config.toml
 
-The example config file can be found in otter-launcher's github repo: https://github.com/kuokuo123/otter-launcher"
+The example config is in github repo: https://github.com/kuokuo123/otter-launcher"
     );
 }
 
@@ -1692,7 +1691,7 @@ fn run_subshell(cmd: &str) -> String {
 }
 
 // function to run module.cmd
-fn run_module_command(mod_cmd_arg: String) {
+fn run_module_command(mod_cmd_arg: String) -> Result<(), Box<dyn std::error::Error>> {
     // format the shell command by which the module commands are launched
     let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
@@ -1706,13 +1705,11 @@ fn run_module_command(mod_cmd_arg: String) {
         shell_cmd.stderr(Stdio::null());
     }
     shell_cmd
-        .spawn()
-        .expect("failed to launch run_module_command()")
-        .wait()
-        .expect("failed to wait for run_module_command()");
+        .spawn()?.wait()?;
+    Ok(())
 }
 
-fn run_module_command_unbind_proc(mod_cmd_arg: String) {
+fn run_module_command_unbind_proc(mod_cmd_arg: String) -> Result<(), Box<dyn std::error::Error>> {
     // format the shell command by which the module commands are launched
     let mut shell_cmd = Command::new("setsid");
     shell_cmd.arg("-f");
@@ -1726,10 +1723,9 @@ fn run_module_command_unbind_proc(mod_cmd_arg: String) {
     // run module cmd
     shell_cmd
         .arg(mod_cmd_arg)
-        .spawn()
-        .expect("failed to launch run_module_command_unbind_proc()")
-        .wait()
-        .expect("failed to wait for run_module_command_unbind_proc()");
+        .spawn()?
+        .wait()?;
+    Ok(())
 }
 
 // function to run empty & default modules
@@ -1763,14 +1759,14 @@ fn run_designated_module(prompt: String, prfx: String) {
 
         // run the module's command
         if target_module.unbind_proc.unwrap_or(false) {
-            run_module_command_unbind_proc(
+            let _ = run_module_command_unbind_proc(
                 target_module
                     .cmd
                     .replace("{}", &prompt_wo_prefix)
                     .to_string(),
             );
         } else {
-            run_module_command(
+           let _ = run_module_command(
                 target_module
                     .cmd
                     .replace("{}", &prompt_wo_prefix)
@@ -1964,7 +1960,7 @@ fn terminal_cell_height_px() -> io::Result<usize> {
 //░▀░░░▀▀▀░▀▀▀░▀░▀░░░▀▀▀░▀▀▀░▀░▀░░▀░░▀░▀░▀▀▀░▀▀▀
 
 // main function
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     //initializing global variables
     init_statics(
         &EXEC_CMD,
@@ -2122,7 +2118,7 @@ fn main() {
     let mut rl: Editor<OtterHelper, DefaultHistory> = Editor::new().unwrap();
     // set OtterHelper as hint and completion provider
     rl.set_helper(Some(OtterHelper {
-        hints: map_hints().expect("failed to provide hints"),
+        hints: map_hints()?,
     }));
 
     // check if esc_to_abort is on
@@ -2292,8 +2288,7 @@ fn main() {
                 .arg(&header_cmd)
                 .stdout(Stdio::inherit())
                 .stderr(Stdio::inherit())
-                .status()
-                .expect("Failed to launch header command...");
+                .status()?;
 
             if !status.success() {
                 eprintln!("header_cmd failed to run with status: {}", status);
@@ -2358,7 +2353,7 @@ fn main() {
                 process::exit(0);
             }
         }
-        let prompt = prompt.expect("failed to read prompt");
+        let prompt = prompt?;
 
         // flow switches setup
         let mut loop_switch = cached_statics(&LOOP_MODE, || false);
@@ -2366,7 +2361,7 @@ fn main() {
         // clear screen if clear_screen_after_execution is on
         if cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, || false) {
             print!("\x1B[2J\x1B[1;1H");
-            std::io::stdout().flush().expect("failed to flush stdout")
+            std::io::stdout().flush()?
         };
 
         // matching the prompted prefix with module prefixes to decide what to do
@@ -2392,16 +2387,16 @@ fn main() {
                 // Condition 1: when the selected module runs with arguement
                 if module.with_argument.unwrap_or(false) {
                     if module.unbind_proc.unwrap_or(false) {
-                        run_module_command_unbind_proc(module.cmd.replace("{}", &argument));
+                        let _ = run_module_command_unbind_proc(module.cmd.replace("{}", &argument));
                     } else {
-                        run_module_command(module.cmd.replace("{}", &argument));
+                        let _ =run_module_command(module.cmd.replace("{}", &argument));
                     }
                 // Condition 2: when user input is exactly the same as the no-arg module
                 } else if remove_ascii(&module.prefix) == prompt.trim_end() {
                     if module.unbind_proc.unwrap_or(false) {
-                        run_module_command_unbind_proc(module.cmd.to_owned());
+                        let _ = run_module_command_unbind_proc(module.cmd.to_owned());
                     } else {
-                        run_module_command(module.cmd.to_owned());
+                        let _ =run_module_command(module.cmd.to_owned());
                     }
                 // Condition 3: when no-arg modules is running with arguement
                 } else {
@@ -2484,10 +2479,7 @@ fn main() {
                             }
                         }
                     }
-                    child
-                        .expect("failed to pipe cheatsheet into viewer")
-                        .wait()
-                        .expect("failed to wait for the execution of cheatsheet_viewer");
+                    child?.wait()?;
                     loop_switch = true;
                 // Condition 3: when no module is matched, run the default module
                 } else {
@@ -2502,12 +2494,12 @@ fn main() {
         // run general.callback
         let callback = cached_statics(&CALLBACK, || "".to_string());
         if !callback.is_empty() {
-            run_module_command_unbind_proc(callback)
+            let _ = run_module_command_unbind_proc(callback);
         }
 
         // if not in loop_mode, quit the process
         if !loop_switch {
-            break;
+            break Ok(());
         }
     }
 }
