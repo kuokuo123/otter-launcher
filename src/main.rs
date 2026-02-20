@@ -10,6 +10,7 @@ use glob_vars::*;
 use keybinds::*;
 use mod_exec::*;
 use std::{
+    process,
     env,
     io::Write,
     process::{Command, Stdio},
@@ -115,7 +116,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             // if launched without arguments, run rustyline with configured header
             rl.readline(&header)
-        }?;
+        };
+
+        match prompt {
+            Ok(_) => {}
+            Err(_) => {
+                process::exit(0);
+            }
+        }
+
+        let prompt = prompt?;
 
         // flow switches setup
         let mut loop_switch = cached_statics(&LOOP_MODE, || false);
