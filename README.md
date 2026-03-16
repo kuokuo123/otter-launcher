@@ -130,19 +130,28 @@ All the available options are listed below. Check [more examples for module conf
 
 ``` toml
 [general]
-default_module = "gg" # module to run when no prefix is matched
-empty_module = "app" # run with an empty prompt
-exec_cmd = "sh -c" # exec command of your shell
-# for example: "bach -c" for bash; "zsh -c" for zsh; also accept wm commands like "hyprctl dispatch exec"
-vi_mode = false # set true to use vi keybinds, false emacs keybinds
-esc_to_abort = true # useful for vi users
-cheatsheet_entry = "?" # when prompted, will show a list of configured modules
-cheatsheet_viewer = "less -R; clear" # command to show cheatsheet; through piping stdout
+# module to run when no prefix is matched
+default_module = "gg"
+# run with an empty prompt
+empty_module = "app"
+# exec command of your shell, eg. "zsh -c" for zsh; accept wm commands like "hyprctl dispatch exec"
+exec_cmd = "sh -c"
+# set true to use vi keybinds, false emacs keybinds
+vi_mode = false
+esc_to_abort = true
+# when prompted, will show a list of configured modules
+cheatsheet_entry = "?"
+# command to show cheatsheet; through piping stdout
+cheatsheet_viewer = "less -R; clear"
 clear_screen_after_execution = false
-loop_mode = false # don't quit after executing a module, useful with scratchpads; stderr is hidden in loop mode
-external_editor = "vi" # if set, press ctrl+x ctrl+ee (or v in vi normal mode) to edit prompt in the specified program
-delay_startup = 0 # sometimes the otter runs too fast even before the terminal window is ready; this slows it down by milliseconds; useful when chafa image is skewed
-#callback = "" # if set, will run after module execution; for example, calling swaymsg to adjust window size
+# don't quit after executing a module, useful with scratchpads; stderr is hidden in loop mode
+loop_mode = false
+# if set, press ctrl+x ctrl+ee (or v in vi normal mode) to edit prompt in the specified program
+external_editor = "vi"
+# sometimes the otter runs too fast even before the terminal window is ready; this slows it down by milliseconds; useful when chafa image is skewed
+delay_startup = 0
+# if set, will run after module execution; for example, calling swaymsg to adjust window size
+callback = ""
 
 
 # ANSI color codes are allowed. However, \x1b should be replaced with \u001B, because the rust toml crate cannot read \x as an escaped character
@@ -151,26 +160,44 @@ delay_startup = 0 # sometimes the otter runs too fast even before the terminal w
 header = """
  \u001B[34;1m  \u001B[0m$USER@$(printf $HOSTNAME)\u001B[0m$(printf '\u001B[999C\u001B[14D')\u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}') \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
     """
-header_cmd = "" # run a command and print stdout above the header
-header_cmd_trimmed_lines = 0 # remove trailing lines from header_cmd output, in case of some programs appending excessive empty lines
-place_holder = "type & search" # at the input field
-suggestion_mode = "list" # available options: list, hint
-separator = "    \u001B[0;90mmodules $(printf -v line '%*s' \"$((COLUMNS - 14))\" ''; printf '%s' \"${line// /─}\")" # add a line between intput field and suggestion list; only effective in list mode
-footer = "" # add a line after suggestion list
-suggestion_lines = 4 # 0 to disable suggestions and tab completion
+# run a command and print stdout above the header
+header_cmd = ""
+# remove trailing lines from header_cmd output, lest programs appending excessive lines
+header_cmd_trimmed_lines = 0
+# texts to show at the input field
+place_holder = "type & search"
+# available options: list, hint
+suggestion_mode = "list"
+# add a line between intput field and suggestion list; only effective in list mode
+separator = """
+$( \
+    text="    modules"; \
+    printf "\u001B[0;90m$text \
+    $(printf -v line '%*s' \"$(( COLUMNS - $(printf "$text" | wc -m) - 3 ))\" ''; printf '%s' \"${line// /─}\")" \
+)"""
+# add a line after suggestion list
+footer = ""
+# 0 to disable suggestions and tab completion
+suggestion_lines = 4
 list_prefix = "    "
 selection_prefix = "  \u001B[31;1m▌ "
-prefix_padding = 3 # format prefixes to have a uniformed width
-default_module_message = "    \u001B[33msearch\u001B[0m the internet" # shown when the default module is in use
-empty_module_message = "" # shown when the empty module is in use
-customized_list_order = false # false to list modules alphabetically; true to list as per the configured order in the below [[modules]] section
-indicator_with_arg_module = "" # the sign showing whether a module should run with an argument
+# format prefixes to have a uniformed width
+prefix_padding = 3
+# shown when the default module is in use
+default_module_message = "    \u001B[33msearch\u001B[0m the internet"
+# shown when the empty module is in use
+empty_module_message = ""
+# false to list modules alphabetically; true to list as per the configured order in the below [[modules]] section
+customized_list_order = false
+# the sign showing whether a module should run with an argument
+indicator_with_arg_module = ""
 indicator_no_arg_module = ""
 # below color options affect all modules; per-module coloring can be configured using ansi codes individually
 prefix_color = "\u001B[33m"
 description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
-hint_color = "\u001B[30m" # suggestion color in hint mode
+# suggestion color in hint mode
+hint_color = "\u001B[30m"
 # move the interface rightward or downward
 move_interface_right = 0
 move_interface_down = 0
@@ -180,9 +207,12 @@ move_interface_down = 0
 [overlay]
 # run a command and print stdout on the overlay layer
 overlay_cmd = ""
-overlay_trimmed_lines = 0 # remove trailing lines from overlay_cmd output
-overlay_height = 0 # set overlay size; 0 to be auto; 1 is one line, 2 two lines, etc; kitty & sixel image size can be determined automatically; others should be set mannually; try modify this whenever you meet issues releated to image height
-move_overlay_right = 0 # move the overlay layer around for theming
+# remove trailing lines from overlay_cmd output
+overlay_trimmed_lines = 0
+# set overlay size; 0 to be auto; 1 is one line, 2 two lines, etc; kitty & sixel image size can be determined automatically; others should be set mannually; try modify this whenever you meet issues releated to image height
+overlay_height = 0
+# move the overlay layer around for theming
+move_overlay_right = 0
 move_overlay_down = 0
 
 
@@ -191,9 +221,12 @@ move_overlay_down = 0
 description = "google search"
 prefix = "gg"
 cmd = "xdg-open https://www.google.com/search?q='{}'"
-with_argument = true # if true, {} in cmd will be replaced with user input. if not explicitly set, taken as false.
-url_encode = true # should be true when calling webpages; this ensures special characters in url being readable to browsers; taken as false if not explicitly set
-unbind_proc = true # run cmd in a forked shell as opposed to as a child process (simply by prepending setsid -f to the configured cmd); useful for launching gui programs; taken as false if not explicitly set
+# if with_argument is true, {} in cmd will be replaced with user input. if not explicitly set, taken as false.
+with_argument = true
+# url_encode should be true when calling webpages; this ensures special characters in url being readable to browsers; taken as false if not explicitly set
+url_encode = true
+# run cmd in a forked shell as opposed to as a child process (simply by prepending setsid -f to the configured cmd); useful for launching gui programs; taken as false if not explicitly set
+unbind_proc = true
 
 # fzf is needed to run below functions
 [[modules]]
