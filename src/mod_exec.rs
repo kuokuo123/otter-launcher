@@ -7,6 +7,7 @@ use std::{
     process::{Command, Stdio},
 };
 use urlencoding::encode;
+use terminal_size::{terminal_size, Width};
 
 // function to remove ascii color code from &str
 pub fn remove_ascii(text: &str) -> String {
@@ -176,11 +177,10 @@ pub fn expand_env_vars(input: &str) -> String {
     let mut i = 0;
 
     while i < chars.len() {
-        // look for $(
         if chars[i] == '$' && i + 1 < chars.len() && chars[i + 1] == '(' {
-            // find matching )
             let mut depth = 1;
-            let mut j = i + 2; // start after "$("
+            let mut j = i + 2;
+
             while j < chars.len() && depth > 0 {
                 match chars[j] {
                     '(' => depth += 1,
@@ -191,26 +191,18 @@ pub fn expand_env_vars(input: &str) -> String {
             }
 
             if depth == 0 {
-                // command is between i+2 and j-1
                 let command: String = chars[i + 2..j - 1].iter().collect();
                 let output = run_subshell(&command);
                 result.push_str(&output);
                 i = j;
                 continue;
-            } else {
-                // no matching closing ), treat "$(" literally
-                result.push(chars[i]);
-                i += 1;
-                continue;
             }
         }
 
-        // not a subshell, just copy
         result.push(chars[i]);
         i += 1;
     }
 
-    // $VARS (but not numeric like $1)
     let var_re = regex::Regex::new(r"\$([A-Za-z_][A-Za-z0-9_]*)").unwrap();
     var_re
         .replace_all(&result, |caps: &regex::Captures| {
@@ -219,25 +211,25 @@ pub fn expand_env_vars(input: &str) -> String {
         .into_owned()
 }
 
+fn current_columns() -> String {
+    terminal_size()
+        .map(|(Width(w), _)| w.to_string())
+        .unwrap_or_else(|| "80".to_string())
+}
+
 pub fn run_subshell(cmd: &str) -> String {
-    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
-    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-
-    let mut shell_cmd = Command::new(cmd_parts[0]);
-    for arg in &cmd_parts[1..] {
-        shell_cmd.arg(arg);
-    }
-
-    match shell_cmd.arg(cmd).output() {
+    let mut command = Command::new("sh");
+    command.arg("-c").arg(cmd);
+    command.env("COLUMNS", current_columns());
+    match command.output() {
         Ok(output) => {
             let mut s = String::from_utf8_lossy(&output.stdout).to_string();
-            // remove ONE trailing newline like a shell would
             if s.ends_with('\n') {
                 s.pop();
             }
             if s.ends_with('\r') {
                 s.pop();
-            } // handle CRLF
+            }
             s
         }
         Err(_) => String::new(),
