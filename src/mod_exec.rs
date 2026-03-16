@@ -6,8 +6,8 @@ use std::{
     io::Write,
     process::{Command, Stdio},
 };
+use terminal_size::{Width, terminal_size};
 use urlencoding::encode;
-use terminal_size::{terminal_size, Width};
 
 // function to remove ascii color code from &str
 pub fn remove_ascii(text: &str) -> String {
@@ -101,73 +101,71 @@ pub fn run_module_command_unbind_proc(
 
 // function to format and show cheat sheet
 pub fn cheat_sheet() -> Result<(), Box<dyn std::error::Error>> {
-                    // setup variables
-                    let prefix_color = cached_statics(&PREFIX_COLOR, || "".to_string());
-                    let description_color = cached_statics(&DESCRIPTION_COLOR, || "".to_string());
-                    let indicator_with_arg_module =
-                        &cached_statics(&INDICATOR_WITH_ARG_MODULE, || "".to_string());
-                    let indicator_no_arg_module =
-                        &cached_statics(&INDICATOR_NO_ARG_MODULE, || "".to_string());
-                    // run general.cheatsheet.viewer
-                    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
-                    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-                    let mut shell_cmd = Command::new(cmd_parts[0]);
-                    for arg in &cmd_parts[1..] {
-                        shell_cmd.arg(arg);
-                    }
-                    let mut child = shell_cmd
-                        .arg(cached_statics(&CHEATSHEET_VIEWER, || {
-                            "less -R; clear".to_string()
-                        }))
-                        .stdin(Stdio::piped())
-                        .spawn();
-                    if let Ok(ref mut child) = child {
-                        if let Some(stdin) = child.stdin.as_mut() {
-                            // Format cheat sheet
-                            let mapped_modules = config()
-                                .modules
-                                .iter()
-                                .map(|module| {
-                                    let arg_indicator = if module.with_argument == Some(true) {
-                                        indicator_with_arg_module
-                                    } else {
-                                        indicator_no_arg_module
-                                    };
-                                    let width = config()
-                                        .modules
-                                        .iter()
-                                        .map(|line| remove_ascii(&line.prefix).len())
-                                        .max()
-                                        .unwrap_or(0);
-                                    format!(
-                                        "    {}{:width$}{} {}{}{}{}",
-                                        prefix_color,
-                                        &module.prefix,
-                                        "\x1b[0m",
-                                        description_color,
-                                        arg_indicator,
-                                        &module.description,
-                                        "\x1b[0m"
-                                    )
-                                })
-                                .collect::<Vec<String>>()
-                                .join("\n");
-                            match stdin.write_all(
-                                format!(
-                                    "\n  {}{}{}",
-                                    prefix_color, "Configured Modules:\n\n\x1b[0m", mapped_modules
-                                )
-                                .as_bytes(),
-                            ) {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    eprintln!("Error writing to stdin of child process: {}", e);
-                                }
-                            }
-                        }
-                    }
-                    child?.wait()?;
-                    Ok(())
+    // setup variables
+    let prefix_color = cached_statics(&PREFIX_COLOR, || "".to_string());
+    let description_color = cached_statics(&DESCRIPTION_COLOR, || "".to_string());
+    let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, || "".to_string());
+    let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, || "".to_string());
+    // run general.cheatsheet.viewer
+    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+    let mut shell_cmd = Command::new(cmd_parts[0]);
+    for arg in &cmd_parts[1..] {
+        shell_cmd.arg(arg);
+    }
+    let mut child = shell_cmd
+        .arg(cached_statics(&CHEATSHEET_VIEWER, || {
+            "less -R; clear".to_string()
+        }))
+        .stdin(Stdio::piped())
+        .spawn();
+    if let Ok(ref mut child) = child {
+        if let Some(stdin) = child.stdin.as_mut() {
+            // Format cheat sheet
+            let mapped_modules = config()
+                .modules
+                .iter()
+                .map(|module| {
+                    let arg_indicator = if module.with_argument == Some(true) {
+                        indicator_with_arg_module
+                    } else {
+                        indicator_no_arg_module
+                    };
+                    let width = config()
+                        .modules
+                        .iter()
+                        .map(|line| remove_ascii(&line.prefix).len())
+                        .max()
+                        .unwrap_or(0);
+                    format!(
+                        "    {}{:width$}{} {}{}{}{}",
+                        prefix_color,
+                        &module.prefix,
+                        "\x1b[0m",
+                        description_color,
+                        arg_indicator,
+                        &module.description,
+                        "\x1b[0m"
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join("\n");
+            match stdin.write_all(
+                format!(
+                    "\n  {}{}{}",
+                    prefix_color, "Configured Modules:\n\n\x1b[0m", mapped_modules
+                )
+                .as_bytes(),
+            ) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("Error writing to stdin of child process: {}", e);
+                }
+            }
+        }
+    }
+    child?.wait()?;
+    Ok(())
 }
 
 // function to expand env and variables
@@ -211,16 +209,25 @@ pub fn expand_env_vars(input: &str) -> String {
         .into_owned()
 }
 
-fn current_columns() -> String {
-    terminal_size()
-        .map(|(Width(w), _)| w.to_string())
-        .unwrap_or_else(|| "80".to_string())
-}
-
 pub fn run_subshell(cmd: &str) -> String {
     let mut command = Command::new("sh");
     command.arg("-c").arg(cmd);
-    command.env("COLUMNS", current_columns());
+
+    // mannually add in neccesary shell vars for expansion
+    command.env(
+        "COLUMNS",
+        terminal_size()
+            .map(|(Width(w), _)| w.to_string())
+            .unwrap_or_else(|| "80".to_string()),
+    );
+    command.env(
+        "HOSTNAME",
+        hostname::get()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
+    );
+
     match command.output() {
         Ok(output) => {
             let mut s = String::from_utf8_lossy(&output.stdout).to_string();
