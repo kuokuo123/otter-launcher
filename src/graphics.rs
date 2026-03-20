@@ -8,19 +8,16 @@ use std::{
 
 // function to measure kitty image height
 pub fn kitty_rows(s: &str) -> Option<usize> {
-    // match: ESC_G ... (terminated by ST `ESC\` or ST 0x9c, or BEL 0x07)
-    // captures the body (params[,;]data...), enabling parsing params before the first ;
     let re = regex::Regex::new(r"\x1b_G(?P<body>.*?)(?:\x1b\\|\x9c|\x07)").ok()?;
+
     let mut id_to_rows: HashMap<String, usize> = HashMap::new();
-    let mut anon_images = 0usize;
+    let mut anon_total = 0usize;
+    let mut found_any = false;
 
     for caps in re.captures_iter(s) {
-        let body = match caps.name("body") {
-            Some(m) => m.as_str(),
-            None => continue,
-        };
+        let body = caps.name("body")?.as_str();
 
-        // params are before the first ; (then optional base64 data after ';')
+        // params are before first ';'
         let params_str = body.split_once(';').map(|(p, _)| p).unwrap_or(body);
 
         let mut img_id: Option<String> = None;
@@ -37,26 +34,26 @@ pub fn kitty_rows(s: &str) -> Option<usize> {
         }
 
         if let Some(r) = rows {
+            found_any = true;
+
             if let Some(id) = img_id {
-                // for the same image id, keep the largest r seen
                 id_to_rows
                     .entry(id)
-                    .and_modify(|x| {
-                        if r > *x {
-                            *x = r
-                        }
-                    })
+                    .and_modify(|x| *x = (*x).max(r))
                     .or_insert(r);
             } else {
-                // no explicit id — treat as its own image
-                anon_images += r;
+                anon_total += r;
             }
         }
     }
 
-    let sum_ids: usize = id_to_rows.values().copied().sum();
-    let total = sum_ids + anon_images;
-    if total > 0 { Some(total) } else { None }
+    if !found_any {
+        return None;
+    }
+
+    let total_from_ids: usize = id_to_rows.values().sum();
+
+    Some(total_from_ids + anon_total)
 }
 
 // functions to measure sixel graphics height (raster row, not terminal row, string between ESC P and ST)
