@@ -105,13 +105,13 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 2. Create a config file mannually
 
-Put a config at $HOME/.config/otter-launcher/config.toml. The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) looks for /etc/otter-launcher/[pikachu.example](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to show a chafa image. You can modify the config file to remove this line from overlay_cmd.
+Put a config at $HOME/.config/otter-launcher/config.toml. The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) serves as an example.
 
 ## Configuration
 
 Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation.
 
-The default config comes with a [capybara](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/pikachu.example) to demonstrate how image integration works. Remove it by modifying overlay_cmd in the config file.
+The default config has a minimal setup. Check the [styling](#styling) section for image integration.
 
 <div align="center">
 
@@ -634,3 +634,5 @@ description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
 hint_color = "\u001B[90m"
 ```
+
+[^1]: 
