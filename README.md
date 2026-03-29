@@ -30,7 +30,7 @@ The core concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
+Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki). It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop).
 
 ## Features
 
@@ -105,7 +105,7 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 2. Create a config file mannually
 
-Put a config at $HOME/.config/otter-launcher/config.toml. The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) serves as an example.
+Put a config at $HOME/.config/otter-launcher/config.toml. Here's the [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml).
 
 ## Configuration
 
@@ -126,7 +126,7 @@ The confing has four sections:
 - [overlay] includes options releated to image integration
 - [[modules]] can be configured through bash scripting in an unlimited number
 
-All the available options are listed below. Check [more examples for module config](https://github.com/kuokuo123/otter-launcher/wiki) at the wiki page.
+All the available options are listed below. Check [more examples](https://github.com/kuokuo123/otter-launcher/wiki) for module setup at the wiki page.
 
 ``` toml
 [general]
@@ -319,9 +319,9 @@ find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --info-command 'pri
 
 ## Integration
 
-Otter-launcher works well with tui, cli programs, and bash pipelines. Some tricktips:
+Otter-launcher works well with tui programs and bash pipelines. Some tricktips:
 
-1. Use your wm's window rules to control its window size, and make it large enough to contain the printed content to prevent a skewed layout.
+1. Use your wm's window rules to control window size; make it large enough to prevent a skewed layout.
 
 2. [[modules]].cmd can be scripted to adjust window sizes. For example:
 
@@ -332,7 +332,7 @@ prefix = "vol"
 cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pulsemixer; swaymsg [app_id=otter-launcher] resize set width 600 px height 60 px"
 ```
 
-3. Check out the [wiki page](https://github.com/kuokuo123/otter-launcher/wiki) to see more integration examples, like vpn, ppd, cups, wifi, etc.
+3. Check [wiki page](https://github.com/kuokuo123/otter-launcher/wiki) to see more example modules, like vpn, ppd, cups, wifi, etc.
 
 4. Some tui utilities that works really well:
 
@@ -344,11 +344,9 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
     - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
     - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
 
-5. It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) (rust and very fast) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) (bash speed). The default config is just a simple script finding into regular directories and flatpak. If your apps are from different sources, it won't show.
+5. To change external editor's window size , call a wrapper script at general.external_editor. Examples of such a wrapper are in [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib).
 
-6. If you want to change the window size of the external editor, call a wrapper script at general.external_editor. Examples of such a wrapper are in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder.
-
-7. Running otter in wayland's layer shell surface like rofi is possible, but without perceivable benefit. This should be done through a terminal capable of running in layer shell like kitty, because otter as a tui program can only run within a terminal. Below is an example using [kitten panel](https://sw.kovidgoyal.net/kitty/kittens/panel/) in niri:
+7. Running otter in wayland layer shell is possible, but without perceivable benefit. This needs a terminal capable of running in layer shell like kitty. Below is a [kitten panel](https://sw.kovidgoyal.net/kitty/kittens/panel/) example in niri. However, kitten panel currently has an issue with wayland multi-monitor setup; it cannot move layer shell to the focused monitor after unhiding the panel.
 
 ```
 binds {
@@ -366,7 +364,7 @@ binds {
 }
 ```
 
-8. You can also run otter with general.loop_mode like a daemon, and hide it after command execution using general.callback. However, kitten panel currently has issues with wayland's multi-monitor setup as it cannot unhide layer shell at the focused monitor. An example for such a config in niri:
+8. You can also run otter with general.loop_mode like a daemon, and hide it after command execution using general.callback. An example for such a config in niri:
 
 ```
 binds {
@@ -390,25 +388,6 @@ binds {
 ```
 
 ## Styling
-
-### Two Liner in Hint Mode
-
-<div align="center">
-
-![Two_liner Config](./assets/two_liner.png)
-
-</div>
-
-```toml
-[interface]
-header = """  \u001B[34;1m  >\u001B[0m $USER@$(echo $HOSTNAME)              \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n     \u001B[34;1m>\u001B[0;1m """
-indicator_with_arg_module = "^ "
-indicator_no_arg_module = "$ "
-place_holder = "type and search"
-suggestion_mode = "hint"
-place_holder_color = "\u001B[90m"
-hint_color = "\u001B[90m"
-```
 
 ### Fastfetch
 
