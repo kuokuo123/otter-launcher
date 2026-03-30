@@ -10,12 +10,13 @@ use glob_vars::*;
 use keybinds::*;
 use mod_exec::*;
 use std::{
-    process,
     env,
     io::Write,
+    process,
     process::{Command, Stdio},
     sync::Mutex,
 };
+use terminal_size::{Width, terminal_size};
 use urlencoding::encode;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -55,6 +56,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for arg in &cmd_parts[1..] {
                 shell_cmd.arg(arg);
             }
+            // mannually add in neccesary shell vars for expansion
+            shell_cmd.env(
+                "COLUMNS",
+                terminal_size()
+                    .map(|(Width(w), _)| w.to_string())
+                    .unwrap_or_else(|| "80".to_string()),
+            );
+            shell_cmd.env(
+                "HOSTNAME",
+                hostname::get()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned(),
+            );
+            shell_cmd.env(
+                "HOST",
+                hostname::get()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned(),
+            );
             let status = shell_cmd
                 .arg(&header_cmd)
                 .stdout(Stdio::inherit())

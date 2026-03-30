@@ -210,25 +210,35 @@ pub fn expand_env_vars(input: &str) -> String {
 }
 
 pub fn run_subshell(cmd: &str) -> String {
-    let mut command = Command::new("sh");
-    command.arg("-c").arg(cmd);
-
+    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+    let mut shell_cmd = Command::new(cmd_parts[0]);
+    for arg in &cmd_parts[1..] {
+        shell_cmd.arg(arg);
+    }
     // mannually add in neccesary shell vars for expansion
-    command.env(
+    shell_cmd.env(
         "COLUMNS",
         terminal_size()
             .map(|(Width(w), _)| w.to_string())
             .unwrap_or_else(|| "80".to_string()),
     );
-    command.env(
+    shell_cmd.env(
         "HOSTNAME",
         hostname::get()
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned(),
     );
+    shell_cmd.env(
+        "HOST",
+        hostname::get()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
+    );
 
-    match command.output() {
+    match shell_cmd.arg(&cmd).output() {
         Ok(output) => {
             let mut s = String::from_utf8_lossy(&output.stdout).to_string();
             if s.ends_with('\n') {
