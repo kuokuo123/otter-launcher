@@ -614,4 +614,12 @@ place_holder_color = "\u001B[30m"
 hint_color = "\u001B[90m"
 ```
 
-[^1]: 
+## Sponsorship
+
+If you find the project helpful, you can buy me a coffee through [paypal](https://www.paypal.com/ncp/payment/JMX5G79MQLKKA).
+
+<p align="center">
+  <a href="https://www.paypal.com/ncp/payment/JMX5G79MQLKKA">
+    <img src="./assets/paypal.png" alt="Donate with PayPal" width="150" />
+  </a>
+</p>
