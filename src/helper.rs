@@ -254,16 +254,16 @@ impl Highlighter for OtterHelper {
                     } else {
                         let (part0, part_rest) =
                             line.split_once(char::is_whitespace).unwrap_or((line, ""));
-                            format!(
-                                "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
-                                layout_right + 1,
-                                list_prefix,
-                                prefix_color,
-                                part0,
-                                description_color,
-                                part_rest,
-                                "\x1b[0m"
-                            )
+                        format!(
+                            "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
+                            layout_right + 1,
+                            list_prefix,
+                            prefix_color,
+                            part0,
+                            description_color,
+                            part_rest,
+                            "\x1b[0m"
+                        )
                     }
                 })
                 .collect::<Vec<String>>()
@@ -436,7 +436,7 @@ impl Hinter for OtterHelper {
 
                             // match typed texts with hint objectss
                             if !adjusted_line.trim_end().is_empty()
-                                && remove_ascii(&i.display).starts_with(adjusted_line.trim_end())
+                             && (remove_ascii(&i.display) + " ").starts_with(line)
                             {
                                 // set the first matched prefix as completion candidate
                                 *COMPLETION_CANDIDATE
