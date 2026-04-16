@@ -432,11 +432,8 @@ impl Hinter for OtterHelper {
                     self.hints
                         .iter()
                         .filter_map(|i| {
-                            let adjusted_line = &line.replace(" ", "\n");
-
                             // match typed texts with hint objectss
-                            if !adjusted_line.trim_end().is_empty()
-                             && (remove_ascii(&i.display) + " ").starts_with(line)
+                            if (remove_ascii(&i.display) + " ").starts_with(line)
                             {
                                 // set the first matched prefix as completion candidate
                                 *COMPLETION_CANDIDATE
