@@ -226,21 +226,18 @@ impl Highlighter for OtterHelper {
                 .enumerate()
                 .map(|(index, line)| {
                     if index == *selection_index + *separator_count && *selection_index > 0 {
-                        let parts: Vec<&str> = line.split_whitespace().collect();
-                        if parts.len() >= 2 {
-                            format!(
-                                "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
-                                layout_right + 1,
-                                selection_prefix,
-                                prefix_color,
-                                parts[0],
-                                description_color,
-                                parts[1..].join(" "),
-                                "\x1b[0m"
-                            )
-                        } else {
-                            format!("\x1b[{}G{}", layout_right + 1, line)
-                        }
+                        let (part0, part_rest) =
+                            line.split_once(char::is_whitespace).unwrap_or((line, ""));
+                        format!(
+                            "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
+                            layout_right + 1,
+                            selection_prefix,
+                            prefix_color,
+                            part0,
+                            description_color,
+                            part_rest,
+                            "\x1b[0m"
+                        )
                     } else if line == place_holder {
                         format!("{}{}{}", place_holder_color, place_holder, "\x1b[0m")
                     } else if (default_module_message.contains(line)
@@ -255,21 +252,18 @@ impl Highlighter for OtterHelper {
                     {
                         line.to_string()
                     } else {
-                        let parts: Vec<&str> = line.split_whitespace().collect();
-                        if parts.len() >= 2 {
+                        let (part0, part_rest) =
+                            line.split_once(char::is_whitespace).unwrap_or((line, ""));
                             format!(
                                 "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
                                 layout_right + 1,
                                 list_prefix,
                                 prefix_color,
-                                parts[0],
+                                part0,
                                 description_color,
-                                parts[1..].join(" "),
+                                part_rest,
                                 "\x1b[0m"
                             )
-                        } else {
-                            format!("\x1b[{}G{}", layout_right + 1, line)
-                        }
                     }
                 })
                 .collect::<Vec<String>>()
