@@ -427,45 +427,41 @@ impl Hinter for OtterHelper {
                     w_arg: None,
                 })
             } else {
-                // when something's typed
-                Some(
-                    self.hints
-                        .iter()
-                        .filter_map(|i| {
-                            // match typed texts with hint objectss
-                            if (remove_ascii(&i.display) + " ").starts_with(line)
-                            {
-                                // set the first matched prefix as completion candidate
-                                *COMPLETION_CANDIDATE
-                                    .get_or_init(|| Mutex::new("".to_string()))
-                                    .lock()
-                                    .unwrap() = i
-                                    .display
-                                    .split_whitespace()
-                                    .next()
-                                    .unwrap_or("")
-                                    .to_string();
-                                // provide the found hint
-                                Some(i.suffix(line.len(), padded_line_count, &foot_lines_hint_mode))
-                            } else {
-                                *COMPLETION_CANDIDATE
-                                    .get_or_init(|| Mutex::new("".to_string()))
-                                    .lock()
-                                    .unwrap() = "".to_string();
-                                None
-                            }
-                        })
-                        .next()
-                        .unwrap_or(ModuleHint {
-                            display: format!(
-                                "\x1b[0m{}{}",
-                                "\n ".repeat(padded_line_count),
-                                foot_lines_hint_mode
-                            ),
-                            completion: 0,
-                            w_arg: None,
-                        }),
-                )
+                let mut filtered_hints = self.hints.iter().filter_map(|i| {
+                    let mut candidate = COMPLETION_CANDIDATE
+                        .get_or_init(|| Mutex::new(String::new()))
+                        .lock()
+                        .unwrap();
+
+                    if (remove_ascii(&i.display) + " ").starts_with(line) {
+                        *candidate = i
+                            .display
+                            .split_whitespace()
+                            .next()
+                            .unwrap_or("")
+                            .to_string();
+                        Some(i.suffix(line.len(), padded_line_count, &foot_lines_hint_mode))
+                    } else {
+                        candidate.clear(); // Much faster than assigning "".to_string()
+                        None
+                    }
+                });
+
+                let selected_hint = if cached_statics(&CUSTOMIZED_LIST_ORDER, || false) {
+                    filtered_hints.next()
+                } else {
+                    filtered_hints.min_by(|a, b| a.display.cmp(&b.display))
+                };
+
+                Some(selected_hint.unwrap_or_else(|| ModuleHint {
+                    display: format!(
+                        "\x1b[0m{}{}",
+                        "\n ".repeat(padded_line_count),
+                        foot_lines_hint_mode
+                    ),
+                    completion: 0,
+                    w_arg: None,
+                }))
             }
         } else {
             // list mode behavior

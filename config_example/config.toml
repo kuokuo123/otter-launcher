@@ -77,7 +77,7 @@ prefix_padding = 3
 default_module_message = "    \u001B[33msearch\u001B[0m the internet"
 # shown when the empty module is in use
 empty_module_message = ""
-# false to list modules alphabetically; true to list as per the configured order in the below [[modules]] section
+# false to list suggestions/hints alphabetically; true to list them as per the configured order in the below [[modules]] section
 customized_list_order = false
 # the sign showing whether a module should run with an argument
 indicator_with_arg_module = ""
