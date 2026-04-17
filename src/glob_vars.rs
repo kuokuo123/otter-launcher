@@ -180,17 +180,17 @@ pub fn init_all_statics() {
     init_statics(
         &EXTERNAL_EDITOR,
         config().general.external_editor.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &DEFAULT_MODULE,
         config().general.default_module.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &EMPTY_MODULE,
         config().general.empty_module.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &CHEATSHEET_ENTRY,
@@ -210,17 +210,17 @@ pub fn init_all_statics() {
         config().general.clear_screen_after_execution,
         false,
     );
-    init_statics(&CALLBACK, config().general.callback.clone(), "".to_string());
+    init_statics(&CALLBACK, config().general.callback.clone(), String::new());
     init_statics(&DELAY_STARTUP, config().general.delay_startup, 0);
     init_statics(
         &HEADER_CMD,
         config().interface.header_cmd.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &OVERLAY_CMD,
         config().overlay.overlay_cmd.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &HEADER_CMD_TRIMMED_LINES,
@@ -241,13 +241,13 @@ pub fn init_all_statics() {
     init_statics(
         &SEPARATOR,
         config().interface.separator.clone(),
-        "".to_string(),
+        String::new(),
     );
-    init_statics(&FOOTER, config().interface.footer.clone(), "".to_string());
+    init_statics(&FOOTER, config().interface.footer.clone(), String::new());
     init_statics(
         &LIST_PREFIX,
         config().interface.list_prefix.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &SELECTION_PREFIX,
@@ -262,12 +262,12 @@ pub fn init_all_statics() {
     init_statics(
         &INDICATOR_WITH_ARG_MODULE,
         config().interface.indicator_with_arg_module.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &INDICATOR_NO_ARG_MODULE,
         config().interface.indicator_no_arg_module.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &SUGGESTION_MODE,
@@ -278,18 +278,18 @@ pub fn init_all_statics() {
     init_statics(
         &DEFAULT_MODULE_MESSAGE,
         config().interface.default_module_message.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &EMPTY_MODULE_MESSAGE,
         config().interface.empty_module_message.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(&PREFIX_PADDING, config().interface.prefix_padding, 0);
     init_statics(
         &PREFIX_COLOR,
         config().interface.prefix_color.clone(),
-        "".to_string(),
+        String::new(),
     );
     init_statics(
         &DESCRIPTION_COLOR,

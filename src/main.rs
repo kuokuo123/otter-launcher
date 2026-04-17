@@ -98,7 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let layout_down_string = if layout_down > 0 {
             format!("{}", "\n".repeat(layout_down))
         } else {
-            "".to_string()
+            String::new()
         };
         let layout_right_padding = format!("\x1b[{}G", layout_right + 1);
         let repeated_spaces = " ".repeat(layout_right);
@@ -196,7 +196,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     run_designated_module(
                         prompt,
-                        cached_statics(&DEFAULT_MODULE, || "".to_string()),
+                        cached_statics(&DEFAULT_MODULE, || String::new()),
                     )
                 }
             }
@@ -204,7 +204,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => {
                 // Condition 1: when user input is empty, run the empty module
                 if prompt.is_empty() {
-                    run_designated_module(prompt, cached_statics(&EMPTY_MODULE, || "".to_string()))
+                    run_designated_module(prompt, cached_statics(&EMPTY_MODULE, || String::new()))
                 // Condition 2: when helper keyword is passed, open cheatsheet
                 } else if prompt.trim_end() == cached_statics(&CHEATSHEET_ENTRY, || "?".to_string())
                 {
@@ -214,14 +214,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     run_designated_module(
                         prompt,
-                        cached_statics(&DEFAULT_MODULE, || "".to_string()),
+                        cached_statics(&DEFAULT_MODULE, || String::new()),
                     )
                 }
             }
         }
 
         // run general.callback
-        let callback = cached_statics(&CALLBACK, || "".to_string());
+        let callback = cached_statics(&CALLBACK, || String::new());
         if !callback.is_empty() {
             let _ = run_module_command_unbind_proc(callback);
         }

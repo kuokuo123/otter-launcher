@@ -23,8 +23,8 @@ pub fn run_designated_module(prompt: String, prfx: String) {
     } else {
         // set a fallback module to prevent panic when no module is found
         let fallback = Module {
-            description: "".to_string(),
-            prefix: "".to_string(),
+            description: String::new(),
+            prefix: String::new(),
             cmd: "printf 'no default_module or empty_module found\n'".to_string(),
             with_argument: None,
             url_encode: None,
@@ -102,10 +102,10 @@ pub fn run_module_command_unbind_proc(
 // function to format and show cheat sheet
 pub fn cheat_sheet() -> Result<(), Box<dyn std::error::Error>> {
     // setup variables
-    let prefix_color = cached_statics(&PREFIX_COLOR, || "".to_string());
-    let description_color = cached_statics(&DESCRIPTION_COLOR, || "".to_string());
-    let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, || "".to_string());
-    let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, || "".to_string());
+    let prefix_color = cached_statics(&PREFIX_COLOR, || String::new());
+    let description_color = cached_statics(&DESCRIPTION_COLOR, || String::new());
+    let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, || String::new());
+    let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, || String::new());
     // run general.cheatsheet.viewer
     let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();

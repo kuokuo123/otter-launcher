@@ -72,21 +72,21 @@ impl Completer for OtterHelper {
         pos: usize,
         _ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
-        let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || "".to_string());
-        if cached_statics(&SUGGESTION_MODE, || "".to_string()) == "hint".to_string() {
+        let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || String::new());
+        if cached_statics(&SUGGESTION_MODE, || String::new()) == "hint".to_string() {
             // define the behavior of completion in hint mode
             if pos <= com_candidate.len() && pos > 0 {
                 // disable completion when the input texts is longer than the matched module prefix
                 let cand = vec![Pair {
-                    display: "".to_string(),
+                    display: String::new(),
                     replacement: com_candidate + " ",
                 }];
                 Ok((0, cand))
             } else {
                 // normal behavior
                 let cand = vec![Pair {
-                    display: "".to_string(),
-                    replacement: "".to_string(),
+                    display: String::new(),
+                    replacement: String::new(),
                 }];
                 Ok((pos, cand))
             }
@@ -101,8 +101,8 @@ impl Completer for OtterHelper {
             {
                 // when empty, complete with empty module
                 let cand = vec![Pair {
-                    display: "".to_string(),
-                    replacement: cached_statics(&EMPTY_MODULE, || "".to_string()) + " ",
+                    display: String::new(),
+                    replacement: cached_statics(&EMPTY_MODULE, || String::new()) + " ",
                 }];
                 *SELECTION_INDEX
                     .get_or_init(|| Mutex::new(0))
@@ -112,8 +112,8 @@ impl Completer for OtterHelper {
             } else if com_candidate == " " {
                 // when no module is matched, complete with default module
                 let cand = vec![Pair {
-                    display: "".to_string(),
-                    replacement: cached_statics(&DEFAULT_MODULE, || "".to_string()) + " ",
+                    display: String::new(),
+                    replacement: cached_statics(&DEFAULT_MODULE, || String::new()) + " ",
                 }];
                 *SELECTION_INDEX
                     .get_or_init(|| Mutex::new(0))
@@ -123,7 +123,7 @@ impl Completer for OtterHelper {
             } else if pos == line.len() {
                 // normal behavior
                 let cand = vec![Pair {
-                    display: "".to_string(),
+                    display: String::new(),
                     replacement: com_candidate,
                 }];
                 *SELECTION_INDEX
@@ -133,8 +133,8 @@ impl Completer for OtterHelper {
                 Ok((0, cand))
             } else {
                 let cand = vec![Pair {
-                    display: "".to_string(),
-                    replacement: "".to_string(),
+                    display: String::new(),
+                    replacement: String::new(),
                 }];
                 *SELECTION_INDEX
                     .get_or_init(|| Mutex::new(0))
@@ -149,16 +149,16 @@ impl Completer for OtterHelper {
 // the coloring functionality of OtterHelper
 impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, || "".to_string());
-        let empty_module_message = cached_statics(&EMPTY_MODULE_MESSAGE, || "".to_string());
+        let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, || String::new());
+        let empty_module_message = cached_statics(&EMPTY_MODULE_MESSAGE, || String::new());
         let description_color = cached_statics(&DESCRIPTION_COLOR, || "\x1b[39m".to_string());
         let place_holder = cached_statics(&PLACE_HOLDER, || "type something".to_string());
         let place_holder_color = cached_statics(&PLACE_HOLDER_COLOR, || "\x1b[30m".to_string());
         let hint_color = cached_statics(&HINT_COLOR, || "\x1b[30m".to_string());
         let suggestion_mode = cached_statics(&SUGGESTION_MODE, || "list".to_string());
-        let list_prefix = cached_statics(&LIST_PREFIX, || "".to_string());
+        let list_prefix = cached_statics(&LIST_PREFIX, || String::new());
         let selection_prefix = cached_statics(&SELECTION_PREFIX, || ">".to_string());
-        let prefix_color = cached_statics(&PREFIX_COLOR, || "".to_string());
+        let prefix_color = cached_statics(&PREFIX_COLOR, || String::new());
         let prefix_width = cached_statics(&PREFIX_PADDING, || 0);
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
         let mut selection_index = SELECTION_INDEX
@@ -176,12 +176,12 @@ impl Highlighter for OtterHelper {
             .lock()
             .unwrap();
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
-        let overlay_lines = cached_statics(&OVERLAY_LINES, || "".to_string());
+        let overlay_lines = cached_statics(&OVERLAY_LINES, || String::new());
         let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
         let overlay_down_cached = cached_statics(&OVERLAY_DOWNWARD, || 0);
         let overlay_up = format!(
             "\x1b[{}A",
-            hint.lines().collect::<Vec<&str>>().len()
+            hint.lines().count()
                 + *HEADER_LINE_COUNT
                     .get_or_init(|| Mutex::new(0))
                     .lock()
@@ -291,7 +291,7 @@ impl Hinter for OtterHelper {
         let suggestion_mode = cached_statics(&SUGGESTION_MODE, || "list".to_string());
         let place_holder = cached_statics(&PLACE_HOLDER, || "type something".to_string());
         let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, || "?".to_string());
-        let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, || "".to_string());
+        let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, || String::new());
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 1);
         let hint_benchmark = *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
         let overlay_down = cached_statics(&OVERLAY_DOWNWARD, || 0);
@@ -303,7 +303,7 @@ impl Hinter for OtterHelper {
         // form separator lines, if any
         let mut separator_lines = cached_statics(&SEPARATOR, || String::new());
         if separator_lines.is_empty() {
-            separator_lines = "".to_string();
+            separator_lines.clear();
             *SEPARATOR_COUNT
                 .get_or_init(|| Mutex::new(0))
                 .lock()
@@ -315,21 +315,20 @@ impl Hinter for OtterHelper {
                 .get_or_init(|| Mutex::new(0))
                 .lock()
                 .unwrap() = prepared_separator_lines.len();
-            separator_lines = format!("\n{}", prepared_separator_lines.join("\n"));
+            separator_lines = format!("\n{}", expanded_separator);
         }
 
         // form footer lines, if any
         let mut footer_lines = cached_statics(&FOOTER, || String::new());
         if footer_lines.is_empty() {
-            footer_lines = "".to_string();
+            footer_lines.clear();
         } else {
             let expanded_footer = expand_env_vars(&footer_lines);
-            let prepared_footer_lines: Vec<&str> = expanded_footer.split('\n').collect();
-            footer_lines = format!("\x1b[0m\n{}", prepared_footer_lines.join("\n"));
+            footer_lines = format!("\x1b[0m\n{}", expanded_footer);
         }
 
         // print from overlay commands, if any
-        let overlay_cmd = cached_statics(&OVERLAY_CMD, || "".to_string());
+        let overlay_cmd = cached_statics(&OVERLAY_CMD, || String::new());
         let overlay_lines = if !overlay_cmd.is_empty() {
             let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
             let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
@@ -341,7 +340,7 @@ impl Hinter for OtterHelper {
             let output = shell_cmd.arg(&overlay_cmd).output().ok()?;
             let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, || 0);
             let overlay_cmd_stdout = from_utf8(&output.stdout).unwrap();
-            let lines: Vec<&str> = overlay_cmd_stdout.lines().collect();
+            let lines: Vec<&str> = overlay_cmd_stdout.split('\n').collect();
             let lines_count = lines.len();
             if lines_count > remove_lines_count {
                 lines[..lines_count - remove_lines_count]
@@ -350,12 +349,12 @@ impl Hinter for OtterHelper {
                 "not enough lines of overlay_cmd output to be trimmed".to_string()
             }
         } else {
-            "".to_string()
+            String::new()
         };
 
         // store overlay lines into universial var, prep for highlighter use
         *OVERLAY_LINES
-            .get_or_init(|| Mutex::new("".to_string()))
+            .get_or_init(|| Mutex::new(String::new()))
             .lock()
             .unwrap() = overlay_lines.clone();
 
@@ -390,13 +389,13 @@ impl Hinter for OtterHelper {
 
         // hint mode behavior
         if suggestion_mode == "hint" {
-            let foot_lines_hint_mode = footer_lines.lines().collect::<Vec<&str>>().join("\n");
+            let foot_lines_hint_mode = footer_lines;
             if line.is_empty() {
                 // when nothing is typed
                 *COMPLETION_CANDIDATE
-                    .get_or_init(|| Mutex::new("".to_string()))
+                    .get_or_init(|| Mutex::new(String::new()))
                     .lock()
-                    .unwrap() = "".to_string();
+                    .unwrap() = String::new();
                 Some(ModuleHint {
                     display: format!(
                         "{}{}{}",
@@ -410,7 +409,7 @@ impl Hinter for OtterHelper {
             } else if line.trim_end() == cheatsheet_entry {
                 // when cheatsheet_entry is typed
                 *COMPLETION_CANDIDATE
-                    .get_or_init(|| Mutex::new("".to_string()))
+                    .get_or_init(|| Mutex::new(String::new()))
                     .lock()
                     .unwrap() = "?".to_string();
                 Some(ModuleHint {
@@ -470,9 +469,9 @@ impl Hinter for OtterHelper {
         } else {
             // list mode behavior
             let e_module =
-                expand_env_vars(&cached_statics(&EMPTY_MODULE_MESSAGE, || "".to_string()));
+                expand_env_vars(&cached_statics(&EMPTY_MODULE_MESSAGE, || String::new()));
             let d_module =
-                expand_env_vars(&cached_statics(&DEFAULT_MODULE_MESSAGE, || "".to_string()));
+                expand_env_vars(&cached_statics(&DEFAULT_MODULE_MESSAGE, || String::new()));
             let selection_index = SELECTION_INDEX
                 .get_or_init(|| Mutex::new(0))
                 .lock()
@@ -500,11 +499,11 @@ impl Hinter for OtterHelper {
                         None
                     }
                 })
-                .collect::<Vec<&str>>(); // Collect the filtered results into a vector
+                .collect::<Vec<&str>>();
 
             if cached_statics(&CUSTOMIZED_LIST_ORDER, || false) == false {
                 // sort list items alphebetically
-                aggregated_lines.sort_unstable();
+                aggregated_lines.sort();
             }
             // partition list items into those that start with input texts and others
             let partitioned_lines =
@@ -574,7 +573,7 @@ impl Hinter for OtterHelper {
 
             // set completion candidate according to list selection index
             *COMPLETION_CANDIDATE
-                .get_or_init(|| Mutex::new("".to_string()))
+                .get_or_init(|| Mutex::new(String::new()))
                 .lock()
                 .unwrap() = if *selection_index == 0 {
                 agg_line
@@ -645,11 +644,11 @@ impl Hinter for OtterHelper {
                 })
             } else {
                 // if something is typed
-                let agg_count = agg_line.lines().collect::<Vec<&str>>().len();
+                let agg_count = agg_line.lines().count();
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
                         *COMPLETION_CANDIDATE
-                            .get_or_init(|| Mutex::new("".to_string()))
+                            .get_or_init(|| Mutex::new(String::new()))
                             .lock()
                             .unwrap() = "? ".to_string();
                         let cheatsheet_count = cheatsheet_entry.lines().count();
@@ -752,8 +751,8 @@ impl Hinter for OtterHelper {
 
 // function to format vec<hints> according to configured modules, and to provide them to hinter
 pub fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
-    let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, || "".to_string());
-    let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, || "".to_string());
+    let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, || String::new());
+    let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, || String::new());
 
     let set = config()
         .modules

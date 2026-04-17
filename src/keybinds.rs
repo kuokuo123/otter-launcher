@@ -32,7 +32,7 @@ impl ConditionalEventHandler for ExternalEditor {
             || ctx.mode() == rustyline::EditMode::Emacs
                 && *CTRLX_LOCK.get_or_init(|| Mutex::new(0)).lock().unwrap() == 1
         {
-            let editor = cached_statics(&EXTERNAL_EDITOR, || "".to_string());
+            let editor = cached_statics(&EXTERNAL_EDITOR, || String::new());
             let mut file_path = env::temp_dir();
             file_path.push("otter-launcher");
             // Write the current line into the temporary file
@@ -300,7 +300,7 @@ impl ConditionalEventHandler for ListItemEnter {
         {
             Some(Cmd::AcceptLine)
         } else {
-            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || "".to_string())
+            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || String::new())
                 .split_whitespace()
                 .next()?
                 .to_string();
@@ -310,13 +310,13 @@ impl ConditionalEventHandler for ListItemEnter {
                 .find(|module| remove_ascii(&module.prefix) == com_candidate)
                 .unwrap();
             Some(if target_module.with_argument.unwrap_or(false) == false {
-                run_designated_module("".to_string(), com_candidate);
+                run_designated_module(String::new(), com_candidate);
                 if cached_statics(&LOOP_MODE, || false) == true {
                     *SELECTION_INDEX
                         .get_or_init(|| Mutex::new(0))
                         .lock()
                         .unwrap() = 0;
-                    Cmd::Replace(Movement::WholeBuffer, Some("".to_string()))
+                    Cmd::Replace(Movement::WholeBuffer, Some(String::new()))
                 } else {
                     Cmd::Interrupt
                 }
@@ -363,7 +363,7 @@ impl ConditionalEventHandler for ListItemSelect {
         {
             Some(Cmd::Complete)
         } else {
-            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || "".to_string())
+            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || String::new())
                 .split_whitespace()
                 .next()?
                 .to_string();
@@ -373,13 +373,13 @@ impl ConditionalEventHandler for ListItemSelect {
                 .find(|module| remove_ascii(&module.prefix) == com_candidate)
                 .unwrap();
             Some(if target_module.with_argument.unwrap_or(false) == false {
-                run_designated_module("".to_string(), com_candidate);
+                run_designated_module(String::new(), com_candidate);
                 if cached_statics(&LOOP_MODE, || false) == true {
                     *SELECTION_INDEX
                         .get_or_init(|| Mutex::new(0))
                         .lock()
                         .unwrap() = 0;
-                    Cmd::Replace(Movement::WholeBuffer, Some("".to_string()))
+                    Cmd::Replace(Movement::WholeBuffer, Some(String::new()))
                 } else {
                     Cmd::Interrupt
                 }
@@ -642,7 +642,7 @@ pub fn customized_rustyline_editor()
             KeyEvent::new('u', Modifiers::CTRL),
             EventHandler::Conditional(Box::from(ViListCtrlU)),
         );
-        if !cached_statics(&EXTERNAL_EDITOR, || "".to_string()).is_empty() {
+        if !cached_statics(&EXTERNAL_EDITOR, || String::new()).is_empty() {
             rl.bind_sequence(
                 KeyEvent::new('v', Modifiers::NONE),
                 EventHandler::Conditional(Box::from(ExternalEditor)),
@@ -666,7 +666,7 @@ pub fn customized_rustyline_editor()
             KeyEvent::new('v', Modifiers::ALT),
             EventHandler::Conditional(Box::from(ListPageUp)),
         );
-        if !cached_statics(&EXTERNAL_EDITOR, || "".to_string()).is_empty() {
+        if !cached_statics(&EXTERNAL_EDITOR, || String::new()).is_empty() {
             rl.bind_sequence(
                 KeyEvent::new('x', Modifiers::CTRL),
                 EventHandler::Conditional(Box::from(CTRLX)),
