@@ -427,22 +427,26 @@ impl Hinter for OtterHelper {
                     w_arg: None,
                 })
             } else {
+                // when something is typed
                 let mut filtered_hints = self.hints.iter().filter_map(|i| {
                     let mut candidate = COMPLETION_CANDIDATE
                         .get_or_init(|| Mutex::new(String::new()))
                         .lock()
                         .unwrap();
 
+                    // filter the shown hint according to user's current input
                     if (remove_ascii(&i.display) + " ").starts_with(line) {
+                        // set candidate module to run based on current input
                         *candidate = i
                             .display
                             .split_whitespace()
                             .next()
                             .unwrap_or("")
                             .to_string();
+                        // provide the found hint to rustyline highlighter and be shown as the hint
                         Some(i.suffix(line.len(), padded_line_count, &foot_lines_hint_mode))
                     } else {
-                        candidate.clear(); // Much faster than assigning "".to_string()
+                        candidate.clear();
                         None
                     }
                 });
