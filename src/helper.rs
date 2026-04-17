@@ -324,7 +324,7 @@ impl Hinter for OtterHelper {
             footer_lines.clear();
         } else {
             let expanded_footer = expand_env_vars(&footer_lines);
-            footer_lines = format!("\x1b[0m\n{}", expanded_footer);
+            footer_lines = format!("\n\x1b[0m{} ", expanded_footer);
         }
 
         // print from overlay commands, if any
@@ -392,10 +392,12 @@ impl Hinter for OtterHelper {
             let foot_lines_hint_mode = footer_lines;
             if line.is_empty() {
                 // when nothing is typed
-                *COMPLETION_CANDIDATE
+                let mut candidate = COMPLETION_CANDIDATE
                     .get_or_init(|| Mutex::new(String::new()))
                     .lock()
-                    .unwrap() = String::new();
+                    .unwrap();
+                candidate.clear();
+
                 Some(ModuleHint {
                     display: format!(
                         "{}{}{}",
@@ -408,10 +410,12 @@ impl Hinter for OtterHelper {
                 })
             } else if line.trim_end() == cheatsheet_entry {
                 // when cheatsheet_entry is typed
-                *COMPLETION_CANDIDATE
+                let mut candidate = COMPLETION_CANDIDATE
                     .get_or_init(|| Mutex::new(String::new()))
                     .lock()
-                    .unwrap() = "?".to_string();
+                    .unwrap();
+                candidate.clear();
+                candidate.push_str("? ");
                 Some(ModuleHint {
                     display: format!(
                         "{} {}{}{}{}",
@@ -485,7 +489,10 @@ impl Hinter for OtterHelper {
                     // set different behavior for modules with/without arguments
                     let adjusted_line = if i.w_arg.unwrap_or(false) {
                         if line.contains(" ") {
-                            line.split_whitespace().next().unwrap_or("").to_owned() + " "
+                            format!(
+                                "{} ",
+                                line.split_whitespace().next().unwrap_or("").to_owned()
+                            )
                         } else {
                             line.to_string()
                         }
@@ -572,30 +579,18 @@ impl Hinter for OtterHelper {
             };
 
             // set completion candidate according to list selection index
-            *COMPLETION_CANDIDATE
+            let mut candidate = COMPLETION_CANDIDATE
                 .get_or_init(|| Mutex::new(String::new()))
                 .lock()
-                .unwrap() = if *selection_index == 0 {
-                agg_line
-                    .lines()
-                    .nth(0)
-                    .unwrap_or("")
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-                    .to_string()
-                    + " "
-            } else {
-                agg_line
-                    .lines()
-                    .nth(*selection_index - 1)
-                    .unwrap_or("")
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("")
-                    .to_string()
-                    + " "
-            };
+                .unwrap();
+            candidate.clear();
+
+            if let Some(target_line) = agg_line.lines().nth(selection_index.saturating_sub(1)) {
+                if let Some(first_word) = target_line.split_whitespace().next() {
+                    candidate.push_str(first_word);
+                    candidate.push(' ');
+                }
+            }
 
             // format the aggregated hint lines as the single hint object to be presented
             if line.is_empty() {
@@ -647,10 +642,13 @@ impl Hinter for OtterHelper {
                 let agg_count = agg_line.lines().count();
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
-                        *COMPLETION_CANDIDATE
+                        let mut candidate = COMPLETION_CANDIDATE
                             .get_or_init(|| Mutex::new(String::new()))
                             .lock()
-                            .unwrap() = "? ".to_string();
+                            .unwrap();
+                        candidate.clear();
+                        candidate.push_str("? ");
+
                         let cheatsheet_count = cheatsheet_entry.lines().count();
                         let padded_line_count_local = if overlay_height
                             + overlay_down
