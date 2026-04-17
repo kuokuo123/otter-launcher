@@ -7,7 +7,7 @@ use rustyline::{
     hint::{Hint, Hinter},
 };
 use rustyline_derive::{Helper, Validator};
-use std::{borrow::Cow, error::Error, process::Command, str::from_utf8, sync::Mutex};
+use std::{borrow::Cow, error::Error, sync::Mutex};
 
 use crate::glob_vars::*;
 use crate::graphics::*;
@@ -176,7 +176,7 @@ impl Highlighter for OtterHelper {
             .lock()
             .unwrap();
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
-        let overlay_lines = cached_statics(&OVERLAY_LINES, || String::new());
+        let overlay_lines = OVERLAY_LINES_CACHE.get().expect("failed to pass overlay_cmd output to highlighter");
         let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
         let overlay_down_cached = cached_statics(&OVERLAY_DOWNWARD, || 0);
         let overlay_up = format!(
@@ -327,36 +327,8 @@ impl Hinter for OtterHelper {
             footer_lines = format!("\n\x1b[0m{} ", expanded_footer);
         }
 
-        // print from overlay commands, if any
-        let overlay_cmd = cached_statics(&OVERLAY_CMD, || String::new());
-        let overlay_lines = if !overlay_cmd.is_empty() {
-            let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
-            let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
-            let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-            let mut shell_cmd = Command::new(cmd_parts[0]);
-            for arg in &cmd_parts[1..] {
-                shell_cmd.arg(arg);
-            }
-            let output = shell_cmd.arg(&overlay_cmd).output().ok()?;
-            let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, || 0);
-            let overlay_cmd_stdout = from_utf8(&output.stdout).unwrap();
-            let lines: Vec<&str> = overlay_cmd_stdout.split('\n').collect();
-            let lines_count = lines.len();
-            if lines_count > remove_lines_count {
-                lines[..lines_count - remove_lines_count]
-                    .join(&format!("\n\x1b[{}G", overlay_right + 1))
-            } else {
-                "not enough lines of overlay_cmd output to be trimmed".to_string()
-            }
-        } else {
-            String::new()
-        };
-
-        // store overlay lines into universial var, prep for highlighter use
-        *OVERLAY_LINES
-            .get_or_init(|| Mutex::new(String::new()))
-            .lock()
-            .unwrap() = overlay_lines.clone();
+        // load overlay_cmd
+        let overlay_lines = OVERLAY_LINES_CACHE.get()?;
 
         // measure overlay row height, using either kitty or sixel or raw lines
         let overlay_height_cached = cached_statics(&OVERLAY_HEIGHT, || 0);

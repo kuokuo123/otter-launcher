@@ -293,3 +293,42 @@ The example config is in github repo: https://github.com/kuokuo123/otter-launche
 pub fn print_version() {
     println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 }
+
+// function to cache or load overlay_cmd output
+pub fn get_overlay_lines() -> &'static str {
+    OVERLAY_LINES_CACHE.get_or_init(|| {
+        let overlay_cmd = cached_statics(&OVERLAY_CMD, String::new);
+
+        if overlay_cmd.is_empty() {
+            return String::new();
+        }
+
+        let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
+        let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+        
+        let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+        let mut shell_cmd = std::process::Command::new(cmd_parts[0]);
+        for arg in &cmd_parts[1..] {
+            shell_cmd.arg(arg);
+        }
+
+        // execute overlay_cmd
+        let output = match shell_cmd.arg(&overlay_cmd).output() {
+            Ok(out) => out,
+            Err(_) => return String::new(),
+        };
+        
+        let overlay_cmd_stdout = std::str::from_utf8(&output.stdout).unwrap_or("");
+        let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, || 0);
+        
+        let lines: Vec<&str> = overlay_cmd_stdout.split('\n').collect();
+        let lines_count = lines.len();
+        
+        if lines_count > remove_lines_count {
+            lines[..lines_count - remove_lines_count]
+                .join(&format!("\n\x1b[{}G", overlay_right + 1))
+        } else {
+            "not enough lines of overlay_cmd output to be trimmed".to_string()
+        }
+    })
+}

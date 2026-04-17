@@ -32,6 +32,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // rustyline editor setup
     let mut rl = customized_rustyline_editor()?;
 
+get_overlay_lines();
+
     // start the flow
     loop {
         // delay startup if configured
@@ -194,10 +196,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 // Condition 3: when no-arg modules is running with arguement
                 } else {
-                    run_designated_module(
-                        prompt,
-                        cached_statics(&DEFAULT_MODULE, || String::new()),
-                    )
+                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, || String::new()))
                 }
             }
             // if user input doesn't start with some module prefixes
@@ -212,10 +211,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     loop_switch = true;
                 // Condition 3: when no module is matched, run the default module
                 } else {
-                    run_designated_module(
-                        prompt,
-                        cached_statics(&DEFAULT_MODULE, || String::new()),
-                    )
+                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, || String::new()))
                 }
             }
         }

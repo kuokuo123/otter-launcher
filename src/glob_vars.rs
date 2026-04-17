@@ -165,10 +165,10 @@ pub static LAYOUT_DOWNWARD: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static OVERLAY_RIGHTWARD: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static OVERLAY_DOWNWARD: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static CUSTOMIZED_LIST_ORDER: OnceLock<Mutex<bool>> = OnceLock::new();
-pub static OVERLAY_LINES: OnceLock<Mutex<String>> = OnceLock::new();
 pub static CELL_HEIGHT: OnceLock<usize> = OnceLock::new();
 pub static SEPARATOR_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static CTRLX_LOCK: OnceLock<Mutex<usize>> = OnceLock::new();
+pub static OVERLAY_LINES_CACHE: OnceLock<String> = OnceLock::new();
 
 // function to initialize all statics
 pub fn init_all_statics() {
