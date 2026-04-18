@@ -146,7 +146,6 @@ impl Highlighter for OtterHelper {
         let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
         let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
-        let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
         let filtered_hint_count = FILTERED_HINT_COUNT.load(Ordering::Relaxed);
         let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
         let layout_right = LAYOUT_RIGHTWARD.load(Ordering::Relaxed);
@@ -190,7 +189,7 @@ impl Highlighter for OtterHelper {
             }
 
             // set selection index back to 0 if it is beyond the range of filtered items
-            if hint_benchmark > filtered_hint_count || selection_index > filtered_hint_count {
+            if selection_index > filtered_hint_count {
                 HINT_BENCHMARK.store(0, Ordering::Relaxed);
                 SELECTION_INDEX.store(0, Ordering::Relaxed);
             }
@@ -203,16 +202,20 @@ impl Highlighter for OtterHelper {
                     if index == selection_index + separator_count && selection_index > 0 {
                         let (part0, part_rest) =
                             line.split_once(char::is_whitespace).unwrap_or((line, ""));
-                        format!(
-                            "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
-                            layout_right + 1,
-                            selection_prefix,
-                            prefix_color,
-                            part0,
-                            description_color,
-                            part_rest,
-                            "\x1b[0m"
-                        )
+                        if !part_rest.is_empty() {
+                            format!(
+                                "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
+                                layout_right + 1,
+                                selection_prefix,
+                                prefix_color,
+                                part0,
+                                description_color,
+                                part_rest,
+                                "\x1b[0m"
+                            )
+                        } else {
+                            format!("\x1b[{}G{}", layout_right + 1, line)
+                        }
                     } else if line == place_holder {
                         format!("{}{}{}", place_holder_color, place_holder, "\x1b[0m")
                     } else if (default_module_message.contains(line)
