@@ -132,18 +132,6 @@ pub fn config() -> &'static Config {
     CONFIG.get_or_init(|| load_config().unwrap())
 }
 
-// macro to initialize onelock as per the config file
-macro_rules! init_lock {
-    // for custom default string
-    ($lock:expr, $field:expr, $default:expr) => {
-        $lock.get_or_init(|| $field.clone().unwrap_or_else(|| $default.to_string()));
-    };
-    // for empty string default
-    ($lock:expr, $field:expr) => {
-        $lock.get_or_init(|| $field.clone().unwrap_or_default());
-    };
-}
-
 // use oncelock and atomics to make important variables globally accessible (repeatedly used config values, list selection, and completion related stuff)
 // define config variables as statics
 pub static HEADER_CMD: OnceLock<String> = OnceLock::new();
@@ -199,6 +187,18 @@ pub static CTRLX_LOCK: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_LINES_CACHE: OnceLock<String> = OnceLock::new();
 pub static USER_CONFIG_PATH: OnceLock<String> = OnceLock::new();
 pub static CLI_PROMPT: OnceLock<String> = OnceLock::new();
+
+// macro to initialize onelock as per the config file
+macro_rules! init_lock {
+    // for custom default string
+    ($lock:expr, $field:expr, $default:expr) => {
+        $lock.get_or_init(|| $field.clone().unwrap_or_else(|| $default.to_string()));
+    };
+    // for empty string default
+    ($lock:expr, $field:expr) => {
+        $lock.get_or_init(|| $field.clone().unwrap_or_default());
+    };
+}
 
 // function to initialize all statics
 pub fn init_all_statics() {
