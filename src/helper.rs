@@ -7,6 +7,7 @@ use rustyline::{
     hint::{Hint, Hinter},
 };
 use rustyline_derive::{Helper, Validator};
+use std::sync::atomic::Ordering;
 use std::{borrow::Cow, error::Error, sync::Mutex};
 
 use crate::glob_vars::*;
@@ -92,22 +93,13 @@ impl Completer for OtterHelper {
             }
         } else {
             // the behavior in list mode
-            if line.is_empty()
-                && *SELECTION_INDEX
-                    .get_or_init(|| Mutex::new(0))
-                    .lock()
-                    .unwrap()
-                    == 0
-            {
+            if line.is_empty() && SELECTION_INDEX.load(Ordering::Relaxed) == 0 {
                 // when empty, complete with empty module
                 let cand = vec![Pair {
                     display: String::new(),
                     replacement: cached_statics(&EMPTY_MODULE, || String::new()) + " ",
                 }];
-                *SELECTION_INDEX
-                    .get_or_init(|| Mutex::new(0))
-                    .lock()
-                    .unwrap() = 0;
+                SELECTION_INDEX.store(0, Ordering::Relaxed);
                 Ok((0, cand))
             } else if com_candidate == " " {
                 // when no module is matched, complete with default module
@@ -115,10 +107,7 @@ impl Completer for OtterHelper {
                     display: String::new(),
                     replacement: cached_statics(&DEFAULT_MODULE, || String::new()) + " ",
                 }];
-                *SELECTION_INDEX
-                    .get_or_init(|| Mutex::new(0))
-                    .lock()
-                    .unwrap() = 0;
+                SELECTION_INDEX.store(0, Ordering::Relaxed);
                 Ok((0, cand))
             } else if pos == line.len() {
                 // normal behavior
@@ -126,20 +115,14 @@ impl Completer for OtterHelper {
                     display: String::new(),
                     replacement: com_candidate,
                 }];
-                *SELECTION_INDEX
-                    .get_or_init(|| Mutex::new(0))
-                    .lock()
-                    .unwrap() = 0;
+                SELECTION_INDEX.store(0, Ordering::Relaxed);
                 Ok((0, cand))
             } else {
                 let cand = vec![Pair {
                     display: String::new(),
                     replacement: String::new(),
                 }];
-                *SELECTION_INDEX
-                    .get_or_init(|| Mutex::new(0))
-                    .lock()
-                    .unwrap() = 0;
+                SELECTION_INDEX.store(0, Ordering::Relaxed);
                 Ok((pos, cand))
             }
         }
@@ -161,31 +144,24 @@ impl Highlighter for OtterHelper {
         let prefix_color = cached_statics(&PREFIX_COLOR, || String::new());
         let prefix_width = cached_statics(&PREFIX_PADDING, || 0);
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-        let mut selection_index = SELECTION_INDEX
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap();
-        let mut selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let filtered_hint_count = FILTERED_HINT_COUNT
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap();
+        let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
+        let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
+        let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
+        let filtered_hint_count = FILTERED_HINT_COUNT.load(Ordering::Relaxed);
         let separator_count = SEPARATOR_COUNT
             .get_or_init(|| Mutex::new(0))
             .lock()
             .unwrap();
         let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
-        let overlay_lines = OVERLAY_LINES_CACHE.get().expect("failed to pass overlay_cmd output to highlighter");
+        let overlay_lines = OVERLAY_LINES_CACHE
+            .get()
+            .expect("failed to pass overlay_cmd output to highlighter");
         let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
         let overlay_down_cached = cached_statics(&OVERLAY_DOWNWARD, || 0);
         let overlay_up = format!(
             "\x1b[{}A",
             hint.lines().count()
-                + *HEADER_LINE_COUNT
-                    .get_or_init(|| Mutex::new(0))
-                    .lock()
-                    .unwrap()
+                + HEADER_LINE_COUNT.load(Ordering::Relaxed)
                 - 2
         );
         let overlay_down = if overlay_down_cached == 0 {
@@ -207,17 +183,17 @@ impl Highlighter for OtterHelper {
                 .into()
         } else {
             // shrink selection span if filtered_hint_count shrinks
-            if suggestion_lines >= *filtered_hint_count {
-                *selection_span = *filtered_hint_count;
+            if suggestion_lines >= filtered_hint_count {
+                SELECTION_SPAN.store(filtered_hint_count, Ordering::Relaxed);
             } else {
                 // or set it the same as the page length
-                *selection_span = suggestion_lines;
+                SELECTION_SPAN.store(suggestion_lines, Ordering::Relaxed);
             }
 
             // set selection index back to 0 if it is beyond the range of filtered items
-            if *hint_benchmark > *filtered_hint_count || *selection_index > *filtered_hint_count {
-                *hint_benchmark = 0;
-                *selection_index = 0;
+            if hint_benchmark > filtered_hint_count || selection_index > filtered_hint_count {
+                HINT_BENCHMARK.store(0, Ordering::Relaxed);
+                SELECTION_INDEX.store(0, Ordering::Relaxed);
             }
 
             // format every line
@@ -225,7 +201,7 @@ impl Highlighter for OtterHelper {
                 .lines()
                 .enumerate()
                 .map(|(index, line)| {
-                    if index == *selection_index + *separator_count && *selection_index > 0 {
+                    if index == selection_index + *separator_count && selection_index > 0 {
                         let (part0, part_rest) =
                             line.split_once(char::is_whitespace).unwrap_or((line, ""));
                         format!(
@@ -247,7 +223,7 @@ impl Highlighter for OtterHelper {
                         format!("\x1b[{}G{}", layout_right + 1, line)
                     } else if index <= *separator_count {
                         line.to_string()
-                    } else if index > *separator_count + *selection_span
+                    } else if index > *separator_count + selection_span
                         && cached_statics(&FOOTER, || String::new()).contains(line)
                     {
                         line.to_string()
@@ -287,18 +263,15 @@ impl Highlighter for OtterHelper {
 impl Hinter for OtterHelper {
     type Hint = ModuleHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
-        *HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap() = self.hints.len();
+        HINT_SPAN.store(self.hints.len(), Ordering::Relaxed);
         let suggestion_mode = cached_statics(&SUGGESTION_MODE, || "list".to_string());
         let place_holder = cached_statics(&PLACE_HOLDER, || "type something".to_string());
         let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, || "?".to_string());
         let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, || String::new());
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 1);
-        let hint_benchmark = *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
         let overlay_down = cached_statics(&OVERLAY_DOWNWARD, || 0);
-        let header_line_count = *HEADER_LINE_COUNT
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap();
+        let header_line_count = HEADER_LINE_COUNT.load(Ordering::Relaxed);
 
         // form separator lines, if any
         let mut separator_lines = cached_statics(&SEPARATOR, || String::new());
@@ -442,10 +415,7 @@ impl Hinter for OtterHelper {
                 expand_env_vars(&cached_statics(&EMPTY_MODULE_MESSAGE, || String::new()));
             let d_module =
                 expand_env_vars(&cached_statics(&DEFAULT_MODULE_MESSAGE, || String::new()));
-            let selection_index = SELECTION_INDEX
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap();
+            let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
 
             // aggregate all the matched hint objects to form a single line that is presented as a list
             let mut aggregated_lines = self
@@ -490,25 +460,16 @@ impl Hinter for OtterHelper {
             filtered_items.extend(partitioned_lines.1);
 
             // make the number of filtered items globally accessible
-            *FILTERED_HINT_COUNT
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap() = filtered_items.len();
+            FILTERED_HINT_COUNT.store(filtered_items.len(), Ordering::Relaxed);
 
             // Check if there are enough filtered items after the skip
             let agg_line = if hint_benchmark + suggestion_lines
-                > *FILTERED_HINT_COUNT
-                    .get_or_init(|| Mutex::new(0))
-                    .lock()
-                    .unwrap()
+                > FILTERED_HINT_COUNT.load(Ordering::Relaxed)
             {
                 // If not enough, default to taking from the start
                 let join_range = &filtered_items[..usize::min(
                     suggestion_lines,
-                    *FILTERED_HINT_COUNT
-                        .get_or_init(|| Mutex::new(0))
-                        .lock()
-                        .unwrap(),
+                    FILTERED_HINT_COUNT.load(Ordering::Relaxed),
                 )];
                 join_range.join("\n")
             } else {
@@ -568,7 +529,7 @@ impl Hinter for OtterHelper {
                         place_holder,
                         separator_lines,
                         // if empty module is set && no module selected
-                        if !e_module.is_empty() && *selection_index == 0 {
+                        if !e_module.is_empty() && selection_index == 0 {
                             // calculate overlay padding, to maintain layout when printing at window bottom
                             let empty_message_count = e_module.lines().count();
                             let padded_line_count_local = if overlay_height + overlay_down

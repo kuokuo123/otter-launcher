@@ -9,11 +9,11 @@ mod mod_exec;
 use glob_vars::*;
 use keybinds::*;
 use mod_exec::*;
+use std::sync::atomic::Ordering;
 use std::{
     io::Write,
     process,
     process::{Command, Stdio},
-    sync::Mutex,
 };
 use terminal_size::{Width, terminal_size};
 use urlencoding::encode;
@@ -23,10 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_all_statics();
 
     // initializing menu selection index
-    *SELECTION_INDEX
-        .get_or_init(|| Mutex::new(0))
-        .lock()
-        .unwrap() = 0;
+    SELECTION_INDEX.store(0, Ordering::Relaxed);
 
     // rustyline editor setup
     let mut rl = customized_rustyline_editor()?;
@@ -118,10 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let header = format!("{}{}", layout_down_string, aligned_header,);
 
         // calculate header lines and make it globaly accesible
-        *HEADER_LINE_COUNT
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap() = header.lines().count();
+        HEADER_LINE_COUNT.store(header.lines().count(), Ordering::Relaxed);
 
         let prompt: String;
 

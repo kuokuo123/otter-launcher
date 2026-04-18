@@ -8,12 +8,12 @@ use rustyline::{
     EditMode, Editor, EventHandler, KeyCode, KeyEvent, Modifiers, config::Configurer,
     history::DefaultHistory,
 };
+use std::sync::atomic::Ordering;
 use std::{
     env,
     fs::{self, OpenOptions},
     io::Write,
     process::Command,
-    sync::Mutex,
     thread,
     time::Duration,
 };
@@ -29,8 +29,7 @@ impl ConditionalEventHandler for ExternalEditor {
     ) -> Option<Cmd> {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
-            || ctx.mode() == rustyline::EditMode::Emacs
-                && *CTRLX_LOCK.get_or_init(|| Mutex::new(0)).lock().unwrap() == 1
+            || ctx.mode() == rustyline::EditMode::Emacs && CTRLX_LOCK.load(Ordering::Relaxed) == 1
         {
             let editor = cached_statics(&EXTERNAL_EDITOR, || String::new());
             let mut file_path = env::temp_dir();
@@ -81,12 +80,12 @@ impl ConditionalEventHandler for CTRLX {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let mut ctrlx_lock = CTRLX_LOCK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        if *ctrlx_lock == 0 {
-            *ctrlx_lock = 1;
+        let ctrlx_lock = CTRLX_LOCK.load(Ordering::Relaxed);
+        if ctrlx_lock == 0 {
+            CTRLX_LOCK.store(1, Ordering::Relaxed);
             thread::spawn(|| {
                 thread::sleep(Duration::from_millis(1500));
-                *CTRLX_LOCK.get().unwrap().lock().unwrap() = 0;
+                CTRLX_LOCK.store(0, Ordering::Relaxed);
             });
         };
         None
@@ -102,32 +101,26 @@ impl ConditionalEventHandler for ListItemUp {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let mut selection_index = SELECTION_INDEX
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap();
-        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
+        let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
+        let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-        let filtered_hint_count = FILTERED_HINT_COUNT
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap();
+        let filtered_hint_count = FILTERED_HINT_COUNT.load(Ordering::Relaxed);
 
-        if *selection_index > 1 {
-            *selection_index -= 1;
-        } else if *selection_index == 1 {
-            if *hint_benchmark == 0 {
-                *selection_index = 0;
+        if selection_index > 1 {
+            SELECTION_INDEX.fetch_sub(1, Ordering::Relaxed);
+        } else if selection_index == 1 {
+            if hint_benchmark == 0 {
+                SELECTION_INDEX.store(0, Ordering::Relaxed);
             } else {
-                *hint_benchmark -= 1;
+                HINT_BENCHMARK.fetch_sub(1, Ordering::Relaxed);
             }
-        } else if *selection_index == 0 {
-            if *filtered_hint_count > suggestion_lines {
-                *selection_index = *selection_span;
-                *hint_benchmark = *filtered_hint_count - suggestion_lines;
+        } else if selection_index == 0 {
+            if filtered_hint_count > suggestion_lines {
+                SELECTION_INDEX.store(selection_span, Ordering::Relaxed);
+                HINT_BENCHMARK.store(filtered_hint_count - suggestion_lines, Ordering::Relaxed);
             } else {
-                *selection_index = *selection_span;
+                SELECTION_INDEX.store(selection_span, Ordering::Relaxed);
             }
         }
         Some(Cmd::Repaint)
@@ -143,40 +136,34 @@ impl ConditionalEventHandler for ListItemDown {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-        let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let mut selection_index = SELECTION_INDEX
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap();
-        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let filtered_hint_count = FILTERED_HINT_COUNT
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap();
+        let hint_span = HINT_SPAN.load(Ordering::Relaxed);
+        let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
+        let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
+        let filtered_hint_count = FILTERED_HINT_COUNT.load(Ordering::Relaxed);
 
-        if *hint_benchmark <= *hint_span - suggestion_lines {
-            if suggestion_lines == *selection_span {
-                if *selection_index < *selection_span {
-                    *selection_index += 1;
-                } else if *selection_index == *selection_span {
-                    if *hint_benchmark < *filtered_hint_count - suggestion_lines {
-                        *hint_benchmark += 1;
+        if hint_benchmark <= hint_span - suggestion_lines {
+            if suggestion_lines == selection_span {
+                if selection_index < selection_span {
+                    SELECTION_INDEX.fetch_add(1, Ordering::Relaxed);
+                } else if selection_index == selection_span {
+                    if hint_benchmark < filtered_hint_count - suggestion_lines {
+                        HINT_BENCHMARK.fetch_add(1, Ordering::Relaxed);
                     } else {
-                        *hint_benchmark = 0;
-                        *selection_index = 0;
+                        HINT_BENCHMARK.store(0, Ordering::Relaxed);
+                        SELECTION_INDEX.store(0, Ordering::Relaxed);
                     }
                 }
-            } else if *selection_index < *selection_span {
-                *selection_index += 1;
-            } else if *selection_index == *selection_span {
-                *selection_index = 0;
-                *hint_benchmark = 0;
+            } else if selection_index < selection_span {
+                SELECTION_INDEX.fetch_add(1, Ordering::Relaxed);
+            } else if selection_index == selection_span {
+                SELECTION_INDEX.store(0, Ordering::Relaxed);
+                HINT_BENCHMARK.store(0, Ordering::Relaxed);
             }
-        } else if *hint_benchmark == *hint_span - suggestion_lines {
-            *selection_index = 0;
-            *hint_benchmark = 0;
+        } else if hint_benchmark == hint_span - suggestion_lines {
+            SELECTION_INDEX.store(0, Ordering::Relaxed);
+            HINT_BENCHMARK.store(0, Ordering::Relaxed);
         }
         Some(Cmd::Repaint)
     }
@@ -194,40 +181,34 @@ impl ConditionalEventHandler for ViListItemJ {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
             let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-            let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            let mut selection_index = SELECTION_INDEX
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap();
-            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            let filtered_hint_count = FILTERED_HINT_COUNT
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap();
+            let hint_span = HINT_SPAN.load(Ordering::Relaxed);
+            let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
+            let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
+            let filtered_hint_count = FILTERED_HINT_COUNT.load(Ordering::Relaxed);
 
-            if *hint_benchmark <= *hint_span - suggestion_lines {
-                if suggestion_lines == *selection_span {
-                    if *selection_index < *selection_span {
-                        *selection_index += 1;
-                    } else if *selection_index == *selection_span {
-                        if *hint_benchmark < *filtered_hint_count - suggestion_lines {
-                            *hint_benchmark += 1;
+            if hint_benchmark <= hint_span - suggestion_lines {
+                if suggestion_lines == selection_span {
+                    if selection_index < selection_span {
+                        SELECTION_INDEX.fetch_add(1, Ordering::Relaxed);
+                    } else if selection_index == selection_span {
+                        if hint_benchmark < filtered_hint_count - suggestion_lines {
+                            HINT_BENCHMARK.fetch_add(1, Ordering::Relaxed);
                         } else {
-                            *hint_benchmark = 0;
-                            *selection_index = 0;
+                            HINT_BENCHMARK.store(0, Ordering::Relaxed);
+                            SELECTION_INDEX.store(0, Ordering::Relaxed);
                         }
                     }
-                } else if *selection_index < *selection_span {
-                    *selection_index += 1;
-                } else if *selection_index == *selection_span {
-                    *selection_index = 0;
-                    *hint_benchmark = 0;
+                } else if selection_index < selection_span {
+                    SELECTION_INDEX.fetch_add(1, Ordering::Relaxed);
+                } else if selection_index == selection_span {
+                    SELECTION_INDEX.store(0, Ordering::Relaxed);
+                    HINT_BENCHMARK.store(0, Ordering::Relaxed);
                 }
-            } else if *hint_benchmark == *hint_span - suggestion_lines {
-                *selection_index = 0;
-                *hint_benchmark = 0;
+            } else if hint_benchmark == hint_span - suggestion_lines {
+                SELECTION_INDEX.store(0, Ordering::Relaxed);
+                HINT_BENCHMARK.store(0, Ordering::Relaxed);
             }
             Some(Cmd::Repaint)
         } else {
@@ -248,32 +229,26 @@ impl ConditionalEventHandler for ViListItemK {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let mut selection_index = SELECTION_INDEX
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap();
-            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            let selection_span = SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
+            let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
+            let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
             let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-            let filtered_hint_count = FILTERED_HINT_COUNT
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap();
+            let filtered_hint_count = FILTERED_HINT_COUNT.load(Ordering::Relaxed);
 
-            if *selection_index > 1 {
-                *selection_index -= 1;
-            } else if *selection_index == 1 {
-                if *hint_benchmark == 0 {
-                    *selection_index = 0;
+            if selection_index > 1 {
+                SELECTION_INDEX.fetch_sub(1, Ordering::Relaxed);
+            } else if selection_index == 1 {
+                if hint_benchmark == 0 {
+                    SELECTION_INDEX.store(0, Ordering::Relaxed);
                 } else {
-                    *hint_benchmark -= 1;
+                    SELECTION_INDEX.fetch_sub(1, Ordering::Relaxed);
                 }
-            } else if *selection_index == 0 {
-                if *filtered_hint_count > suggestion_lines {
-                    *selection_index = *selection_span;
-                    *hint_benchmark = *filtered_hint_count - suggestion_lines;
+            } else if selection_index == 0 {
+                if filtered_hint_count > suggestion_lines {
+                    SELECTION_INDEX.store(selection_span, Ordering::Relaxed);
+                    HINT_BENCHMARK.store(filtered_hint_count - suggestion_lines, Ordering::Relaxed);
                 } else {
-                    *selection_index = *selection_span;
+                    SELECTION_INDEX.store(selection_span, Ordering::Relaxed);
                 }
             }
             Some(Cmd::Repaint)
@@ -292,12 +267,7 @@ impl ConditionalEventHandler for ListItemEnter {
         _positive: bool,
         ctx: &EventContext,
     ) -> Option<Cmd> {
-        if *SELECTION_INDEX
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap()
-            == 0
-        {
+        if SELECTION_INDEX.load(Ordering::Relaxed) == 0 {
             Some(Cmd::AcceptLine)
         } else {
             let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || String::new())
@@ -312,10 +282,7 @@ impl ConditionalEventHandler for ListItemEnter {
             Some(if target_module.with_argument.unwrap_or(false) == false {
                 run_designated_module(String::new(), com_candidate);
                 if cached_statics(&LOOP_MODE, || false) == true {
-                    *SELECTION_INDEX
-                        .get_or_init(|| Mutex::new(0))
-                        .lock()
-                        .unwrap() = 0;
+                    SELECTION_INDEX.store(0, Ordering::Relaxed);
                     Cmd::Replace(Movement::WholeBuffer, Some(String::new()))
                 } else {
                     Cmd::Interrupt
@@ -355,12 +322,7 @@ impl ConditionalEventHandler for ListItemSelect {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        if *SELECTION_INDEX
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap()
-            == 0
-        {
+        if SELECTION_INDEX.load(Ordering::Relaxed) == 0 {
             Some(Cmd::Complete)
         } else {
             let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || String::new())
@@ -375,10 +337,7 @@ impl ConditionalEventHandler for ListItemSelect {
             Some(if target_module.with_argument.unwrap_or(false) == false {
                 run_designated_module(String::new(), com_candidate);
                 if cached_statics(&LOOP_MODE, || false) == true {
-                    *SELECTION_INDEX
-                        .get_or_init(|| Mutex::new(0))
-                        .lock()
-                        .unwrap() = 0;
+                    SELECTION_INDEX.store(0, Ordering::Relaxed);
                     Cmd::Replace(Movement::WholeBuffer, Some(String::new()))
                 } else {
                     Cmd::Interrupt
@@ -399,11 +358,8 @@ impl ConditionalEventHandler for ListHome {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        *SELECTION_INDEX
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap() = 0;
-        *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+        SELECTION_INDEX.store(0, Ordering::Relaxed);
+        HINT_BENCHMARK.store(0, Ordering::Relaxed);
         Some(Cmd::Repaint)
     }
 }
@@ -418,13 +374,9 @@ impl ConditionalEventHandler for ListEnd {
         _ctx: &EventContext,
     ) -> Option<Cmd> {
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        *hint_benchmark = *hint_span - suggestion_lines;
-        *SELECTION_INDEX
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+        let hint_span = HINT_SPAN.load(Ordering::Relaxed);
+        HINT_BENCHMARK.store(hint_span - suggestion_lines, Ordering::Relaxed);
+        SELECTION_INDEX.store(SELECTION_SPAN.load(Ordering::Relaxed), Ordering::Relaxed);
         Some(Cmd::Repaint)
     }
 }
@@ -441,11 +393,8 @@ impl ConditionalEventHandler for ViListGgHome {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            *SELECTION_INDEX
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap() = 0;
-            *HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap() = 0;
+            SELECTION_INDEX.store(0, Ordering::Relaxed);
+            HINT_BENCHMARK.store(0, Ordering::Relaxed);
             Some(Cmd::Repaint)
         } else {
             None
@@ -465,13 +414,11 @@ impl ConditionalEventHandler for ViListGEnd {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            *hint_benchmark = *HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap()
-                - cached_statics(&SUGGESTION_LINES, || 0);
-            *SELECTION_INDEX
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            HINT_BENCHMARK.store(
+                HINT_SPAN.load(Ordering::Relaxed) - cached_statics(&SUGGESTION_LINES, || 0),
+                Ordering::Relaxed,
+            );
+            SELECTION_INDEX.store(SELECTION_SPAN.load(Ordering::Relaxed), Ordering::Relaxed);
             Some(Cmd::Repaint)
         } else {
             None
@@ -492,15 +439,12 @@ impl ConditionalEventHandler for ViListCtrlU {
             && ctx.input_mode() == rustyline::InputMode::Command
         {
             let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            if *hint_benchmark >= suggestion_lines {
-                *hint_benchmark -= suggestion_lines / 2;
-            } else if suggestion_lines >= *hint_benchmark {
-                *hint_benchmark = 0;
-                *SELECTION_INDEX
-                    .get_or_init(|| Mutex::new(0))
-                    .lock()
-                    .unwrap() = 0;
+            let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
+            if hint_benchmark >= suggestion_lines {
+                HINT_BENCHMARK.fetch_sub(suggestion_lines / 2, Ordering::Relaxed);
+            } else if suggestion_lines >= hint_benchmark {
+                HINT_BENCHMARK.store(0, Ordering::Relaxed);
+                SELECTION_INDEX.store(0, Ordering::Relaxed);
             }
             Some(Cmd::Repaint)
         } else {
@@ -522,16 +466,13 @@ impl ConditionalEventHandler for ViListCtrlD {
             && ctx.input_mode() == rustyline::InputMode::Command
         {
             let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-            let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
-            if *hint_span - suggestion_lines > *hint_benchmark {
-                *hint_benchmark += suggestion_lines / 2;
+            let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
+            let hint_span = HINT_SPAN.load(Ordering::Relaxed);
+            if hint_span - suggestion_lines > hint_benchmark {
+                HINT_BENCHMARK.fetch_add(suggestion_lines / 2, Ordering::Relaxed);
             } else {
-                *hint_benchmark = *hint_span - suggestion_lines;
-                *SELECTION_INDEX
-                    .get_or_init(|| Mutex::new(0))
-                    .lock()
-                    .unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+                HINT_BENCHMARK.store(hint_span - suggestion_lines, Ordering::Relaxed);
+                SELECTION_INDEX.store(SELECTION_SPAN.load(Ordering::Relaxed), Ordering::Relaxed);
             }
             Some(Cmd::Repaint)
         } else {
@@ -550,16 +491,13 @@ impl ConditionalEventHandler for ListPageDown {
         _ctx: &EventContext,
     ) -> Option<Cmd> {
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        let hint_span = HINT_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        if *hint_span - suggestion_lines > *hint_benchmark {
-            *hint_benchmark += suggestion_lines;
+        let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
+        let hint_span = HINT_SPAN.load(Ordering::Relaxed);
+        if hint_span - suggestion_lines > hint_benchmark {
+            HINT_BENCHMARK.fetch_add(suggestion_lines, Ordering::Relaxed);
         } else {
-            *hint_benchmark = *hint_span - suggestion_lines;
-            *SELECTION_INDEX
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap() = *SELECTION_SPAN.get_or_init(|| Mutex::new(0)).lock().unwrap();
+            HINT_BENCHMARK.store(hint_span - suggestion_lines, Ordering::Relaxed);
+            SELECTION_INDEX.store(SELECTION_SPAN.load(Ordering::Relaxed), Ordering::Relaxed);
         }
         Some(Cmd::Repaint)
     }
@@ -575,15 +513,12 @@ impl ConditionalEventHandler for ListPageUp {
         _ctx: &EventContext,
     ) -> Option<Cmd> {
         let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
-        let mut hint_benchmark = HINT_BENCHMARK.get_or_init(|| Mutex::new(0)).lock().unwrap();
-        if *hint_benchmark >= suggestion_lines {
-            *hint_benchmark -= suggestion_lines;
-        } else if suggestion_lines >= *hint_benchmark {
-            *hint_benchmark = 0;
-            *SELECTION_INDEX
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap() = 0;
+        let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
+        if hint_benchmark >= suggestion_lines {
+            HINT_BENCHMARK.fetch_sub(suggestion_lines, Ordering::Relaxed);
+        } else if suggestion_lines >= hint_benchmark {
+            HINT_BENCHMARK.store(0, Ordering::Relaxed);
+            SELECTION_INDEX.store(0, Ordering::Relaxed);
         }
         Some(Cmd::Repaint)
     }

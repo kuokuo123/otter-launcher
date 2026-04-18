@@ -4,6 +4,7 @@ use crate::glob_vars::*;
 use std::{
     collections::HashMap,
     io::{self, Read, Write},
+    sync::atomic::Ordering,
 };
 
 // function to measure kitty image height
@@ -90,11 +91,8 @@ pub fn sixel_rows(s: &str) -> Option<usize> {
 
 // functions to get term cell height, just for converting sixel rows to terminal rows
 pub fn term_cell_height_cached() -> std::io::Result<usize> {
-    if let Some(h) = CELL_HEIGHT.get() {
-        return Ok(*h);
-    }
     let h = terminal_cell_height_px()?;
-    CELL_HEIGHT.set(h).ok();
+    CELL_HEIGHT.store(h, Ordering::Relaxed);
     Ok(h)
 }
 

@@ -318,7 +318,7 @@ otter-launcher [OPTIONS] [ARGUMENTS]...
 
 \x1b[4mConfiguration:\x1b[0m
 
-Modules are specified in a TOML config file, expected at one of the below positions by priorities:
+Modules are specified in a TOML config file, expected at one of the below positions by priority:
 
 1. PATH specified by the --config flag
 2. $HOME/.config/otter-launcher/config.toml

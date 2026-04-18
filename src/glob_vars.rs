@@ -5,7 +5,10 @@ use serde::Deserialize;
 use std::{
     env, fs,
     path::Path,
-    sync::{Mutex, OnceLock},
+    sync::{
+        Mutex, OnceLock,
+        atomic::AtomicUsize,
+    },
 };
 
 // function to initialize a mutex as per the config file
@@ -172,10 +175,10 @@ pub static EMPTY_MODULE_MESSAGE: OnceLock<Mutex<String>> = OnceLock::new();
 pub static DEFAULT_MODULE_MESSAGE: OnceLock<Mutex<String>> = OnceLock::new();
 pub static SUGGESTION_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static PREFIX_PADDING: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static SELECTION_INDEX: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static SELECTION_SPAN: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static HINT_SPAN: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static HINT_BENCHMARK: OnceLock<Mutex<usize>> = OnceLock::new();
+pub static SELECTION_INDEX: AtomicUsize = AtomicUsize::new(0);
+pub static SELECTION_SPAN: AtomicUsize = AtomicUsize::new(0);
+pub static HINT_SPAN: AtomicUsize = AtomicUsize::new(0);
+pub static HINT_BENCHMARK:  AtomicUsize = AtomicUsize::new(0);
 pub static LIST_PREFIX: OnceLock<Mutex<String>> = OnceLock::new();
 pub static SELECTION_PREFIX: OnceLock<Mutex<String>> = OnceLock::new();
 pub static PREFIX_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
@@ -185,17 +188,17 @@ pub static PLACE_HOLDER_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
 pub static HINT_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
 pub static INDICATOR_WITH_ARG_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
 pub static INDICATOR_NO_ARG_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
-pub static FILTERED_HINT_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static HEADER_LINE_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
+pub static FILTERED_HINT_COUNT: AtomicUsize = AtomicUsize::new(0);
+pub static HEADER_LINE_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub static COMPLETION_CANDIDATE: OnceLock<Mutex<String>> = OnceLock::new();
 pub static LAYOUT_RIGHTWARD: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static LAYOUT_DOWNWARD: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static OVERLAY_RIGHTWARD: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static OVERLAY_DOWNWARD: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static CUSTOMIZED_LIST_ORDER: OnceLock<Mutex<bool>> = OnceLock::new();
-pub static CELL_HEIGHT: OnceLock<usize> = OnceLock::new();
+pub static CELL_HEIGHT: AtomicUsize = AtomicUsize::new(0);
 pub static SEPARATOR_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static CTRLX_LOCK: OnceLock<Mutex<usize>> = OnceLock::new();
+pub static CTRLX_LOCK: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_LINES_CACHE: OnceLock<String> = OnceLock::new();
 pub static USER_CONFIG_PATH: OnceLock<String> = OnceLock::new();
 pub static CLI_PROMPT: OnceLock<String> = OnceLock::new();
