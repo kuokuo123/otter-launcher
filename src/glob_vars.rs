@@ -198,12 +198,12 @@ pub static SEPARATOR_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static CTRLX_LOCK: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static OVERLAY_LINES_CACHE: OnceLock<String> = OnceLock::new();
 pub static USER_CONFIG_PATH: OnceLock<String> = OnceLock::new();
+pub static CLI_PROMPT: OnceLock<String> = OnceLock::new();
 
 // function to initialize all statics
 pub fn init_all_statics() {
     // if launched with arguments, act accordingly
     let mut args = env::args().skip(1);
-
     if let Some(arg) = args.next() {
         match arg.as_str() {
             "-h" | "--help" => {
@@ -217,8 +217,18 @@ pub fn init_all_statics() {
             "-c" | "--config" => {
                 let path = args.next().unwrap_or_else(|| String::new());
                 USER_CONFIG_PATH.get_or_init(|| path);
+
+                let remaining_args: Vec<_> = args.collect();
+                if !remaining_args.is_empty() {
+                    CLI_PROMPT.get_or_init(|| remaining_args.join(" "));
+                }
             }
-            _ => {}
+            _ => {
+                let mut full_args = vec![arg];
+                full_args.extend(args);
+
+                CLI_PROMPT.get_or_init(|| full_args.join(" "));
+            }
         }
     };
 

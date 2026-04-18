@@ -123,16 +123,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .lock()
             .unwrap() = header.lines().count();
 
-        // run rustyline with configured header
-        let prompt = rl.readline(&header);
-        match prompt {
-            Ok(_) => {}
-            Err(_) => {
-                process::exit(0);
+        let prompt: String;
+
+        // if prompted from cli, output directly without entering rustyline editor
+        if let Some(cli_prompt) = CLI_PROMPT.get() {
+            prompt = cli_prompt.to_owned();
+        } else {
+            match rl.readline(&header) {
+                Ok(line) => {
+                    prompt = line;
+                }
+                Err(_) => {
+                    process::exit(0);
+                }
             }
         }
-
-        let prompt = prompt?;
 
         // flow switches setup
         let mut loop_switch = cached_statics(&LOOP_MODE, || false);
