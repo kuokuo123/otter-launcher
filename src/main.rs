@@ -127,7 +127,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // if prompted from cli, output directly without entering rustyline editor
         if let Some(cli_prompt) = CLI_PROMPT.get() {
-            prompt = cli_prompt.to_owned();
+            prompt = cli_prompt.to_string();
         } else {
             match rl.readline(&header) {
                 Ok(line) => {

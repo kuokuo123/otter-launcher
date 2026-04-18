@@ -382,12 +382,6 @@ impl Hinter for OtterHelper {
                 })
             } else if line.trim_end() == cheatsheet_entry {
                 // when cheatsheet_entry is typed
-                let mut candidate = COMPLETION_CANDIDATE
-                    .get_or_init(|| Mutex::new(String::new()))
-                    .lock()
-                    .unwrap();
-                candidate.clear();
-                candidate.push_str("? ");
                 Some(ModuleHint {
                     display: format!(
                         "{} {}{}{}{}",
@@ -614,13 +608,6 @@ impl Hinter for OtterHelper {
                 let agg_count = agg_line.lines().count();
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
-                        let mut candidate = COMPLETION_CANDIDATE
-                            .get_or_init(|| Mutex::new(String::new()))
-                            .lock()
-                            .unwrap();
-                        candidate.clear();
-                        candidate.push_str("? ");
-
                         let cheatsheet_count = cheatsheet_entry.lines().count();
                         let padded_line_count_local = if overlay_height
                             + overlay_down
@@ -641,7 +628,7 @@ impl Hinter for OtterHelper {
                             0
                         };
                         format!(
-                            "{}\n{} {} {}{}{}",
+                            "{}\n{} {}{}{}{}",
                             separator_lines,
                             cheatsheet_entry,
                             indicator_no_arg_module,
