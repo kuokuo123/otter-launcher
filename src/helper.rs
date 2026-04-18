@@ -8,7 +8,7 @@ use rustyline::{
 };
 use rustyline_derive::{Helper, Validator};
 use std::sync::atomic::Ordering;
-use std::{borrow::Cow, error::Error, sync::Mutex};
+use std::{borrow::Cow, error::Error};
 
 use crate::glob_vars::*;
 use crate::graphics::*;
@@ -44,7 +44,7 @@ impl ModuleHint {
 impl Hint for ModuleHint {
     // text to display when hint is active
     fn display(&self) -> &str {
-        if cached_statics(&SUGGESTION_MODE, || "list".to_string()) == "hint" {
+        if SUGGESTION_MODE.get_or_init(|| String::new()) == "hint" {
             // hint mode
             &self.display[self.completion..]
         } else {
@@ -73,14 +73,14 @@ impl Completer for OtterHelper {
         pos: usize,
         _ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
-        let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || String::new());
-        if cached_statics(&SUGGESTION_MODE, || String::new()) == "hint".to_string() {
+        let com_candidate = COMPLETION_CANDIDATE.read().unwrap();
+        if SUGGESTION_MODE.get_or_init(|| String::new()) == "hint" {
             // define the behavior of completion in hint mode
             if pos <= com_candidate.len() && pos > 0 {
                 // disable completion when the input texts is longer than the matched module prefix
                 let cand = vec![Pair {
                     display: String::new(),
-                    replacement: com_candidate + " ",
+                    replacement: format!("{} ", com_candidate),
                 }];
                 Ok((0, cand))
             } else {
@@ -97,15 +97,15 @@ impl Completer for OtterHelper {
                 // when empty, complete with empty module
                 let cand = vec![Pair {
                     display: String::new(),
-                    replacement: cached_statics(&EMPTY_MODULE, || String::new()) + " ",
+                    replacement: format!("{} ", EMPTY_MODULE.get_or_init(|| String::new())),
                 }];
                 SELECTION_INDEX.store(0, Ordering::Relaxed);
                 Ok((0, cand))
-            } else if com_candidate == " " {
+            } else if com_candidate.is_empty() {
                 // when no module is matched, complete with default module
                 let cand = vec![Pair {
                     display: String::new(),
-                    replacement: cached_statics(&DEFAULT_MODULE, || String::new()) + " ",
+                    replacement: format!("{} ", DEFAULT_MODULE.get_or_init(|| String::new())),
                 }];
                 SELECTION_INDEX.store(0, Ordering::Relaxed);
                 Ok((0, cand))
@@ -113,7 +113,7 @@ impl Completer for OtterHelper {
                 // normal behavior
                 let cand = vec![Pair {
                     display: String::new(),
-                    replacement: com_candidate,
+                    replacement: com_candidate.to_string(),
                 }];
                 SELECTION_INDEX.store(0, Ordering::Relaxed);
                 Ok((0, cand))
@@ -132,16 +132,16 @@ impl Completer for OtterHelper {
 // the coloring functionality of OtterHelper
 impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        let default_module_message = cached_statics(&DEFAULT_MODULE_MESSAGE, || String::new());
-        let empty_module_message = cached_statics(&EMPTY_MODULE_MESSAGE, || String::new());
-        let description_color = cached_statics(&DESCRIPTION_COLOR, || "\x1b[39m".to_string());
-        let place_holder = cached_statics(&PLACE_HOLDER, || "type something".to_string());
-        let place_holder_color = cached_statics(&PLACE_HOLDER_COLOR, || "\x1b[30m".to_string());
-        let hint_color = cached_statics(&HINT_COLOR, || "\x1b[30m".to_string());
-        let suggestion_mode = cached_statics(&SUGGESTION_MODE, || "list".to_string());
-        let list_prefix = cached_statics(&LIST_PREFIX, || String::new());
-        let selection_prefix = cached_statics(&SELECTION_PREFIX, || ">".to_string());
-        let prefix_color = cached_statics(&PREFIX_COLOR, || String::new());
+        let default_module_message = DEFAULT_MODULE_MESSAGE.get_or_init(|| String::new());
+        let empty_module_message = EMPTY_MODULE_MESSAGE.get_or_init(|| String::new());
+        let description_color = DESCRIPTION_COLOR.get_or_init(|| String::new());
+        let place_holder = PLACE_HOLDER.get_or_init(|| String::new());
+        let place_holder_color = PLACE_HOLDER_COLOR.get_or_init(|| String::new());
+        let hint_color = HINT_COLOR.get_or_init(|| String::new());
+        let suggestion_mode = SUGGESTION_MODE.get_or_init(|| String::new());
+        let list_prefix = LIST_PREFIX.get_or_init(|| String::new());
+        let selection_prefix = SELECTION_PREFIX.get_or_init(|| String::new());
+        let prefix_color = PREFIX_COLOR.get_or_init(|| String::new());
         let prefix_width = PREFIX_PADDING.load(Ordering::Relaxed);
         let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
@@ -219,7 +219,7 @@ impl Highlighter for OtterHelper {
                     } else if index <= separator_count {
                         line.to_string()
                     } else if index > separator_count + selection_span
-                        && cached_statics(&FOOTER, || String::new()).contains(line)
+                        && FOOTER.get_or_init(|| String::new()).contains(line)
                     {
                         line.to_string()
                     } else {
@@ -259,36 +259,46 @@ impl Hinter for OtterHelper {
     type Hint = ModuleHint;
     fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<ModuleHint> {
         HINT_SPAN.store(self.hints.len(), Ordering::Relaxed);
-        let suggestion_mode = cached_statics(&SUGGESTION_MODE, || "list".to_string());
-        let place_holder = cached_statics(&PLACE_HOLDER, || "type something".to_string());
-        let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, || "?".to_string());
-        let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, || String::new());
+        let suggestion_mode = SUGGESTION_MODE.get_or_init(|| String::new());
+        SUGGESTION_LINES.store(
+            config().interface.suggestion_lines.unwrap_or(4),
+            Ordering::Relaxed,
+        );
+        let place_holder = PLACE_HOLDER.get_or_init(|| String::new());
+        let cheatsheet_entry = CHEATSHEET_ENTRY.get_or_init(|| "?".to_string());
+        let indicator_no_arg_module = INDICATOR_NO_ARG_MODULE.get_or_init(|| String::new());
         let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
         let overlay_down = OVERLAY_DOWNWARD.load(Ordering::Relaxed);
         let header_line_count = HEADER_LINE_COUNT.load(Ordering::Relaxed);
-let customized_list_order = CUSTOMIZED_LIST_ORDER.load(Ordering::Relaxed);
-
-let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
+        let customized_list_order = CUSTOMIZED_LIST_ORDER.load(Ordering::Relaxed);
+        let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
 
         // form separator lines, if any
-        let mut separator_lines = cached_statics(&SEPARATOR, || String::new());
-        if separator_lines.is_empty() {
-            separator_lines.clear();
+        let separator = SEPARATOR.get_or_init(String::new);
+
+        let separator_lines: String;
+
+        if separator.is_empty() {
             SEPARATOR_COUNT.store(0, Ordering::Relaxed);
+
+            separator_lines = String::new();
         } else {
-            let expanded_separator = expand_env_vars(&separator_lines);
+            let expanded_separator = expand_env_vars(separator);
+
             let prepared_separator_lines: Vec<&str> = expanded_separator.split('\n').collect();
             SEPARATOR_COUNT.store(prepared_separator_lines.len(), Ordering::Relaxed);
+
             separator_lines = format!("\n{}", expanded_separator);
         }
 
         // form footer lines, if any
-        let mut footer_lines = cached_statics(&FOOTER, || String::new());
-        if footer_lines.is_empty() {
-            footer_lines.clear();
+        let footer = FOOTER.get_or_init(|| String::new());
+        let footer_lines: String;
+        if footer.is_empty() {
+            footer_lines = String::new();
         } else {
-            let expanded_footer = expand_env_vars(&footer_lines);
+            let expanded_footer = expand_env_vars(footer);
             footer_lines = format!("\n\x1b[0m{} ", expanded_footer);
         }
 
@@ -329,10 +339,7 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
             let foot_lines_hint_mode = footer_lines;
             if line.is_empty() {
                 // when nothing is typed
-                let mut candidate = COMPLETION_CANDIDATE
-                    .get_or_init(|| Mutex::new(String::new()))
-                    .lock()
-                    .unwrap();
+                let mut candidate = COMPLETION_CANDIDATE.write().unwrap();
                 candidate.clear();
 
                 Some(ModuleHint {
@@ -363,10 +370,7 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
             } else {
                 // when something is typed
                 let mut filtered_hints = self.hints.iter().filter_map(|i| {
-                    let mut candidate = COMPLETION_CANDIDATE
-                        .get_or_init(|| Mutex::new(String::new()))
-                        .lock()
-                        .unwrap();
+                    let mut candidate = COMPLETION_CANDIDATE.write().unwrap();
 
                     // filter the shown hint according to user's current input
                     if (remove_ascii(&i.display) + " ").starts_with(line) {
@@ -403,10 +407,8 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
             }
         } else {
             // list mode behavior
-            let e_module =
-                expand_env_vars(&cached_statics(&EMPTY_MODULE_MESSAGE, || String::new()));
-            let d_module =
-                expand_env_vars(&cached_statics(&DEFAULT_MODULE_MESSAGE, || String::new()));
+            let e_module = expand_env_vars(&EMPTY_MODULE_MESSAGE.get_or_init(|| String::new()));
+            let d_module = expand_env_vars(&DEFAULT_MODULE_MESSAGE.get_or_init(|| String::new()));
             let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
 
             // aggregate all the matched hint objects to form a single line that is presented as a list
@@ -477,9 +479,7 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
                 let join_range_count = join_range.len();
 
                 padded_line_count = if overlay_height + overlay_down
-                    > header_line_count
-                        + join_range_count
-                        + separator_count
+                    > header_line_count + join_range_count + separator_count
                 {
                     overlay_height + overlay_down
                         - header_line_count
@@ -492,10 +492,7 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
             };
 
             // set completion candidate according to list selection index
-            let mut candidate = COMPLETION_CANDIDATE
-                .get_or_init(|| Mutex::new(String::new()))
-                .lock()
-                .unwrap();
+            let mut candidate = COMPLETION_CANDIDATE.write().unwrap();
             candidate.clear();
 
             if let Some(target_line) = agg_line.lines().nth(selection_index.saturating_sub(1)) {
@@ -519,9 +516,7 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
                             // calculate overlay padding, to maintain layout when printing at window bottom
                             let empty_message_count = e_module.lines().count();
                             let padded_line_count_local = if overlay_height + overlay_down
-                                > header_line_count
-                                    + empty_message_count
-                                    + separator_count
+                                > header_line_count + empty_message_count + separator_count
                             {
                                 overlay_height + overlay_down
                                     - header_line_count
@@ -550,18 +545,17 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
                         let cheatsheet_count = cheatsheet_entry.lines().count();
-                        let padded_line_count_local = if overlay_height
-                            + overlay_down
-                            + separator_count
-                            > header_line_count + cheatsheet_count
-                        {
-                            overlay_height + overlay_down
-                                - header_line_count
-                                - cheatsheet_count
-                                - separator_count
-                        } else {
-                            0
-                        };
+                        let padded_line_count_local =
+                            if overlay_height + overlay_down + separator_count
+                                > header_line_count + cheatsheet_count
+                            {
+                                overlay_height + overlay_down
+                                    - header_line_count
+                                    - cheatsheet_count
+                                    - separator_count
+                            } else {
+                                0
+                            };
                         format!(
                             "{}\n{} {}{}{}{}",
                             separator_lines,
@@ -579,9 +573,7 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
                         } else {
                             let default_message_count = d_module.lines().count();
                             let padded_line_count_local = if overlay_height + overlay_down
-                                > header_line_count
-                                    + default_message_count
-                                    + separator_count
+                                > header_line_count + default_message_count + separator_count
                             {
                                 overlay_height + overlay_down
                                     - header_line_count
@@ -601,9 +593,7 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
                     // if some module is matched
                     } else {
                         let padded_line_count_local = if overlay_height + overlay_down
-                            > header_line_count
-                                + agg_count
-                                + separator_count
+                            > header_line_count + agg_count + separator_count
                         {
                             overlay_height + overlay_down
                                 - header_line_count
@@ -631,8 +621,8 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
 
 // function to format vec<hints> according to configured modules, and to provide them to hinter
 pub fn map_hints() -> Result<Vec<ModuleHint>, Box<dyn Error>> {
-    let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, || String::new());
-    let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, || String::new());
+    let indicator_with_arg_module = &INDICATOR_WITH_ARG_MODULE.get_or_init(|| String::new());
+    let indicator_no_arg_module = &INDICATOR_NO_ARG_MODULE.get_or_init(|| String::new());
 
     let set = config()
         .modules

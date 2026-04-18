@@ -67,7 +67,7 @@ pub fn run_designated_module(prompt: String, prfx: String) {
 // function to run module.cmd
 pub fn run_module_command(mod_cmd_arg: String) -> Result<(), Box<dyn std::error::Error>> {
     // format the shell command by which the module commands are launched
-    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+    let exec_cmd = EXEC_CMD.get_or_init(|| String::new());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
     let mut shell_cmd = Command::new(cmd_parts[0]);
     for arg in &cmd_parts[1..] {
@@ -89,7 +89,7 @@ pub fn run_module_command_unbind_proc(
     let mut shell_cmd = Command::new("setsid");
     shell_cmd.arg("-f");
 
-    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+    let exec_cmd = EXEC_CMD.get_or_init(|| String::new());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
     for arg in &cmd_parts[0..] {
         shell_cmd.arg(arg);
@@ -103,21 +103,19 @@ pub fn run_module_command_unbind_proc(
 // function to format and show cheat sheet
 pub fn cheat_sheet() -> Result<(), Box<dyn std::error::Error>> {
     // setup variables
-    let prefix_color = cached_statics(&PREFIX_COLOR, || String::new());
-    let description_color = cached_statics(&DESCRIPTION_COLOR, || String::new());
-    let indicator_with_arg_module = &cached_statics(&INDICATOR_WITH_ARG_MODULE, || String::new());
-    let indicator_no_arg_module = &cached_statics(&INDICATOR_NO_ARG_MODULE, || String::new());
+    let prefix_color = PREFIX_COLOR.get_or_init(|| String::new());
+    let description_color = DESCRIPTION_COLOR.get_or_init(|| String::new());
+    let indicator_with_arg_module = &INDICATOR_WITH_ARG_MODULE.get_or_init(|| String::new());
+    let indicator_no_arg_module = INDICATOR_NO_ARG_MODULE.get_or_init(|| String::new());
     // run general.cheatsheet.viewer
-    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+    let exec_cmd = EXEC_CMD.get_or_init(|| String::new());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
     let mut shell_cmd = Command::new(cmd_parts[0]);
     for arg in &cmd_parts[1..] {
         shell_cmd.arg(arg);
     }
     let mut child = shell_cmd
-        .arg(cached_statics(&CHEATSHEET_VIEWER, || {
-            "less -R; clear".to_string()
-        }))
+        .arg(CHEATSHEET_VIEWER.get_or_init(|| String::new()))
         .stdin(Stdio::piped())
         .spawn();
     if let Ok(ref mut child) = child {
@@ -211,7 +209,7 @@ pub fn expand_env_vars(input: &str) -> String {
 }
 
 pub fn run_subshell(cmd: &str) -> String {
-    let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+    let exec_cmd = EXEC_CMD.get_or_init(|| String::new());
     let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
     let mut shell_cmd = Command::new(cmd_parts[0]);
     for arg in &cmd_parts[1..] {
@@ -257,14 +255,20 @@ pub fn run_subshell(cmd: &str) -> String {
 // function to cache or load overlay_cmd output
 pub fn get_overlay_lines() -> &'static str {
     OVERLAY_LINES_CACHE.get_or_init(|| {
-        let overlay_cmd = cached_statics(&OVERLAY_CMD, String::new);
+        let overlay_cmd = OVERLAY_CMD.get_or_init(|| {
+            config()
+                .overlay
+                .overlay_cmd
+                .clone()
+                .unwrap_or(String::new())
+        });
 
         if overlay_cmd.is_empty() {
             return String::new();
         }
 
         let overlay_right = OVERLAY_RIGHTWARD.load(Ordering::Relaxed);
-        let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+        let exec_cmd = EXEC_CMD.get_or_init(|| String::new());
 
         let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
         let mut shell_cmd = std::process::Command::new(cmd_parts[0]);
@@ -273,7 +277,7 @@ pub fn get_overlay_lines() -> &'static str {
         }
 
         // execute overlay_cmd
-        let output = match shell_cmd.arg(&overlay_cmd).output() {
+        let output = match shell_cmd.arg(overlay_cmd.as_str()).output() {
             Ok(out) => out,
             Err(_) => return String::new(),
         };

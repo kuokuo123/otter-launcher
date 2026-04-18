@@ -47,9 +47,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // print from header commands
         let remove_lines_count = HEADER_CMD_TRIMMED_LINES.load(Ordering::Relaxed);
-        let header_cmd = cached_statics(&HEADER_CMD, String::new);
+        let header_cmd = HEADER_CMD.get_or_init(|| {
+            config()
+                .interface
+                .header_cmd
+                .clone()
+                .unwrap_or(String::new())
+        });
         if !header_cmd.is_empty() {
-            let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+            let exec_cmd = EXEC_CMD.get_or_init(|| String::new());
             let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
             let mut shell_cmd = Command::new(cmd_parts[0]);
             for arg in &cmd_parts[1..] {
@@ -77,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .into_owned(),
             );
             let status = shell_cmd
-                .arg(&header_cmd)
+                .arg(header_cmd.as_str())
                 .stdout(Stdio::inherit())
                 .stderr(Stdio::inherit())
                 .status()?;
@@ -89,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // print header
-        let config_header = cached_statics(&HEADER, || "sh -c".to_string());
+        let config_header = HEADER.get_or_init(|| String::new());
         let expanded_header = expand_env_vars(&config_header);
         let header_lines: Vec<&str> = expanded_header.split('\n').collect();
 
@@ -178,28 +184,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 // Condition 3: when no-arg modules is running with arguement
                 } else {
-                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, || String::new()))
+                    run_designated_module(prompt, DEFAULT_MODULE.get_or_init(|| String::new()).into())
                 }
             }
             // if user input doesn't start with some module prefixes
             _ => {
                 // Condition 1: when user input is empty, run the empty module
                 if prompt.is_empty() {
-                    run_designated_module(prompt, cached_statics(&EMPTY_MODULE, || String::new()))
+                    run_designated_module(prompt, EMPTY_MODULE.get_or_init(|| String::new()).to_string())
                 // Condition 2: when helper keyword is passed, open cheatsheet
-                } else if prompt.trim_end() == cached_statics(&CHEATSHEET_ENTRY, || "?".to_string())
-                {
+                } else if prompt.trim_end() == CHEATSHEET_ENTRY.get_or_init(|| "?".to_string())
+{
                     let _ = cheat_sheet();
                     loop_switch = true;
                 // Condition 3: when no module is matched, run the default module
                 } else {
-                    run_designated_module(prompt, cached_statics(&DEFAULT_MODULE, || String::new()))
+                    run_designated_module(prompt, DEFAULT_MODULE.get_or_init(|| String::new()).into())
                 }
             }
         }
 
         // run general.callback
-        let callback = cached_statics(&CALLBACK, || String::new());
+        let callback = CALLBACK
+            .get_or_init(|| config().general.callback.clone().unwrap_or(String::new()))
+            .to_string();
         if !callback.is_empty() {
             let _ = run_module_command_unbind_proc(callback);
         }

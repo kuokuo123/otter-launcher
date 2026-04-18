@@ -31,7 +31,7 @@ impl ConditionalEventHandler for ExternalEditor {
             && ctx.input_mode() == rustyline::InputMode::Command
             || ctx.mode() == rustyline::EditMode::Emacs && CTRLX_LOCK.load(Ordering::Relaxed) == 1
         {
-            let editor = cached_statics(&EXTERNAL_EDITOR, || String::new());
+            let editor = EXTERNAL_EDITOR.get_or_init(|| String::new());
             let mut file_path = env::temp_dir();
             file_path.push("otter-launcher");
             // Write the current line into the temporary file
@@ -45,7 +45,7 @@ impl ConditionalEventHandler for ExternalEditor {
                 write!(file.ok()?, "{}", ctx.line()).ok()?;
             }
 
-            let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
+            let exec_cmd = EXEC_CMD.get_or_init(|| String::new());
             let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
             let mut shell_cmd = Command::new(cmd_parts[0]);
             for arg in &cmd_parts[1..] {
@@ -270,7 +270,7 @@ impl ConditionalEventHandler for ListItemEnter {
         if SELECTION_INDEX.load(Ordering::Relaxed) == 0 {
             Some(Cmd::AcceptLine)
         } else {
-            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || String::new())
+            let com_candidate = COMPLETION_CANDIDATE.read().unwrap()
                 .split_whitespace()
                 .next()?
                 .to_string();
@@ -325,7 +325,7 @@ impl ConditionalEventHandler for ListItemSelect {
         if SELECTION_INDEX.load(Ordering::Relaxed) == 0 {
             Some(Cmd::Complete)
         } else {
-            let com_candidate = cached_statics(&COMPLETION_CANDIDATE, || String::new())
+            let com_candidate = COMPLETION_CANDIDATE.read().unwrap()
                 .split_whitespace()
                 .next()?
                 .to_string();
@@ -532,6 +532,8 @@ pub fn customized_rustyline_editor()
         hints: map_hints()?,
     }));
 
+    let external_editor = EXTERNAL_EDITOR.get_or_init(|| String::new());
+
     // check if esc_to_abort is on
     if ESC_TO_ABORT.load(Ordering::Relaxed) {
         rl.bind_sequence(
@@ -577,7 +579,7 @@ pub fn customized_rustyline_editor()
             KeyEvent::new('u', Modifiers::CTRL),
             EventHandler::Conditional(Box::from(ViListCtrlU)),
         );
-        if !cached_statics(&EXTERNAL_EDITOR, || String::new()).is_empty() {
+        if !external_editor.is_empty() {
             rl.bind_sequence(
                 KeyEvent::new('v', Modifiers::NONE),
                 EventHandler::Conditional(Box::from(ExternalEditor)),
@@ -601,7 +603,7 @@ pub fn customized_rustyline_editor()
             KeyEvent::new('v', Modifiers::ALT),
             EventHandler::Conditional(Box::from(ListPageUp)),
         );
-        if !cached_statics(&EXTERNAL_EDITOR, || String::new()).is_empty() {
+        if !external_editor.is_empty() {
             rl.bind_sequence(
                 KeyEvent::new('x', Modifiers::CTRL),
                 EventHandler::Conditional(Box::from(CTRLX)),

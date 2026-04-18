@@ -6,26 +6,10 @@ use std::{
     env, fs,
     path::Path,
     sync::{
-        Mutex, OnceLock,
+        LazyLock, OnceLock, RwLock,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
-
-// function to initialize a mutex as per the config file
-pub fn init_statics<T: Clone>(
-    cell: &OnceLock<Mutex<T>>,
-    config_value: Option<T>,
-    default_value: T,
-) {
-    let value = config_value.unwrap_or(default_value);
-    let _ = cell.set(Mutex::new(value));
-}
-
-// function to retrieve a cached value with a default
-pub fn cached_statics<T: Clone, F: FnOnce() -> T>(cell: &OnceLock<Mutex<T>>, default_fn: F) -> T {
-    let m = cell.get_or_init(|| Mutex::new(default_fn()));
-    m.lock().unwrap().clone()
-}
 
 // Define config structure
 #[derive(Deserialize, Default)]
@@ -148,16 +132,28 @@ pub fn config() -> &'static Config {
     CONFIG.get_or_init(|| load_config().unwrap())
 }
 
-// use oncelock mutex to make important variables globally accessible (repeatedly used config values, list selection, and completion related stuff)
+// macro to initialize onelock as per the config file
+macro_rules! init_lock {
+    // for custom default string
+    ($lock:expr, $field:expr, $default:expr) => {
+        $lock.get_or_init(|| $field.clone().unwrap_or_else(|| $default.to_string()));
+    };
+    // for empty string default
+    ($lock:expr, $field:expr) => {
+        $lock.get_or_init(|| $field.clone().unwrap_or_default());
+    };
+}
+
+// use oncelock and atomics to make important variables globally accessible (repeatedly used config values, list selection, and completion related stuff)
 // define config variables as statics
-pub static HEADER_CMD: OnceLock<Mutex<String>> = OnceLock::new();
-pub static OVERLAY_CMD: OnceLock<Mutex<String>> = OnceLock::new();
-pub static SUGGESTION_MODE: OnceLock<Mutex<String>> = OnceLock::new();
+pub static HEADER_CMD: OnceLock<String> = OnceLock::new();
+pub static OVERLAY_CMD: OnceLock<String> = OnceLock::new();
+pub static SUGGESTION_MODE: OnceLock<String> = OnceLock::new();
 pub static LOOP_MODE: AtomicBool = AtomicBool::new(false);
-pub static CALLBACK: OnceLock<Mutex<String>> = OnceLock::new();
-pub static CHEATSHEET_ENTRY: OnceLock<Mutex<String>> = OnceLock::new();
-pub static CHEATSHEET_VIEWER: OnceLock<Mutex<String>> = OnceLock::new();
-pub static EXTERNAL_EDITOR: OnceLock<Mutex<String>> = OnceLock::new();
+pub static CALLBACK: OnceLock<String> = OnceLock::new();
+pub static CHEATSHEET_ENTRY: OnceLock<String> = OnceLock::new();
+pub static CHEATSHEET_VIEWER: OnceLock<String> = OnceLock::new();
+pub static EXTERNAL_EDITOR: OnceLock<String> = OnceLock::new();
 pub static VI_MODE: AtomicBool = AtomicBool::new(false);
 pub static ESC_TO_ABORT: AtomicBool = AtomicBool::new(false);
 pub static CLEAR_SCREEN_AFTER_EXECUTION: AtomicBool = AtomicBool::new(false);
@@ -165,32 +161,33 @@ pub static HEADER_CMD_TRIMMED_LINES: AtomicUsize = AtomicUsize::new(0);
 pub static DELAY_STARTUP: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_TRIMMED_LINES: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_HEIGHT: AtomicUsize = AtomicUsize::new(0);
-pub static HEADER: OnceLock<Mutex<String>> = OnceLock::new();
-pub static SEPARATOR: OnceLock<Mutex<String>> = OnceLock::new();
-pub static FOOTER: OnceLock<Mutex<String>> = OnceLock::new();
-pub static EXEC_CMD: OnceLock<Mutex<String>> = OnceLock::new();
-pub static DEFAULT_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
-pub static EMPTY_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
-pub static EMPTY_MODULE_MESSAGE: OnceLock<Mutex<String>> = OnceLock::new();
-pub static DEFAULT_MODULE_MESSAGE: OnceLock<Mutex<String>> = OnceLock::new();
+pub static HEADER: OnceLock<String> = OnceLock::new();
+pub static SEPARATOR: OnceLock<String> = OnceLock::new();
+pub static FOOTER: OnceLock<String> = OnceLock::new();
+pub static EXEC_CMD: OnceLock<String> = OnceLock::new();
+pub static DEFAULT_MODULE: OnceLock<String> = OnceLock::new();
+pub static EMPTY_MODULE: OnceLock<String> = OnceLock::new();
+pub static EMPTY_MODULE_MESSAGE: OnceLock<String> = OnceLock::new();
+pub static DEFAULT_MODULE_MESSAGE: OnceLock<String> = OnceLock::new();
 pub static SUGGESTION_LINES: AtomicUsize = AtomicUsize::new(0);
 pub static PREFIX_PADDING: AtomicUsize = AtomicUsize::new(0);
 pub static SELECTION_INDEX: AtomicUsize = AtomicUsize::new(0);
 pub static SELECTION_SPAN: AtomicUsize = AtomicUsize::new(0);
 pub static HINT_SPAN: AtomicUsize = AtomicUsize::new(0);
 pub static HINT_BENCHMARK: AtomicUsize = AtomicUsize::new(0);
-pub static LIST_PREFIX: OnceLock<Mutex<String>> = OnceLock::new();
-pub static SELECTION_PREFIX: OnceLock<Mutex<String>> = OnceLock::new();
-pub static PREFIX_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
-pub static DESCRIPTION_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
-pub static PLACE_HOLDER: OnceLock<Mutex<String>> = OnceLock::new();
-pub static PLACE_HOLDER_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
-pub static HINT_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
-pub static INDICATOR_WITH_ARG_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
-pub static INDICATOR_NO_ARG_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
+pub static LIST_PREFIX: OnceLock<String> = OnceLock::new();
+pub static SELECTION_PREFIX: OnceLock<String> = OnceLock::new();
+pub static PREFIX_COLOR: OnceLock<String> = OnceLock::new();
+pub static DESCRIPTION_COLOR: OnceLock<String> = OnceLock::new();
+pub static PLACE_HOLDER: OnceLock<String> = OnceLock::new();
+pub static PLACE_HOLDER_COLOR: OnceLock<String> = OnceLock::new();
+pub static HINT_COLOR: OnceLock<String> = OnceLock::new();
+pub static INDICATOR_WITH_ARG_MODULE: OnceLock<String> = OnceLock::new();
+pub static INDICATOR_NO_ARG_MODULE: OnceLock<String> = OnceLock::new();
 pub static FILTERED_HINT_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub static HEADER_LINE_COUNT: AtomicUsize = AtomicUsize::new(0);
-pub static COMPLETION_CANDIDATE: OnceLock<Mutex<String>> = OnceLock::new();
+pub static COMPLETION_CANDIDATE: LazyLock<RwLock<String>> =
+    LazyLock::new(|| RwLock::new(String::new()));
 pub static LAYOUT_RIGHTWARD: AtomicUsize = AtomicUsize::new(0);
 pub static LAYOUT_DOWNWARD: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_RIGHTWARD: AtomicUsize = AtomicUsize::new(0);
@@ -205,6 +202,118 @@ pub static CLI_PROMPT: OnceLock<String> = OnceLock::new();
 
 // function to initialize all statics
 pub fn init_all_statics() {
+    // initialize global vars
+    init_lock!(EXEC_CMD, config().general.exec_cmd, "sh -c");
+    init_lock!(EXTERNAL_EDITOR, config().general.external_editor);
+    init_lock!(DEFAULT_MODULE, config().general.default_module);
+    init_lock!(EMPTY_MODULE, config().general.empty_module);
+    init_lock!(CHEATSHEET_ENTRY, config().general.cheatsheet_entry);
+    init_lock!(
+        CHEATSHEET_VIEWER,
+        config().general.cheatsheet_viewer,
+        "less -R; clear"
+    );
+    init_lock!(HEADER, config().interface.header, "otter-launcher: ");
+    init_lock!(SEPARATOR, config().interface.separator);
+    init_lock!(FOOTER, config().interface.footer);
+    init_lock!(LIST_PREFIX, config().interface.list_prefix, " ");
+    init_lock!(SELECTION_PREFIX, config().interface.selection_prefix, ">");
+    init_lock!(
+        PLACE_HOLDER,
+        config().interface.place_holder,
+        "type & search"
+    );
+    init_lock!(
+        INDICATOR_WITH_ARG_MODULE,
+        config().interface.indicator_with_arg_module
+    );
+    init_lock!(
+        INDICATOR_NO_ARG_MODULE,
+        config().interface.indicator_no_arg_module
+    );
+    init_lock!(SUGGESTION_MODE, config().interface.suggestion_mode, "list");
+    init_lock!(
+        DEFAULT_MODULE_MESSAGE,
+        config().interface.default_module_message,
+        "list"
+    );
+    init_lock!(
+        EMPTY_MODULE_MESSAGE,
+        config().interface.empty_module_message
+    );
+    init_lock!(PREFIX_COLOR, config().interface.prefix_color);
+    init_lock!(
+        DESCRIPTION_COLOR,
+        config().interface.description_color,
+        "\x1b[39m"
+    );
+    init_lock!(
+        PLACE_HOLDER_COLOR,
+        config().interface.place_holder_color,
+        "\x1b[30m"
+    );
+    init_lock!(HINT_COLOR, config().interface.hint_color, "\x1b[30m");
+    VI_MODE.store(config().general.vi_mode.unwrap_or(false), Ordering::Relaxed);
+    ESC_TO_ABORT.store(
+        config().general.esc_to_abort.unwrap_or(true),
+        Ordering::Relaxed,
+    );
+    LOOP_MODE.store(
+        config().general.loop_mode.unwrap_or(false),
+        Ordering::Relaxed,
+    );
+    CLEAR_SCREEN_AFTER_EXECUTION.store(
+        config()
+            .general
+            .clear_screen_after_execution
+            .unwrap_or(false),
+        Ordering::Relaxed,
+    );
+    DELAY_STARTUP.store(
+        config().general.delay_startup.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    HEADER_CMD_TRIMMED_LINES.store(
+        config().interface.header_cmd_trimmed_lines.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    OVERLAY_TRIMMED_LINES.store(
+        config().overlay.overlay_trimmed_lines.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    OVERLAY_HEIGHT.store(
+        config().overlay.overlay_height.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    SUGGESTION_LINES.store(
+        config().interface.suggestion_lines.unwrap_or(4),
+        Ordering::Relaxed,
+    );
+    PREFIX_PADDING.store(
+        config().interface.prefix_padding.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    LAYOUT_RIGHTWARD.store(
+        config().interface.move_interface_right.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    LAYOUT_DOWNWARD.store(
+        config().interface.move_interface_down.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    OVERLAY_RIGHTWARD.store(
+        config().overlay.move_overlay_right.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    OVERLAY_DOWNWARD.store(
+        config().overlay.move_overlay_down.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    CUSTOMIZED_LIST_ORDER.store(
+        config().interface.customized_list_order.unwrap_or(false),
+        Ordering::Relaxed,
+    );
+
     // if launched with arguments, act accordingly
     let mut args = env::args().skip(1);
     if let Some(arg) = args.next() {
@@ -235,176 +344,4 @@ pub fn init_all_statics() {
         }
     };
 
-    init_statics(
-        &EXEC_CMD,
-        config().general.exec_cmd.clone(),
-        "sh -c".to_string(),
-    );
-    init_statics(
-        &EXTERNAL_EDITOR,
-        config().general.external_editor.clone(),
-        String::new(),
-    );
-    init_statics(
-        &DEFAULT_MODULE,
-        config().general.default_module.clone(),
-        String::new(),
-    );
-    init_statics(
-        &EMPTY_MODULE,
-        config().general.empty_module.clone(),
-        String::new(),
-    );
-    init_statics(
-        &CHEATSHEET_ENTRY,
-        config().general.cheatsheet_entry.clone(),
-        "?".to_string(),
-    );
-    init_statics(
-        &CHEATSHEET_VIEWER,
-        config().general.cheatsheet_viewer.clone(),
-        "less -R; clear".to_string(),
-    );
-    VI_MODE.store(config().general.vi_mode.unwrap_or(false), Ordering::Relaxed);
-    ESC_TO_ABORT.store(
-        config().general.esc_to_abort.unwrap_or(true),
-        Ordering::Relaxed,
-    );
-    LOOP_MODE.store(
-        config().general.loop_mode.unwrap_or(false),
-        Ordering::Relaxed,
-    );
-    CLEAR_SCREEN_AFTER_EXECUTION.store(
-        config()
-            .general
-            .clear_screen_after_execution
-            .unwrap_or(false),
-        Ordering::Relaxed,
-    );
-    init_statics(&CALLBACK, config().general.callback.clone(), String::new());
-    DELAY_STARTUP.store(
-        config().general.delay_startup.unwrap_or(0),
-        Ordering::Relaxed,
-    );
-    init_statics(
-        &HEADER_CMD,
-        config().interface.header_cmd.clone(),
-        String::new(),
-    );
-    init_statics(
-        &OVERLAY_CMD,
-        config().overlay.overlay_cmd.clone(),
-        String::new(),
-    );
-    HEADER_CMD_TRIMMED_LINES.store(
-        config().interface.header_cmd_trimmed_lines.unwrap_or(0),
-        Ordering::Relaxed,
-    );
-    OVERLAY_TRIMMED_LINES.store(
-        config().overlay.overlay_trimmed_lines.unwrap_or(0),
-        Ordering::Relaxed,
-    );
-    OVERLAY_HEIGHT.store(
-        config().overlay.overlay_height.unwrap_or(0),
-        Ordering::Relaxed,
-    );
-    init_statics(
-        &HEADER,
-        config().interface.header.clone(),
-        "otter-launcher: ".to_string(),
-    );
-    init_statics(
-        &SEPARATOR,
-        config().interface.separator.clone(),
-        String::new(),
-    );
-    init_statics(&FOOTER, config().interface.footer.clone(), String::new());
-    init_statics(
-        &LIST_PREFIX,
-        config().interface.list_prefix.clone(),
-        String::new(),
-    );
-    init_statics(
-        &SELECTION_PREFIX,
-        config().interface.selection_prefix.clone(),
-        ">".to_string(),
-    );
-    init_statics(
-        &PLACE_HOLDER,
-        config().interface.place_holder.clone(),
-        "type something".to_string(),
-    );
-    init_statics(
-        &INDICATOR_WITH_ARG_MODULE,
-        config().interface.indicator_with_arg_module.clone(),
-        String::new(),
-    );
-    init_statics(
-        &INDICATOR_NO_ARG_MODULE,
-        config().interface.indicator_no_arg_module.clone(),
-        String::new(),
-    );
-    init_statics(
-        &SUGGESTION_MODE,
-        config().interface.suggestion_mode.clone(),
-        "list".to_string(),
-    );
-    SUGGESTION_LINES.store(
-        config().interface.suggestion_lines.unwrap_or(4),
-        Ordering::Relaxed,
-    );
-    init_statics(
-        &DEFAULT_MODULE_MESSAGE,
-        config().interface.default_module_message.clone(),
-        String::new(),
-    );
-    init_statics(
-        &EMPTY_MODULE_MESSAGE,
-        config().interface.empty_module_message.clone(),
-        String::new(),
-    );
-    PREFIX_PADDING.store(
-        config().interface.prefix_padding.unwrap_or(0),
-        Ordering::Relaxed,
-    );
-    init_statics(
-        &PREFIX_COLOR,
-        config().interface.prefix_color.clone(),
-        String::new(),
-    );
-    init_statics(
-        &DESCRIPTION_COLOR,
-        config().interface.description_color.clone(),
-        "\x1b[39m".to_string(),
-    );
-    init_statics(
-        &PLACE_HOLDER_COLOR,
-        config().interface.place_holder_color.clone(),
-        "\x1b[30m".to_string(),
-    );
-    init_statics(
-        &HINT_COLOR,
-        config().interface.hint_color.clone(),
-        "\x1b[30m".to_string(),
-    );
-    LAYOUT_RIGHTWARD.store(
-        config().interface.move_interface_right.unwrap_or(0),
-        Ordering::Relaxed,
-    );
-    LAYOUT_DOWNWARD.store(
-        config().interface.move_interface_down.unwrap_or(0),
-        Ordering::Relaxed,
-    );
-    OVERLAY_RIGHTWARD.store(
-        config().overlay.move_overlay_right.unwrap_or(0),
-        Ordering::Relaxed,
-    );
-    OVERLAY_DOWNWARD.store(
-        config().overlay.move_overlay_down.unwrap_or(0),
-        Ordering::Relaxed,
-    );
-    CUSTOMIZED_LIST_ORDER.store(
-        config().interface.customized_list_order.unwrap_or(false),
-        Ordering::Relaxed,
-    );
 }
