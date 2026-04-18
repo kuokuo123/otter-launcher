@@ -166,16 +166,29 @@ impl Highlighter for OtterHelper {
         };
 
         if suggestion_mode == "hint" {
-            (format!(
-                "\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G",
-                hint_color,
-                hint,
-                overlay_up,
-                overlay_down,
-                overlay_right + 1
-            ) + &overlay_lines
-                + "\x1b[u\x1b[?25h")
-                .into()
+            if hint == place_holder {
+                (format!(
+                    "\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G",
+                    place_holder_color,
+                    hint,
+                    overlay_up,
+                    overlay_down,
+                    overlay_right + 1
+                ) + &overlay_lines
+                    + "\x1b[u\x1b[?25h")
+                    .into()
+            } else {
+                (format!(
+                    "\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G",
+                    hint_color,
+                    hint,
+                    overlay_up,
+                    overlay_down,
+                    overlay_right + 1
+                ) + &overlay_lines
+                    + "\x1b[u\x1b[?25h")
+                    .into()
+            }
         } else {
             // shrink selection span if filtered_hint_count shrinks
             if suggestion_lines >= filtered_hint_count {
