@@ -75,7 +75,7 @@ pub fn run_module_command(mod_cmd_arg: String) -> Result<(), Box<dyn std::error:
     }
     // run module cmd
     shell_cmd.arg(mod_cmd_arg);
-    if cached_statics(&LOOP_MODE, || false) {
+    if LOOP_MODE.load(Ordering::Relaxed) {
         shell_cmd.stderr(Stdio::null());
     }
     shell_cmd.spawn()?.wait()?;

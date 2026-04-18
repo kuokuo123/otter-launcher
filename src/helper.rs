@@ -267,6 +267,7 @@ impl Hinter for OtterHelper {
         let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
         let overlay_down = OVERLAY_DOWNWARD.load(Ordering::Relaxed);
         let header_line_count = HEADER_LINE_COUNT.load(Ordering::Relaxed);
+let customized_list_order = CUSTOMIZED_LIST_ORDER.load(Ordering::Relaxed);
 
 let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
 
@@ -384,7 +385,7 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
                     }
                 });
 
-                let selected_hint = if cached_statics(&CUSTOMIZED_LIST_ORDER, || false) {
+                let selected_hint = if customized_list_order {
                     filtered_hints.next()
                 } else {
                     filtered_hints.min_by(|a, b| a.display.cmp(&b.display))
@@ -435,7 +436,7 @@ let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
                 })
                 .collect::<Vec<&str>>();
 
-            if cached_statics(&CUSTOMIZED_LIST_ORDER, || false) == false {
+            if customized_list_order == false {
                 // sort list items alphebetically
                 aggregated_lines.sort();
             }

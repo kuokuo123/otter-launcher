@@ -281,7 +281,7 @@ impl ConditionalEventHandler for ListItemEnter {
                 .unwrap();
             Some(if target_module.with_argument.unwrap_or(false) == false {
                 run_designated_module(String::new(), com_candidate);
-                if cached_statics(&LOOP_MODE, || false) == true {
+                if LOOP_MODE.load(Ordering::Relaxed) == true {
                     SELECTION_INDEX.store(0, Ordering::Relaxed);
                     Cmd::Replace(Movement::WholeBuffer, Some(String::new()))
                 } else {
@@ -336,7 +336,7 @@ impl ConditionalEventHandler for ListItemSelect {
                 .unwrap();
             Some(if target_module.with_argument.unwrap_or(false) == false {
                 run_designated_module(String::new(), com_candidate);
-                if cached_statics(&LOOP_MODE, || false) == true {
+                if LOOP_MODE.load(Ordering::Relaxed) == true {
                     SELECTION_INDEX.store(0, Ordering::Relaxed);
                     Cmd::Replace(Movement::WholeBuffer, Some(String::new()))
                 } else {
@@ -533,7 +533,7 @@ pub fn customized_rustyline_editor()
     }));
 
     // check if esc_to_abort is on
-    if cached_statics(&ESC_TO_ABORT, || true) {
+    if ESC_TO_ABORT.load(Ordering::Relaxed) {
         rl.bind_sequence(
             KeyEvent::new('\x1b', Modifiers::NONE),
             EventHandler::Simple(Cmd::Interrupt),
@@ -542,7 +542,7 @@ pub fn customized_rustyline_editor()
     }
 
     // check if vi_mode is on, and set up keybinds accordingly
-    if cached_statics(&VI_MODE, || false) {
+    if VI_MODE.load(Ordering::Relaxed) {
         rl.set_edit_mode(EditMode::Vi);
         // set vi bindings
         rl.bind_sequence(

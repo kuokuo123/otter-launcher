@@ -134,10 +134,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // flow switches setup
-        let mut loop_switch = cached_statics(&LOOP_MODE, || false);
+        let mut loop_switch = LOOP_MODE.load(Ordering::Relaxed);
 
         // clear screen if clear_screen_after_execution is on
-        if cached_statics(&CLEAR_SCREEN_AFTER_EXECUTION, || false) {
+        if CLEAR_SCREEN_AFTER_EXECUTION.load(Ordering::Relaxed) {
             print!("\x1B[2J\x1B[1;1H");
             std::io::stdout().flush()?
         };

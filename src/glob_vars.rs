@@ -7,7 +7,7 @@ use std::{
     path::Path,
     sync::{
         Mutex, OnceLock,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 
@@ -153,14 +153,14 @@ pub fn config() -> &'static Config {
 pub static HEADER_CMD: OnceLock<Mutex<String>> = OnceLock::new();
 pub static OVERLAY_CMD: OnceLock<Mutex<String>> = OnceLock::new();
 pub static SUGGESTION_MODE: OnceLock<Mutex<String>> = OnceLock::new();
-pub static LOOP_MODE: OnceLock<Mutex<bool>> = OnceLock::new();
+pub static LOOP_MODE: AtomicBool = AtomicBool::new(false);
 pub static CALLBACK: OnceLock<Mutex<String>> = OnceLock::new();
 pub static CHEATSHEET_ENTRY: OnceLock<Mutex<String>> = OnceLock::new();
 pub static CHEATSHEET_VIEWER: OnceLock<Mutex<String>> = OnceLock::new();
 pub static EXTERNAL_EDITOR: OnceLock<Mutex<String>> = OnceLock::new();
-pub static VI_MODE: OnceLock<Mutex<bool>> = OnceLock::new();
-pub static ESC_TO_ABORT: OnceLock<Mutex<bool>> = OnceLock::new();
-pub static CLEAR_SCREEN_AFTER_EXECUTION: OnceLock<Mutex<bool>> = OnceLock::new();
+pub static VI_MODE: AtomicBool = AtomicBool::new(false);
+pub static ESC_TO_ABORT: AtomicBool = AtomicBool::new(false);
+pub static CLEAR_SCREEN_AFTER_EXECUTION: AtomicBool = AtomicBool::new(false);
 pub static HEADER_CMD_TRIMMED_LINES: AtomicUsize = AtomicUsize::new(0);
 pub static DELAY_STARTUP: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_TRIMMED_LINES: AtomicUsize = AtomicUsize::new(0);
@@ -195,7 +195,7 @@ pub static LAYOUT_RIGHTWARD: AtomicUsize = AtomicUsize::new(0);
 pub static LAYOUT_DOWNWARD: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_RIGHTWARD: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_DOWNWARD: AtomicUsize = AtomicUsize::new(0);
-pub static CUSTOMIZED_LIST_ORDER: OnceLock<Mutex<bool>> = OnceLock::new();
+pub static CUSTOMIZED_LIST_ORDER: AtomicBool = AtomicBool::new(false);
 pub static CELL_HEIGHT: AtomicUsize = AtomicUsize::new(0);
 pub static SEPARATOR_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub static CTRLX_LOCK: AtomicUsize = AtomicUsize::new(0);
@@ -265,13 +265,21 @@ pub fn init_all_statics() {
         config().general.cheatsheet_viewer.clone(),
         "less -R; clear".to_string(),
     );
-    init_statics(&VI_MODE, config().general.vi_mode, false);
-    init_statics(&ESC_TO_ABORT, config().general.esc_to_abort, true);
-    init_statics(&LOOP_MODE, config().general.loop_mode, false);
-    init_statics(
-        &CLEAR_SCREEN_AFTER_EXECUTION,
-        config().general.clear_screen_after_execution,
-        false,
+    VI_MODE.store(config().general.vi_mode.unwrap_or(false), Ordering::Relaxed);
+    ESC_TO_ABORT.store(
+        config().general.esc_to_abort.unwrap_or(true),
+        Ordering::Relaxed,
+    );
+    LOOP_MODE.store(
+        config().general.loop_mode.unwrap_or(false),
+        Ordering::Relaxed,
+    );
+    CLEAR_SCREEN_AFTER_EXECUTION.store(
+        config()
+            .general
+            .clear_screen_after_execution
+            .unwrap_or(false),
+        Ordering::Relaxed,
     );
     init_statics(&CALLBACK, config().general.callback.clone(), String::new());
     DELAY_STARTUP.store(
@@ -395,9 +403,8 @@ pub fn init_all_statics() {
         config().overlay.move_overlay_down.unwrap_or(0),
         Ordering::Relaxed,
     );
-    init_statics(
-        &CUSTOMIZED_LIST_ORDER,
-        config().interface.customized_list_order,
-        false,
+    CUSTOMIZED_LIST_ORDER.store(
+        config().interface.customized_list_order.unwrap_or(false),
+        Ordering::Relaxed,
     );
 }
