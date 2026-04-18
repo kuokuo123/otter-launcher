@@ -253,47 +253,6 @@ pub fn run_subshell(cmd: &str) -> String {
     }
 }
 
-// function to print help
-pub fn print_help() {
-    println!(
-        "\
-\x1b[4motter-launcher (ot):\x1b[0m
-
-A modularized script launcher featuring vi & emacs keybinds, released under the GNU GPL v3.0 license.
-
-\x1b[4mUsage:\x1b[0m
-
-otter-launcher [OPTIONS] [ARGUMENTS]...
-
-\x1b[4mOptions:\x1b[0m
-
-  -h, --help     Show help
-  -v, --version  Show version
-
-\x1b[4mBehavior:\x1b[0m
-
-1. Running without ARGUMENTS opens TUI interface, where user input launches the matched module.
-
-2. ARGUMENTS are taken as a direct prompt without resorting to the TUI. All configured modules are effective.
-
-3. If OPTIONS are given, help or version messages will be printed.
-
-\x1b[4mConfiguration:\x1b[0m
-
-Modules are specified in a TOML config file, which is expected to be at one of the below positions:
-
-1. $HOME/.config/otter-launcher/config.toml
-2. /etc/otter-launcher/config.toml
-
-The example config is in github repo: https://github.com/kuokuo123/otter-launcher"
-    );
-}
-
-// function to print version
-pub fn print_version() {
-    println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-}
-
 // function to cache or load overlay_cmd output
 pub fn get_overlay_lines() -> &'static str {
     OVERLAY_LINES_CACHE.get_or_init(|| {
@@ -331,4 +290,45 @@ pub fn get_overlay_lines() -> &'static str {
             "not enough lines of overlay_cmd output to be trimmed".to_string()
         }
     })
+}
+
+// function to print help
+pub fn print_help() {
+    println!(
+        "\
+\x1b[4motter-launcher (ot):\x1b[0m
+
+A modularized script launcher featuring vi & emacs keybinds, released under the GNU GPL v3.0 license.
+
+\x1b[4mUsage:\x1b[0m
+
+otter-launcher [OPTIONS] [ARGUMENTS]...
+
+\x1b[4mOptions:\x1b[0m
+
+  -c, --config <FILE>  The path to a config file 
+  -h, --help           Show help
+  -v, --version        Show version
+
+\x1b[4mBehavior:\x1b[0m
+
+1. TUI mode: Running without ARGUMENTS enters TUI interface, where user prompt launches the matched configured module by the first word.
+
+2. CLI mode: ARGUMENTS are taken as a direct prompt without entering the TUI. All configured modules are effective.
+
+\x1b[4mConfiguration:\x1b[0m
+
+Modules are specified in a TOML config file, expected at one of the below positions by priorities:
+
+1. PATH specified by the --config flag
+2. $HOME/.config/otter-launcher/config.toml
+3. /etc/otter-launcher/config.toml
+
+The example config is in github repo: https://github.com/kuokuo123/otter-launcher"
+    );
+}
+
+// function to print version
+pub fn print_version() {
+    println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 }

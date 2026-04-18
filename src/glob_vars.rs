@@ -1,5 +1,6 @@
 // the library for config file format, and setting global variables accordingly
 
+use crate::mod_exec::{print_help, print_version};
 use serde::Deserialize;
 use std::{
     env, fs,
@@ -98,18 +99,45 @@ pub struct Module {
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
 fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
+    let user_config_path = USER_CONFIG_PATH.get_or_init(|| String::new());
     let home_dir = env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let xdg_config_path = format!("{}/.config/otter-launcher/config.toml", home_dir);
 
-    let config_file = if Path::new(&xdg_config_path).exists() {
+    let config_file = if !user_config_path.is_empty() {
+        user_config_path.to_string()
+    } else if Path::new(&xdg_config_path).exists() {
         xdg_config_path
     } else {
         "/etc/otter-launcher/config.toml".to_string()
     };
 
-    let configs = fs::read_to_string(config_file)?;
+    // if config_file not exist
+    let configs = match fs::read_to_string(&config_file) {
+        Ok(file_content) => file_content,
+        Err(e) => {
+            eprintln!(
+                "Could not read the configuration file at '{}'.",
+                config_file
+            );
+            eprintln!("OS error: {}", e);
+            std::process::exit(1);
+        }
+    };
 
-    Ok(toml::from_str(&configs)?)
+    // if config_file cannot be parsed
+    let parsed_config = match toml::from_str(&configs) {
+        Ok(config_data) => config_data,
+        Err(e) => {
+            eprintln!(
+                "The configuration file at '{}' is not correctly formatted.",
+                config_file
+            );
+            eprintln!("TOML parser error: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    Ok(parsed_config)
 }
 
 #[inline]
@@ -169,9 +197,31 @@ pub static CELL_HEIGHT: OnceLock<usize> = OnceLock::new();
 pub static SEPARATOR_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static CTRLX_LOCK: OnceLock<Mutex<usize>> = OnceLock::new();
 pub static OVERLAY_LINES_CACHE: OnceLock<String> = OnceLock::new();
+pub static USER_CONFIG_PATH: OnceLock<String> = OnceLock::new();
 
 // function to initialize all statics
 pub fn init_all_statics() {
+    // if launched with arguments, act accordingly
+    let mut args = env::args().skip(1);
+
+    if let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print_help();
+                std::process::exit(0);
+            }
+            "-v" | "--version" => {
+                print_version();
+                std::process::exit(0);
+            }
+            "-c" | "--config" => {
+                let path = args.next().unwrap_or_else(|| String::new());
+                USER_CONFIG_PATH.get_or_init(|| path);
+            }
+            _ => {}
+        }
+    };
+
     init_statics(
         &EXEC_CMD,
         config().general.exec_cmd.clone(),

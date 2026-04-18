@@ -10,7 +10,6 @@ use glob_vars::*;
 use keybinds::*;
 use mod_exec::*;
 use std::{
-    env,
     io::Write,
     process,
     process::{Command, Stdio},
@@ -32,7 +31,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // rustyline editor setup
     let mut rl = customized_rustyline_editor()?;
 
-get_overlay_lines();
+    // run overlay_cmd and cache the ouput, if any
+    get_overlay_lines();
 
     // start the flow
     loop {
@@ -123,25 +123,8 @@ get_overlay_lines();
             .lock()
             .unwrap() = header.lines().count();
 
-        // if launched with arguments, do not enter rustyline editor
-        let args: Vec<String> = env::args().skip(1).collect();
-        let prompt = if let Some(arg) = args.first() {
-            match arg.as_str() {
-                "-h" | "--help" => {
-                    print_help();
-                    std::process::exit(0);
-                }
-                "-v" | "--version" => {
-                    print_version();
-                    std::process::exit(0);
-                }
-                _ => Ok(args.join(" ")),
-            }
-        } else {
-            // if launched without arguments, run rustyline with configured header
-            rl.readline(&header)
-        };
-
+        // run rustyline with configured header
+        let prompt = rl.readline(&header);
         match prompt {
             Ok(_) => {}
             Err(_) => {
