@@ -1,6 +1,6 @@
 [package]
 name = "otter-launcher"
-version = "0.7.0.1"
+version = "0.7.1"
 edition = "2024"
 
 [dependencies]
