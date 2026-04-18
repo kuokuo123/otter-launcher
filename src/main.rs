@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // start the flow
     loop {
         // delay startup if configured
-        let delay_startup = cached_statics(&DELAY_STARTUP, || 0);
+        let delay_startup = DELAY_STARTUP.load(Ordering::Relaxed);
         if delay_startup > 0 {
             std::thread::sleep(std::time::Duration::from_millis(
                 delay_startup.try_into().unwrap(),
@@ -42,11 +42,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // moving layout around
-        let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
-        let layout_down = cached_statics(&LAYOUT_DOWNWARD, || 0);
+        let layout_right = LAYOUT_RIGHTWARD.load(Ordering::Relaxed);
+        let layout_down = LAYOUT_DOWNWARD.load(Ordering::Relaxed);
 
         // print from header commands
-        let remove_lines_count = cached_statics(&HEADER_CMD_TRIMMED_LINES, || 0);
+        let remove_lines_count = HEADER_CMD_TRIMMED_LINES.load(Ordering::Relaxed);
         let header_cmd = cached_statics(&HEADER_CMD, String::new);
         if !header_cmd.is_empty() {
             let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());

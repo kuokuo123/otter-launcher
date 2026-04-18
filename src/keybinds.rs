@@ -104,7 +104,7 @@ impl ConditionalEventHandler for ListItemUp {
         let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
         let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
         let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let filtered_hint_count = FILTERED_HINT_COUNT.load(Ordering::Relaxed);
 
         if selection_index > 1 {
@@ -137,7 +137,7 @@ impl ConditionalEventHandler for ListItemDown {
         _ctx: &EventContext,
     ) -> Option<Cmd> {
         let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let hint_span = HINT_SPAN.load(Ordering::Relaxed);
         let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
         let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
@@ -182,7 +182,7 @@ impl ConditionalEventHandler for ViListItemJ {
             && ctx.input_mode() == rustyline::InputMode::Command
         {
             let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+            let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
             let hint_span = HINT_SPAN.load(Ordering::Relaxed);
             let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
             let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
@@ -232,7 +232,7 @@ impl ConditionalEventHandler for ViListItemK {
             let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
             let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
             let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+            let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
             let filtered_hint_count = FILTERED_HINT_COUNT.load(Ordering::Relaxed);
 
             if selection_index > 1 {
@@ -373,7 +373,7 @@ impl ConditionalEventHandler for ListEnd {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let hint_span = HINT_SPAN.load(Ordering::Relaxed);
         HINT_BENCHMARK.store(hint_span - suggestion_lines, Ordering::Relaxed);
         SELECTION_INDEX.store(SELECTION_SPAN.load(Ordering::Relaxed), Ordering::Relaxed);
@@ -415,7 +415,7 @@ impl ConditionalEventHandler for ViListGEnd {
             && ctx.input_mode() == rustyline::InputMode::Command
         {
             HINT_BENCHMARK.store(
-                HINT_SPAN.load(Ordering::Relaxed) - cached_statics(&SUGGESTION_LINES, || 0),
+                HINT_SPAN.load(Ordering::Relaxed) - SUGGESTION_LINES.load(Ordering::Relaxed),
                 Ordering::Relaxed,
             );
             SELECTION_INDEX.store(SELECTION_SPAN.load(Ordering::Relaxed), Ordering::Relaxed);
@@ -438,7 +438,7 @@ impl ConditionalEventHandler for ViListCtrlU {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+            let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
             let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
             if hint_benchmark >= suggestion_lines {
                 HINT_BENCHMARK.fetch_sub(suggestion_lines / 2, Ordering::Relaxed);
@@ -465,7 +465,7 @@ impl ConditionalEventHandler for ViListCtrlD {
         if ctx.mode() == rustyline::EditMode::Vi
             && ctx.input_mode() == rustyline::InputMode::Command
         {
-            let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+            let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
             let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
             let hint_span = HINT_SPAN.load(Ordering::Relaxed);
             if hint_span - suggestion_lines > hint_benchmark {
@@ -490,7 +490,7 @@ impl ConditionalEventHandler for ListPageDown {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
         let hint_span = HINT_SPAN.load(Ordering::Relaxed);
         if hint_span - suggestion_lines > hint_benchmark {
@@ -512,7 +512,7 @@ impl ConditionalEventHandler for ListPageUp {
         _positive: bool,
         _ctx: &EventContext,
     ) -> Option<Cmd> {
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
         if hint_benchmark >= suggestion_lines {
             HINT_BENCHMARK.fetch_sub(suggestion_lines, Ordering::Relaxed);

@@ -5,6 +5,7 @@ use std::{
     env,
     io::Write,
     process::{Command, Stdio},
+    sync::atomic::Ordering,
 };
 use terminal_size::{Width, terminal_size};
 use urlencoding::encode;
@@ -262,9 +263,9 @@ pub fn get_overlay_lines() -> &'static str {
             return String::new();
         }
 
-        let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
+        let overlay_right = OVERLAY_RIGHTWARD.load(Ordering::Relaxed);
         let exec_cmd = cached_statics(&EXEC_CMD, || "sh -c".to_string());
-        
+
         let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
         let mut shell_cmd = std::process::Command::new(cmd_parts[0]);
         for arg in &cmd_parts[1..] {
@@ -276,13 +277,13 @@ pub fn get_overlay_lines() -> &'static str {
             Ok(out) => out,
             Err(_) => return String::new(),
         };
-        
+
         let overlay_cmd_stdout = std::str::from_utf8(&output.stdout).unwrap_or("");
-        let remove_lines_count = cached_statics(&OVERLAY_TRIMMED_LINES, || 0);
-        
+        let remove_lines_count = OVERLAY_TRIMMED_LINES.load(Ordering::Relaxed);
+
         let lines: Vec<&str> = overlay_cmd_stdout.split('\n').collect();
         let lines_count = lines.len();
-        
+
         if lines_count > remove_lines_count {
             lines[..lines_count - remove_lines_count]
                 .join(&format!("\n\x1b[{}G", overlay_right + 1))

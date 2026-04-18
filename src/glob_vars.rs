@@ -7,7 +7,7 @@ use std::{
     path::Path,
     sync::{
         Mutex, OnceLock,
-        atomic::AtomicUsize,
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
@@ -161,10 +161,10 @@ pub static EXTERNAL_EDITOR: OnceLock<Mutex<String>> = OnceLock::new();
 pub static VI_MODE: OnceLock<Mutex<bool>> = OnceLock::new();
 pub static ESC_TO_ABORT: OnceLock<Mutex<bool>> = OnceLock::new();
 pub static CLEAR_SCREEN_AFTER_EXECUTION: OnceLock<Mutex<bool>> = OnceLock::new();
-pub static HEADER_CMD_TRIMMED_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static DELAY_STARTUP: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static OVERLAY_TRIMMED_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static OVERLAY_HEIGHT: OnceLock<Mutex<usize>> = OnceLock::new();
+pub static HEADER_CMD_TRIMMED_LINES: AtomicUsize = AtomicUsize::new(0);
+pub static DELAY_STARTUP: AtomicUsize = AtomicUsize::new(0);
+pub static OVERLAY_TRIMMED_LINES: AtomicUsize = AtomicUsize::new(0);
+pub static OVERLAY_HEIGHT: AtomicUsize = AtomicUsize::new(0);
 pub static HEADER: OnceLock<Mutex<String>> = OnceLock::new();
 pub static SEPARATOR: OnceLock<Mutex<String>> = OnceLock::new();
 pub static FOOTER: OnceLock<Mutex<String>> = OnceLock::new();
@@ -173,12 +173,12 @@ pub static DEFAULT_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
 pub static EMPTY_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
 pub static EMPTY_MODULE_MESSAGE: OnceLock<Mutex<String>> = OnceLock::new();
 pub static DEFAULT_MODULE_MESSAGE: OnceLock<Mutex<String>> = OnceLock::new();
-pub static SUGGESTION_LINES: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static PREFIX_PADDING: OnceLock<Mutex<usize>> = OnceLock::new();
+pub static SUGGESTION_LINES: AtomicUsize = AtomicUsize::new(0);
+pub static PREFIX_PADDING: AtomicUsize = AtomicUsize::new(0);
 pub static SELECTION_INDEX: AtomicUsize = AtomicUsize::new(0);
 pub static SELECTION_SPAN: AtomicUsize = AtomicUsize::new(0);
 pub static HINT_SPAN: AtomicUsize = AtomicUsize::new(0);
-pub static HINT_BENCHMARK:  AtomicUsize = AtomicUsize::new(0);
+pub static HINT_BENCHMARK: AtomicUsize = AtomicUsize::new(0);
 pub static LIST_PREFIX: OnceLock<Mutex<String>> = OnceLock::new();
 pub static SELECTION_PREFIX: OnceLock<Mutex<String>> = OnceLock::new();
 pub static PREFIX_COLOR: OnceLock<Mutex<String>> = OnceLock::new();
@@ -191,13 +191,13 @@ pub static INDICATOR_NO_ARG_MODULE: OnceLock<Mutex<String>> = OnceLock::new();
 pub static FILTERED_HINT_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub static HEADER_LINE_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub static COMPLETION_CANDIDATE: OnceLock<Mutex<String>> = OnceLock::new();
-pub static LAYOUT_RIGHTWARD: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static LAYOUT_DOWNWARD: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static OVERLAY_RIGHTWARD: OnceLock<Mutex<usize>> = OnceLock::new();
-pub static OVERLAY_DOWNWARD: OnceLock<Mutex<usize>> = OnceLock::new();
+pub static LAYOUT_RIGHTWARD: AtomicUsize = AtomicUsize::new(0);
+pub static LAYOUT_DOWNWARD: AtomicUsize = AtomicUsize::new(0);
+pub static OVERLAY_RIGHTWARD: AtomicUsize = AtomicUsize::new(0);
+pub static OVERLAY_DOWNWARD: AtomicUsize = AtomicUsize::new(0);
 pub static CUSTOMIZED_LIST_ORDER: OnceLock<Mutex<bool>> = OnceLock::new();
 pub static CELL_HEIGHT: AtomicUsize = AtomicUsize::new(0);
-pub static SEPARATOR_COUNT: OnceLock<Mutex<usize>> = OnceLock::new();
+pub static SEPARATOR_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub static CTRLX_LOCK: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_LINES_CACHE: OnceLock<String> = OnceLock::new();
 pub static USER_CONFIG_PATH: OnceLock<String> = OnceLock::new();
@@ -274,7 +274,10 @@ pub fn init_all_statics() {
         false,
     );
     init_statics(&CALLBACK, config().general.callback.clone(), String::new());
-    init_statics(&DELAY_STARTUP, config().general.delay_startup, 0);
+    DELAY_STARTUP.store(
+        config().general.delay_startup.unwrap_or(0),
+        Ordering::Relaxed,
+    );
     init_statics(
         &HEADER_CMD,
         config().interface.header_cmd.clone(),
@@ -285,17 +288,18 @@ pub fn init_all_statics() {
         config().overlay.overlay_cmd.clone(),
         String::new(),
     );
-    init_statics(
-        &HEADER_CMD_TRIMMED_LINES,
-        config().interface.header_cmd_trimmed_lines,
-        0,
+    HEADER_CMD_TRIMMED_LINES.store(
+        config().interface.header_cmd_trimmed_lines.unwrap_or(0),
+        Ordering::Relaxed,
     );
-    init_statics(
-        &OVERLAY_TRIMMED_LINES,
-        config().overlay.overlay_trimmed_lines,
-        0,
+    OVERLAY_TRIMMED_LINES.store(
+        config().overlay.overlay_trimmed_lines.unwrap_or(0),
+        Ordering::Relaxed,
     );
-    init_statics(&OVERLAY_HEIGHT, config().overlay.overlay_height, 0);
+    OVERLAY_HEIGHT.store(
+        config().overlay.overlay_height.unwrap_or(0),
+        Ordering::Relaxed,
+    );
     init_statics(
         &HEADER,
         config().interface.header.clone(),
@@ -337,7 +341,10 @@ pub fn init_all_statics() {
         config().interface.suggestion_mode.clone(),
         "list".to_string(),
     );
-    init_statics(&SUGGESTION_LINES, config().interface.suggestion_lines, 1);
+    SUGGESTION_LINES.store(
+        config().interface.suggestion_lines.unwrap_or(4),
+        Ordering::Relaxed,
+    );
     init_statics(
         &DEFAULT_MODULE_MESSAGE,
         config().interface.default_module_message.clone(),
@@ -348,7 +355,10 @@ pub fn init_all_statics() {
         config().interface.empty_module_message.clone(),
         String::new(),
     );
-    init_statics(&PREFIX_PADDING, config().interface.prefix_padding, 0);
+    PREFIX_PADDING.store(
+        config().interface.prefix_padding.unwrap_or(0),
+        Ordering::Relaxed,
+    );
     init_statics(
         &PREFIX_COLOR,
         config().interface.prefix_color.clone(),
@@ -369,14 +379,22 @@ pub fn init_all_statics() {
         config().interface.hint_color.clone(),
         "\x1b[30m".to_string(),
     );
-    init_statics(
-        &LAYOUT_RIGHTWARD,
-        config().interface.move_interface_right,
-        0,
+    LAYOUT_RIGHTWARD.store(
+        config().interface.move_interface_right.unwrap_or(0),
+        Ordering::Relaxed,
     );
-    init_statics(&LAYOUT_DOWNWARD, config().interface.move_interface_down, 0);
-    init_statics(&OVERLAY_RIGHTWARD, config().overlay.move_overlay_right, 0);
-    init_statics(&OVERLAY_DOWNWARD, config().overlay.move_overlay_down, 0);
+    LAYOUT_DOWNWARD.store(
+        config().interface.move_interface_down.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    OVERLAY_RIGHTWARD.store(
+        config().overlay.move_overlay_right.unwrap_or(0),
+        Ordering::Relaxed,
+    );
+    OVERLAY_DOWNWARD.store(
+        config().overlay.move_overlay_down.unwrap_or(0),
+        Ordering::Relaxed,
+    );
     init_statics(
         &CUSTOMIZED_LIST_ORDER,
         config().interface.customized_list_order,

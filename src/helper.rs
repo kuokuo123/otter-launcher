@@ -142,27 +142,22 @@ impl Highlighter for OtterHelper {
         let list_prefix = cached_statics(&LIST_PREFIX, || String::new());
         let selection_prefix = cached_statics(&SELECTION_PREFIX, || ">".to_string());
         let prefix_color = cached_statics(&PREFIX_COLOR, || String::new());
-        let prefix_width = cached_statics(&PREFIX_PADDING, || 0);
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 0);
+        let prefix_width = PREFIX_PADDING.load(Ordering::Relaxed);
+        let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let selection_index = SELECTION_INDEX.load(Ordering::Relaxed);
         let selection_span = SELECTION_SPAN.load(Ordering::Relaxed);
         let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
         let filtered_hint_count = FILTERED_HINT_COUNT.load(Ordering::Relaxed);
-        let separator_count = SEPARATOR_COUNT
-            .get_or_init(|| Mutex::new(0))
-            .lock()
-            .unwrap();
-        let layout_right = cached_statics(&LAYOUT_RIGHTWARD, || 0);
+        let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
+        let layout_right = LAYOUT_RIGHTWARD.load(Ordering::Relaxed);
         let overlay_lines = OVERLAY_LINES_CACHE
             .get()
             .expect("failed to pass overlay_cmd output to highlighter");
-        let overlay_right = cached_statics(&OVERLAY_RIGHTWARD, || 0);
-        let overlay_down_cached = cached_statics(&OVERLAY_DOWNWARD, || 0);
+        let overlay_right = OVERLAY_RIGHTWARD.load(Ordering::Relaxed);
+        let overlay_down_cached = OVERLAY_DOWNWARD.load(Ordering::Relaxed);
         let overlay_up = format!(
             "\x1b[{}A",
-            hint.lines().count()
-                + HEADER_LINE_COUNT.load(Ordering::Relaxed)
-                - 2
+            hint.lines().count() + HEADER_LINE_COUNT.load(Ordering::Relaxed) - 2
         );
         let overlay_down = if overlay_down_cached == 0 {
             String::new()
@@ -201,7 +196,7 @@ impl Highlighter for OtterHelper {
                 .lines()
                 .enumerate()
                 .map(|(index, line)| {
-                    if index == selection_index + *separator_count && selection_index > 0 {
+                    if index == selection_index + separator_count && selection_index > 0 {
                         let (part0, part_rest) =
                             line.split_once(char::is_whitespace).unwrap_or((line, ""));
                         format!(
@@ -221,9 +216,9 @@ impl Highlighter for OtterHelper {
                         && !line.is_empty()
                     {
                         format!("\x1b[{}G{}", layout_right + 1, line)
-                    } else if index <= *separator_count {
+                    } else if index <= separator_count {
                         line.to_string()
-                    } else if index > *separator_count + selection_span
+                    } else if index > separator_count + selection_span
                         && cached_statics(&FOOTER, || String::new()).contains(line)
                     {
                         line.to_string()
@@ -268,26 +263,22 @@ impl Hinter for OtterHelper {
         let place_holder = cached_statics(&PLACE_HOLDER, || "type something".to_string());
         let cheatsheet_entry = cached_statics(&CHEATSHEET_ENTRY, || "?".to_string());
         let indicator_no_arg_module = cached_statics(&INDICATOR_NO_ARG_MODULE, || String::new());
-        let suggestion_lines = cached_statics(&SUGGESTION_LINES, || 1);
+        let suggestion_lines = SUGGESTION_LINES.load(Ordering::Relaxed);
         let hint_benchmark = HINT_BENCHMARK.load(Ordering::Relaxed);
-        let overlay_down = cached_statics(&OVERLAY_DOWNWARD, || 0);
+        let overlay_down = OVERLAY_DOWNWARD.load(Ordering::Relaxed);
         let header_line_count = HEADER_LINE_COUNT.load(Ordering::Relaxed);
+
+let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
 
         // form separator lines, if any
         let mut separator_lines = cached_statics(&SEPARATOR, || String::new());
         if separator_lines.is_empty() {
             separator_lines.clear();
-            *SEPARATOR_COUNT
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap() = 0;
+            SEPARATOR_COUNT.store(0, Ordering::Relaxed);
         } else {
             let expanded_separator = expand_env_vars(&separator_lines);
             let prepared_separator_lines: Vec<&str> = expanded_separator.split('\n').collect();
-            *SEPARATOR_COUNT
-                .get_or_init(|| Mutex::new(0))
-                .lock()
-                .unwrap() = prepared_separator_lines.len();
+            SEPARATOR_COUNT.store(prepared_separator_lines.len(), Ordering::Relaxed);
             separator_lines = format!("\n{}", expanded_separator);
         }
 
@@ -304,7 +295,7 @@ impl Hinter for OtterHelper {
         let overlay_lines = OVERLAY_LINES_CACHE.get()?;
 
         // measure overlay row height, using either kitty or sixel or raw lines
-        let overlay_height_cached = cached_statics(&OVERLAY_HEIGHT, || 0);
+        let overlay_height_cached = OVERLAY_HEIGHT.load(Ordering::Relaxed);
         let overlay_height = if overlay_height_cached == 0 {
             let overlay_line_count = overlay_lines.lines().count();
             if let Some(r) = kitty_rows(&overlay_lines) {
@@ -487,18 +478,12 @@ impl Hinter for OtterHelper {
                 padded_line_count = if overlay_height + overlay_down
                     > header_line_count
                         + join_range_count
-                        + *SEPARATOR_COUNT
-                            .get_or_init(|| Mutex::new(0))
-                            .lock()
-                            .unwrap()
+                        + separator_count
                 {
                     overlay_height + overlay_down
                         - header_line_count
                         - join_range_count
-                        - *SEPARATOR_COUNT
-                            .get_or_init(|| Mutex::new(0))
-                            .lock()
-                            .unwrap()
+                        - separator_count
                 } else {
                     0
                 };
@@ -535,18 +520,12 @@ impl Hinter for OtterHelper {
                             let padded_line_count_local = if overlay_height + overlay_down
                                 > header_line_count
                                     + empty_message_count
-                                    + *SEPARATOR_COUNT
-                                        .get_or_init(|| Mutex::new(0))
-                                        .lock()
-                                        .unwrap()
+                                    + separator_count
                             {
                                 overlay_height + overlay_down
                                     - header_line_count
                                     - empty_message_count
-                                    - *SEPARATOR_COUNT
-                                        .get_or_init(|| Mutex::new(0))
-                                        .lock()
-                                        .unwrap()
+                                    - separator_count
                             } else {
                                 0
                             };
@@ -572,19 +551,13 @@ impl Hinter for OtterHelper {
                         let cheatsheet_count = cheatsheet_entry.lines().count();
                         let padded_line_count_local = if overlay_height
                             + overlay_down
-                            + *SEPARATOR_COUNT
-                                .get_or_init(|| Mutex::new(0))
-                                .lock()
-                                .unwrap()
+                            + separator_count
                             > header_line_count + cheatsheet_count
                         {
                             overlay_height + overlay_down
                                 - header_line_count
                                 - cheatsheet_count
-                                - *SEPARATOR_COUNT
-                                    .get_or_init(|| Mutex::new(0))
-                                    .lock()
-                                    .unwrap()
+                                - separator_count
                         } else {
                             0
                         };
@@ -607,18 +580,12 @@ impl Hinter for OtterHelper {
                             let padded_line_count_local = if overlay_height + overlay_down
                                 > header_line_count
                                     + default_message_count
-                                    + *SEPARATOR_COUNT
-                                        .get_or_init(|| Mutex::new(0))
-                                        .lock()
-                                        .unwrap()
+                                    + separator_count
                             {
                                 overlay_height + overlay_down
                                     - header_line_count
                                     - default_message_count
-                                    - *SEPARATOR_COUNT
-                                        .get_or_init(|| Mutex::new(0))
-                                        .lock()
-                                        .unwrap()
+                                    - separator_count
                             } else {
                                 0
                             };
@@ -635,18 +602,12 @@ impl Hinter for OtterHelper {
                         let padded_line_count_local = if overlay_height + overlay_down
                             > header_line_count
                                 + agg_count
-                                + *SEPARATOR_COUNT
-                                    .get_or_init(|| Mutex::new(0))
-                                    .lock()
-                                    .unwrap()
+                                + separator_count
                         {
                             overlay_height + overlay_down
                                 - header_line_count
                                 - agg_count
-                                - *SEPARATOR_COUNT
-                                    .get_or_init(|| Mutex::new(0))
-                                    .lock()
-                                    .unwrap()
+                                - separator_count
                         } else {
                             0
                         };
