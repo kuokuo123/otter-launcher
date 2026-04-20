@@ -112,7 +112,7 @@ fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     };
 
     // if config_file cannot be parsed
-    let parsed_config = match toml::from_str(&configs.as_str()) {
+    let parsed_config = match toml::from_str(&configs) {
         Ok(config_data) => config_data,
         Err(e) => {
             eprintln!(
