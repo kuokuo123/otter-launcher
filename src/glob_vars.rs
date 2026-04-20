@@ -112,7 +112,7 @@ fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
     };
 
     // if config_file cannot be parsed
-    let parsed_config = match toml::from_str(&configs) {
+    let parsed_config = match toml::from_str(&configs.as_str()) {
         Ok(config_data) => config_data,
         Err(e) => {
             eprintln!(
@@ -202,6 +202,36 @@ macro_rules! init_lock {
 
 // function to initialize all statics
 pub fn init_all_statics() {
+    // if launched with arguments, act accordingly
+    let mut args = env::args().skip(1);
+    if let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print_help();
+                std::process::exit(0);
+            }
+            "-v" | "--version" => {
+                print_version();
+                std::process::exit(0);
+            }
+            "-c" | "--config" => {
+                let path = args.next().unwrap_or_else(|| String::new());
+                USER_CONFIG_PATH.get_or_init(|| path);
+
+                let remaining_args: Vec<_> = args.collect();
+                if !remaining_args.is_empty() {
+                    CLI_PROMPT.get_or_init(|| remaining_args.join(" "));
+                }
+            }
+            _ => {
+                let mut full_args = vec![arg];
+                full_args.extend(args);
+
+                CLI_PROMPT.get_or_init(|| full_args.join(" "));
+            }
+        }
+    };
+
     // initialize global vars
     init_lock!(EXEC_CMD, config().general.exec_cmd, "sh -c");
     init_lock!(EXTERNAL_EDITOR, config().general.external_editor);
@@ -313,35 +343,4 @@ pub fn init_all_statics() {
         config().interface.customized_list_order.unwrap_or(false),
         Ordering::Relaxed,
     );
-
-    // if launched with arguments, act accordingly
-    let mut args = env::args().skip(1);
-    if let Some(arg) = args.next() {
-        match arg.as_str() {
-            "-h" | "--help" => {
-                print_help();
-                std::process::exit(0);
-            }
-            "-v" | "--version" => {
-                print_version();
-                std::process::exit(0);
-            }
-            "-c" | "--config" => {
-                let path = args.next().unwrap_or_else(|| String::new());
-                USER_CONFIG_PATH.get_or_init(|| path);
-
-                let remaining_args: Vec<_> = args.collect();
-                if !remaining_args.is_empty() {
-                    CLI_PROMPT.get_or_init(|| remaining_args.join(" "));
-                }
-            }
-            _ => {
-                let mut full_args = vec![arg];
-                full_args.extend(args);
-
-                CLI_PROMPT.get_or_init(|| full_args.join(" "));
-            }
-        }
-    };
-
 }
