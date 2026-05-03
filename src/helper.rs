@@ -397,9 +397,9 @@ impl Hinter for OtterHelper {
                 });
 
                 let selected_hint = if customized_list_order {
-                    filtered_hints.next()
-                } else {
                     filtered_hints.min_by(|a, b| a.display.cmp(&b.display))
+                } else {
+                    filtered_hints.next()
                 };
 
                 Some(selected_hint.unwrap_or_else(|| ModuleHint {
