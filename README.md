@@ -151,7 +151,7 @@ loop_mode = false
 # if set, press ctrl+x ctrl+ee (or v in vi normal mode) to edit prompt in the specified program
 external_editor = "vi"
 # sometimes the otter runs too fast even before the terminal window is ready; this slows it down by milliseconds; useful when chafa image is skewed
-delay_startup = 0
+delay_startup = 30
 # if set, will run after module execution; for example, calling swaymsg to adjust window size
 callback = ""
 
