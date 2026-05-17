@@ -10,6 +10,17 @@
 
 </div>
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Demo](#demo)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Integration](#integration)
+- [Styling](#styling)
+- [Sponsorship](#sponsorship)
+
 <div align="center">
 
 ![fastfetch](./assets/fastfetch.png)
@@ -54,17 +65,6 @@ It's recommended to setup a dedicated desktop app launcher as a module, like [fs
 
 </div>
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Demo](#demo)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Integration](#integration)
-- [Styling](#styling)
-- [Sponsorship](#sponsorship)
-
 ## Demo
 
 > Workflow
@@ -104,7 +104,7 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 ## Configuration
 
-Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation. Use the '--config' flag to specify a config otherwise.
+Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation. Use the '--config' or '-c' flag to specify your preferred path otherwise.
 
 The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) comes only with a minimal setup. Check [more examples](https://github.com/kuokuo123/otter-launcher/wiki) for module setup, [styling](#styling) for image integration.
 
