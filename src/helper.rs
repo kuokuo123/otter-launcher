@@ -376,41 +376,49 @@ impl Hinter for OtterHelper {
                 })
             } else {
                 // when something is typed
-                let mut filtered_hints = self.hints.iter().filter_map(|i| {
-                    let mut candidate = COMPLETION_CANDIDATE.write().unwrap();
+                let mut candidate = COMPLETION_CANDIDATE.write().unwrap();
+                let mut matching_hints = self
+                    .hints
+                    .iter()
+                    .filter(|i| (remove_ascii(&i.display) + " ").starts_with(line));
 
-                    // filter the shown hint according to user's current input
-                    if (remove_ascii(&i.display) + " ").starts_with(line) {
-                        // set candidate module to run based on current input
+                // check if customized order is set
+                let hint_candidate = if customized_list_order {
+                    matching_hints.next()
+                } else {
+                    matching_hints.min_by(|a, b| a.display.cmp(&b.display))
+                };
+
+                let selected_hint = match hint_candidate {
+                    Some(i) => {
+                        // update the global candidate var to be used in completion
                         *candidate = i
                             .display
                             .split_whitespace()
                             .next()
                             .unwrap_or("")
                             .to_string();
-                        // provide the found hint to rustyline highlighter and be shown as the hint
-                        Some(i.suffix(line.len(), padded_line_count, &foot_lines_hint_mode))
-                    } else {
-                        candidate.clear();
-                        None
-                    }
-                });
 
-                let selected_hint = if customized_list_order {
-                    filtered_hints.min_by(|a, b| a.display.cmp(&b.display))
-                } else {
-                    filtered_hints.next()
+                        // provide it to rustyline highlighter and be shown as the hint
+                        i.suffix(line.len(), padded_line_count, &foot_lines_hint_mode)
+                    }
+                    _ => {
+                        // clear global cadidate var
+                        candidate.clear();
+                        // fallback to empty hint if no hints matched
+                        ModuleHint {
+                            display: format!(
+                                "\x1b[0m{}{}",
+                                "\n ".repeat(padded_line_count),
+                                foot_lines_hint_mode
+                            ),
+                            completion: 0,
+                            w_arg: None,
+                        }
+                    }
                 };
 
-                Some(selected_hint.unwrap_or_else(|| ModuleHint {
-                    display: format!(
-                        "\x1b[0m{}{}",
-                        "\n ".repeat(padded_line_count),
-                        foot_lines_hint_mode
-                    ),
-                    completion: 0,
-                    w_arg: None,
-                }))
+                Some(selected_hint)
             }
         } else {
             // list mode behavior
