@@ -404,9 +404,8 @@ However, fastfetch comes with its own "pipe mode" that sometimes does not pipe c
 ``` toml
 [interface]
 header_cmd = """
-printf "\n"
 fastfetch \
-    --structure colors:break:title:os:shell:kernel:uptime \
+    --structure break:colors:break:title:os:shell:kernel:uptime \
     --logo-print-remaining false \
     --logo-height 8 \
     --logo-padding-left 3 \
