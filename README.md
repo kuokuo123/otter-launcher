@@ -20,7 +20,7 @@
 
 ## Overview
 
-A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols. Plus, through bash scripting, system info widgets can be added to the infinity.
+A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols.
 
 The core concept is making these behaviours possible:
 
@@ -30,9 +30,7 @@ The core concept is making these behaviours possible:
 - "app" to launch application menu
 - etc.
 
-Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
-
-It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop).
+It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
 ## Features
 
@@ -45,7 +43,7 @@ It's recommended to setup a dedicated desktop app launcher as a module, like [fs
 - supporting ansi codes, chafa, sixel or kitty image protocol, etc.
 - overlay layer to show chafa image
 - cheat sheet
-- callback function
+- callback functions
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - cli mode to launch modules directly (eg. "otter-launcher app" to enter app menu directly)
 - minimalist, blazingly fast, keyboard-centric
@@ -64,7 +62,8 @@ It's recommended to setup a dedicated desktop app launcher as a module, like [fs
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Integration](#integration)
-- [Stylling](#styling)
+- [Styling](#styling)
+- [Sponsorship](#sponsorship)
 
 ## Demo
 
@@ -86,34 +85,28 @@ It's recommended to setup a dedicated desktop app launcher as a module, like [fs
 
 ## Installation
 
-### AUR
+### With the AUR
 
-Install with AUR helpers
-
-```
+``` bash
 paru -S otter-launcher
 ```
 
 ### Building from source
 
-1. Compile from source code
-
-```
+``` bash
 git clone https://github.com/kuokuo123/otter-launcher /tmp/otter-launcher
 cd /tmp/otter-launcher
 cargo build --release
+mkdir -p $HOME/.config/otter-launcher
+cp /tmp/otter-launcher/config_example/config.toml $HOME/.config/otter-laucher/config.toml
 sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 ```
 
-2. Create a config file mannually
-
-Put a config at $HOME/.config/otter-launcher/config.toml. Here's the [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml).
-
 ## Configuration
 
-Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation.
+Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation. Use the '--config' flag to specify a config otherwise.
 
-The default config has a minimal setup. Check the [styling](#styling) section for image integration.
+The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) comes only with a minimal setup. Check [more examples](https://github.com/kuokuo123/otter-launcher/wiki) for module setup, [styling](#styling) for image integration.
 
 <div align="center">
 
@@ -121,14 +114,7 @@ The default config has a minimal setup. Check the [styling](#styling) section fo
 
 </div>
 
-The confing has four sections:
-
-- [general] includes generic options
-- [interface] includes options related to user interface
-- [overlay] includes options releated to image integration
-- [[modules]] can be configured through bash scripting in an unlimited number
-
-All the available options are listed below. Check [more examples](https://github.com/kuokuo123/otter-launcher/wiki) for module setup at the wiki page.
+All the available options are listed below.
 
 ``` toml
 [general]
@@ -337,7 +323,7 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
 3. Some tui utilities that works really well:
 
     - Desktop app launcher: [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop) [fsel](https://github.com/Mjoyufull/fsel)
-    - Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer)
+    - Audio control: [pulsemixer](https://github.com/GeorgeFilipkin/pulsemixer) [wiremix](https://github.com/tsowell/wiremix)
     - Bluetooth control: [bluetui](https://github.com/pythops/bluetui) [bluetuith](https://github.com/darkhz/bluetuith)
     - Wifi control: [nmtui](https://archlinux.org/packages/extra/x86_64/networkmanager/) [impala](https://github.com/pythops/impala)
     - Spotify: [spotify_player](https://github.com/aome510/spotify-player)
@@ -345,47 +331,6 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
     - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
 
 4. To change external editor's window size , call a wrapper script at general.external_editor. Examples of such a wrapper are in [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib).
-
-5. Running otter in wayland layer shell is possible, but without perceivable benefit. This needs a terminal capable of running in layer shell like kitty. Below is a [kitten panel](https://sw.kovidgoyal.net/kitty/kittens/panel/) example in niri. However, kitten panel currently has an issue with wayland multi-monitor setup; it cannot move layer shell to the focused monitor after unhiding the panel.
-
-```
-binds {
-        Mod+Space { 
-            spawn-sh "pkill otter-launcher || \
-            kitten panel -1 \
-                --layer=overlay \
-                --edge=center-sized \
-                --lines=8 \
-                --columns=40 \
-                --move-to-active-monitor \
-                --focus-policy exclusive \
-                --app-id=otter-launcher \
-                otter-launcher"; }
-}
-```
-
-6. You can also run otter with general.loop_mode like a daemon, and hide it after command execution using general.callback. An example for such a config in niri:
-
-```
-binds {
-    Mod+Space {
-        spawn-sh "kitten @ \
-            --to=unix:/tmp/panel-otter \
-            resize-os-window \
-            --action=toggle-visibility || \
-        kitten panel \
-            -o allow_remote_control=socket-only \
-            --listen-on=unix:/tmp/panel-otter \
-            --layer=overlay \
-            --edge=center-sized \
-            --lines=8 \
-            --columns=40 \
-            --move-to-active-monitor \
-            --focus-policy exclusive \
-            --app-id=otter-launcher \
-            otter-launcher"; }
-}
-```
 
 ## Styling
 
@@ -397,9 +342,7 @@ binds {
 
 </div>
 
-Since v0.6.4 fastfetch in interface.header_cmd is supported. It works without extra settings.
-
-However, fastfetch comes with its own "pipe mode" that sometimes does not pipe colors, so using it in overlay.overlay_cmd should turn an extra switch "fastfetch --pipe false". 
+Using fastfetch in interface.header_cmd works without extra setting. However, add '--pipe false' to fastfetch in overlay.overlay_cmd to prevent its pipe mode from stripping colors.
 
 ``` toml
 [interface]
@@ -422,7 +365,7 @@ hint_color = "\u001B[90m"
 
 ### Image Protocol
 
-Using chafa in header_cmd to render the image.
+Use chafa in header_cmd to render the image.
 
 <div align="center">
 
@@ -453,7 +396,7 @@ hint_color = "\u001B[90m"
 
 ### Image to the Left
 
-Rendering chafa image by overlay_cmd at the left, moving the inteface to the right.
+Render chafa image at the left, moving the inteface to the right.
 
 <div align="center">
 
@@ -539,7 +482,7 @@ hint_color = "\u001B[90m"
 
 </div>
 
-This custom script use ansi control codes to print texts to the right of a sixel [shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp). Modify the script to suit your needs.
+This custom script use ansi control codes to print texts to the right of a sixel [shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp).
 
 ```toml
 # delay startup to wait for sixel execution
