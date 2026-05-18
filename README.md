@@ -98,7 +98,7 @@ git clone https://github.com/kuokuo123/otter-launcher /tmp/otter-launcher
 cd /tmp/otter-launcher
 cargo build --release
 mkdir -p $HOME/.config/otter-launcher
-cp /tmp/otter-launcher/config_example/config.toml $HOME/.config/otter-laucher/config.toml
+cp /tmp/otter-launcher/config_example/config.toml $HOME/.config/otter-launcher/config.toml
 sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 ```
 
