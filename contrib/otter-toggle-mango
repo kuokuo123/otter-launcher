@@ -1,0 +1,15 @@
+#!/bin/env bash
+
+# This is a bash script that toggles otter-launcher with foot terminal.
+# Modify foot --app-id to others, for example alacritty --class, if you use other emulators.
+# When run, otter-launcher will be launched if not already running, be focused if running but not being focused, and be closed when already running and focused.
+
+if [ -z $(mmsg get all-clients | grep "otter-launcher") ];
+then mmsg dispatch spawn,"foot --app-id 'otter-launcher' dash -c \"export HOSTNAME=$HOSTNAME && /usr/bin/otter-launcher\"";
+else echo "application already running";
+    if [ $(mmsg get all-clients | jq '[.clients[] | select(.appid=="otter-launcher")] | any(.is_focused)') = "true" ];
+	then echo "otter-launcher already focus";
+    else
+        mmsg dispatch focusid,client,"$(mmsg get all-clients | jq -r '.clients[] | select(.appid=="otter-launcher") | .id')"
+    fi
+fi
