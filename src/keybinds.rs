@@ -637,6 +637,14 @@ pub fn customized_rustyline_editor()
         EventHandler::Conditional(Box::from(ListItemUp)),
     );
     rl.bind_sequence(
+        KeyEvent::new('j', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListItemDown)),
+    );
+    rl.bind_sequence(
+        KeyEvent::new('k', Modifiers::CTRL),
+        EventHandler::Conditional(Box::from(ListItemUp)),
+    );
+    rl.bind_sequence(
         KeyEvent(KeyCode::Down, Modifiers::NONE),
         EventHandler::Conditional(Box::from(ListItemDown)),
     );
