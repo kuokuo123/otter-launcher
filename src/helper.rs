@@ -7,7 +7,7 @@ use rustyline::{
     hint::{Hint, Hinter},
 };
 use rustyline_derive::{Helper, Validator};
-use std::{borrow::Cow, error::Error, io::Write, sync::atomic::Ordering};
+use std::{borrow::Cow, error::Error, sync::atomic::Ordering};
 
 use crate::glob_vars::*;
 use crate::graphics::*;
@@ -263,16 +263,17 @@ impl Highlighter for OtterHelper {
         prompt: &'p str,
         _: bool,
     ) -> std::borrow::Cow<'b, str> {
-        // force cursor shape on every repaint
-        // beam for insert mode, block for normal mode
         let is_insert = VI_INSERT_MODE.load(Ordering::SeqCst);
-        let shape = CURSOR_SHAPE.load(Ordering::Relaxed);
-        let seq = if is_insert { format!("\x1b[{} q", shape) } else { "\x1b[1 q".to_string() };
 
-        print!("{}", seq);
-        let _ = std::io::stdout().flush();
+        // maintain the cursor during normal text editing
+        let highlighted = if is_insert {
+            let shape = CURSOR_SHAPE.load(Ordering::Relaxed);
+            format!("\x01\x1b[{} q\x02{}", shape, prompt)
+        } else {
+            format!("\x01\x1b[1 q\x02{}", prompt)
+        };
 
-        std::borrow::Cow::Borrowed(prompt)
+        std::borrow::Cow::Owned(highlighted)
     }
 }
 

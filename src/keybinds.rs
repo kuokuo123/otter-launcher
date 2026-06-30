@@ -11,7 +11,7 @@ use rustyline::{
 use std::{
     env,
     fs::{self, OpenOptions},
-    io::Write,
+    io::{Write, stderr},
     process::Command,
     thread,
     time::Duration,
@@ -74,16 +74,22 @@ impl ConditionalEventHandler for ExternalEditor {
 pub struct ViModeHandler { pub insert: bool }
 impl ConditionalEventHandler for ViModeHandler {
     fn handle(&self, _: &Event, _: RepeatCount, _: bool, _: &EventContext) -> Option<Cmd> {
-        // update atomic state for highlighter fallback
+        // update the state so the Highlighter knows what to inject on the next natural redraw
         VI_INSERT_MODE.store(self.insert, Ordering::SeqCst);
         
-        // visual update
+        // bypassing rustyline's internal rendering lock and acts instantly.
         let shape = CURSOR_SHAPE.load(Ordering::Relaxed);
-        let seq = if self.insert { format!("\x1b[{} q", shape) } else { "\x1b[1 q".to_string() };
-        print!("{}", seq);
-        let _ = std::io::stdout().flush();
+        let seq = if self.insert { 
+            format!("\x1b[{} q", shape) 
+        } else { 
+            "\x1b[1 q".to_string() 
+        };
+        
+        let mut err = stderr();
+        let _ = write!(err, "{}", seq);
+        let _ = err.flush();
 
-        // continue with default rustyline mode switch
+        // return None so rustyline processes the actual mode switch internally
         None 
     }
 }
