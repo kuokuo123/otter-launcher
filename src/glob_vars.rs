@@ -187,6 +187,7 @@ pub static CTRLX_LOCK: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_LINES_CACHE: OnceLock<String> = OnceLock::new();
 pub static USER_CONFIG_PATH: OnceLock<String> = OnceLock::new();
 pub static CLI_PROMPT: OnceLock<String> = OnceLock::new();
+pub static VI_INSERT_MODE: AtomicBool = AtomicBool::new(true);
 
 // macro to initialize onelock as per the config file
 macro_rules! init_lock {

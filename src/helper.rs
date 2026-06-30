@@ -7,8 +7,7 @@ use rustyline::{
     hint::{Hint, Hinter},
 };
 use rustyline_derive::{Helper, Validator};
-use std::sync::atomic::Ordering;
-use std::{borrow::Cow, error::Error};
+use std::{borrow::Cow, error::Error, io::Write, sync::atomic::Ordering};
 
 use crate::glob_vars::*;
 use crate::graphics::*;
@@ -257,6 +256,22 @@ impl Highlighter for OtterHelper {
 
             return aggregated_hint_lines.into();
         }
+    }
+
+    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(
+        &'s self,
+        prompt: &'p str,
+        _: bool,
+    ) -> std::borrow::Cow<'b, str> {
+        // force cursor shape on every repaint
+        // beam for insert mode, block for normal mode
+        let is_insert = crate::glob_vars::VI_INSERT_MODE.load(std::sync::atomic::Ordering::SeqCst);
+        let seq = if is_insert { "\x1b[6 q" } else { "\x1b[2 q" };
+
+        print!("{}", seq);
+        let _ = std::io::stdout().flush();
+
+        std::borrow::Cow::Borrowed(prompt)
     }
 }
 

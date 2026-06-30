@@ -8,7 +8,6 @@ use rustyline::{
     EditMode, Editor, EventHandler, KeyCode, KeyEvent, Modifiers, config::Configurer,
     history::DefaultHistory,
 };
-use std::sync::atomic::Ordering;
 use std::{
     env,
     fs::{self, OpenOptions},
@@ -16,6 +15,7 @@ use std::{
     process::Command,
     thread,
     time::Duration,
+    sync::atomic::Ordering,
 };
 
 pub struct ExternalEditor;
@@ -34,7 +34,7 @@ impl ConditionalEventHandler for ExternalEditor {
             let editor = EXTERNAL_EDITOR.get_or_init(|| String::new());
             let mut file_path = env::temp_dir();
             file_path.push("otter-launcher");
-            // Write the current line into the temporary file
+            // write the current line into the temporary file
             {
                 let file = OpenOptions::new()
                     .write(true)
@@ -68,6 +68,22 @@ impl ConditionalEventHandler for ExternalEditor {
         } else {
             None
         }
+    }
+}
+
+pub struct ViModeHandler { pub insert: bool }
+impl ConditionalEventHandler for ViModeHandler {
+    fn handle(&self, _: &Event, _: RepeatCount, _: bool, _: &EventContext) -> Option<Cmd> {
+        // update atomic state for highlighter fallback
+        VI_INSERT_MODE.store(self.insert, Ordering::SeqCst);
+        
+        // visual update
+        let seq = if self.insert { "\x1b[6 q" } else { "\x1b[2 q" };
+        print!("{}", seq);
+        let _ = std::io::stdout().flush();
+
+        // continue with default rustyline mode switch
+        None 
     }
 }
 
@@ -540,12 +556,58 @@ pub fn customized_rustyline_editor()
             KeyEvent::new('\x1b', Modifiers::NONE),
             EventHandler::Simple(Cmd::Interrupt),
         );
-        rl.set_keyseq_timeout(Some(0));
     }
 
     // check if vi_mode is on, and set up keybinds accordingly
     if VI_MODE.load(Ordering::Relaxed) {
         rl.set_edit_mode(EditMode::Vi);
+
+        //change cursor shape according to insert/normal mode
+        rl.bind_sequence(
+            KeyEvent::new('\x1b', Modifiers::NONE),
+            EventHandler::Conditional(Box::new(ViModeHandler { insert: false })),
+        );
+
+        rl.bind_sequence(
+            KeyEvent::new('i', Modifiers::NONE),
+            EventHandler::Conditional(Box::new(ViModeHandler { insert: true })),
+        );
+
+        rl.bind_sequence(
+            KeyEvent::new('I', Modifiers::NONE),
+            EventHandler::Conditional(Box::new(ViModeHandler { insert: true })),
+        );
+
+        rl.bind_sequence(
+            KeyEvent::new('a', Modifiers::NONE),
+            EventHandler::Conditional(Box::new(ViModeHandler { insert: true })),
+        );
+
+        rl.bind_sequence(
+            KeyEvent::new('A', Modifiers::NONE),
+            EventHandler::Conditional(Box::new(ViModeHandler { insert: true })),
+        );
+
+        rl.bind_sequence(
+            KeyEvent::new('c', Modifiers::NONE),
+            EventHandler::Conditional(Box::new(ViModeHandler { insert: true })),
+        );
+
+        rl.bind_sequence(
+            KeyEvent::new('C', Modifiers::NONE),
+            EventHandler::Conditional(Box::new(ViModeHandler { insert: true })),
+        );
+
+        rl.bind_sequence(
+            KeyEvent::new('s', Modifiers::NONE),
+            EventHandler::Conditional(Box::new(ViModeHandler { insert: true })),
+        );
+
+        rl.bind_sequence(
+            KeyEvent::new('S', Modifiers::NONE),
+            EventHandler::Conditional(Box::new(ViModeHandler { insert: true })),
+        );
+
         // set vi bindings
         rl.bind_sequence(
             KeyEvent::new('G', Modifiers::NONE),
@@ -614,6 +676,9 @@ pub fn customized_rustyline_editor()
             );
         }
     };
+
+    // ensure cursor shape change instantly, and exiting with esc instantly
+    rl.set_keyseq_timeout(Some(0));
 
     // set shared keybinds (both vi and emacs) for list item selection
     rl.bind_sequence(
