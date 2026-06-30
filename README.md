@@ -126,6 +126,7 @@ empty_module = "app"
 exec_cmd = "sh -c"
 # set true to use vi keybinds, false emacs keybinds
 vi_mode = false
+# press esc to quit, only effective in emacs mode
 esc_to_abort = true
 # when prompted, will show a list of configured modules
 cheatsheet_entry = "?"
@@ -186,6 +187,8 @@ description_color = "\u001B[39m"
 place_holder_color = "\u001B[30m"
 # suggestion color in hint mode
 hint_color = "\u001B[30m"
+# cursor shape: 0 -> default; 1,2 -> block; 3,4 -> underline; 5,6 -> beam; odd blinks; even static
+cursor_shape = 0
 # move the interface rightward or downward
 move_interface_right = 0
 move_interface_down = 0

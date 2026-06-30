@@ -61,6 +61,7 @@ pub struct Interface {
     pub move_interface_right: Option<usize>,
     pub move_interface_down: Option<usize>,
     pub customized_list_order: Option<bool>,
+    pub cursor_shape: Option<usize>,
 }
 
 #[derive(Deserialize, Default)]
@@ -188,6 +189,7 @@ pub static OVERLAY_LINES_CACHE: OnceLock<String> = OnceLock::new();
 pub static USER_CONFIG_PATH: OnceLock<String> = OnceLock::new();
 pub static CLI_PROMPT: OnceLock<String> = OnceLock::new();
 pub static VI_INSERT_MODE: AtomicBool = AtomicBool::new(true);
+pub static CURSOR_SHAPE: AtomicUsize = AtomicUsize::new(0);
 
 // macro to initialize onelock as per the config file
 macro_rules! init_lock {
@@ -342,6 +344,10 @@ pub fn init_all_statics() {
     );
     CUSTOMIZED_LIST_ORDER.store(
         config().interface.customized_list_order.unwrap_or(false),
+        Ordering::Relaxed,
+    );
+    CURSOR_SHAPE.store(
+        config().interface.cursor_shape.unwrap_or(0),
         Ordering::Relaxed,
     );
 }

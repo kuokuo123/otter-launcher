@@ -78,7 +78,7 @@ impl ConditionalEventHandler for ViModeHandler {
         VI_INSERT_MODE.store(self.insert, Ordering::SeqCst);
         
         // visual update
-        let shape = "5";
+        let shape = CURSOR_SHAPE.load(Ordering::Relaxed);
         let seq = if self.insert { format!("\x1b[{} q", shape) } else { "\x1b[1 q".to_string() };
         print!("{}", seq);
         let _ = std::io::stdout().flush();
