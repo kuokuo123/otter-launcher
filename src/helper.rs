@@ -265,8 +265,9 @@ impl Highlighter for OtterHelper {
     ) -> std::borrow::Cow<'b, str> {
         // force cursor shape on every repaint
         // beam for insert mode, block for normal mode
-        let is_insert = crate::glob_vars::VI_INSERT_MODE.load(std::sync::atomic::Ordering::SeqCst);
-        let seq = if is_insert { "\x1b[6 q" } else { "\x1b[2 q" };
+        let is_insert = crate::glob_vars::VI_INSERT_MODE.load(Ordering::SeqCst);
+        let shape = "5";
+        let seq = if is_insert { format!("\x1b[{} q", shape) } else { "\x1b[1 q".to_string() };
 
         print!("{}", seq);
         let _ = std::io::stdout().flush();
