@@ -563,6 +563,8 @@ pub fn customized_rustyline_editor()
             KeyEvent::new('\x1b', Modifiers::NONE),
             EventHandler::Simple(Cmd::Interrupt),
         );
+        // ensure exiting with esc instantly
+        rl.set_keyseq_timeout(Some(0));
     }
 
     // check if vi_mode is on, and set up keybinds accordingly
@@ -648,6 +650,10 @@ pub fn customized_rustyline_editor()
             KeyEvent::new('u', Modifiers::CTRL),
             EventHandler::Conditional(Box::from(ViListCtrlU)),
         );
+
+        // ensure cursor shape change instantly, and exiting with esc instantly
+        rl.set_keyseq_timeout(Some(0));
+
         if !external_editor.is_empty() {
             rl.bind_sequence(
                 KeyEvent::new('v', Modifiers::NONE),
@@ -683,9 +689,6 @@ pub fn customized_rustyline_editor()
             );
         }
     };
-
-    // ensure cursor shape change instantly, and exiting with esc instantly
-    rl.set_keyseq_timeout(Some(0));
 
     // set shared keybinds (both vi and emacs) for list item selection
     rl.bind_sequence(
