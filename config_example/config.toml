@@ -49,7 +49,7 @@ callback = ""
 [interface]
 # use three quotes to write longer codes
 header = """
- \u001B[34;1m  \u001B[0m$USER@$(printf $HOSTNAME)\u001B[0m$(printf '\u001B[999C\u001B[14D')\u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}') \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
+ \u001B[34;1m  \u001B[0m$USER@$(printf $HOSTNAME)\u001B[0m$(printf '\u001B[999C\u001B[14D')\u001B[31m\u001B[0m $(cat /proc/loadavg | awk 'FNR ==1 {print $1}') \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
     """
 # run a command and print stdout above the header
 header_cmd = ""
