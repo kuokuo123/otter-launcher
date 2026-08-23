@@ -547,6 +547,25 @@ impl ConditionalEventHandler for ListPageUp {
     }
 }
 
+pub struct ViQuit;
+impl ConditionalEventHandler for ViQuit {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if ctx.mode() == rustyline::EditMode::Vi
+            && ctx.input_mode() == rustyline::InputMode::Command
+        {
+            Some(Cmd::Interrupt)
+        } else {
+            None
+        }
+    }
+}
+
 pub fn customized_rustyline_editor()
 -> Result<Editor<OtterHelper, DefaultHistory>, Box<dyn std::error::Error>> {
     let mut rl = Editor::new().unwrap();
@@ -633,6 +652,10 @@ pub fn customized_rustyline_editor()
         rl.bind_sequence(
             KeyEvent::new('k', Modifiers::NONE),
             EventHandler::Conditional(Box::from(ViListItemK)),
+        );
+        rl.bind_sequence(
+            KeyEvent::new('q', Modifiers::NONE),
+            EventHandler::Conditional(Box::from(ViQuit)),
         );
         rl.bind_sequence(
             KeyEvent::new('f', Modifiers::CTRL),
