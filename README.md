@@ -118,10 +118,12 @@ All the available options are listed below.
 
 ``` toml
 [general]
-# module to run when no prefix is matched
+# module to run when no prefix is in use
 default_module = "gg"
-# run with an empty prompt
+# module to run with an empty prompt
 empty_module = "app"
+# module to run when prompting with alt+enter
+alternative_module = ""
 # exec command of your shell, eg. "zsh -c" for zsh; accept wm commands like "hyprctl dispatch exec"
 exec_cmd = "sh -c"
 # set true to use vi keybinds, false emacs keybinds

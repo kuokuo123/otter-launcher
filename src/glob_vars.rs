@@ -24,6 +24,7 @@ pub struct Config {
 #[derive(Deserialize, Default)]
 pub struct General {
     pub default_module: Option<String>,
+    pub alternative_module: Option<String>,
     pub empty_module: Option<String>,
     pub exec_cmd: Option<String>,
     pub esc_to_abort: Option<bool>,
@@ -155,6 +156,7 @@ pub static SEPARATOR: OnceLock<String> = OnceLock::new();
 pub static FOOTER: OnceLock<String> = OnceLock::new();
 pub static EXEC_CMD: OnceLock<String> = OnceLock::new();
 pub static DEFAULT_MODULE: OnceLock<String> = OnceLock::new();
+pub static ALTERNATIVE_MODULE: OnceLock<String> = OnceLock::new();
 pub static EMPTY_MODULE: OnceLock<String> = OnceLock::new();
 pub static EMPTY_MODULE_MESSAGE: OnceLock<String> = OnceLock::new();
 pub static DEFAULT_MODULE_MESSAGE: OnceLock<String> = OnceLock::new();
@@ -190,6 +192,7 @@ pub static USER_CONFIG_PATH: OnceLock<String> = OnceLock::new();
 pub static CLI_PROMPT: OnceLock<String> = OnceLock::new();
 pub static VI_INSERT_MODE: AtomicBool = AtomicBool::new(true);
 pub static CURSOR_SHAPE: AtomicUsize = AtomicUsize::new(0);
+pub static ALT_MODULE_SWITCH: AtomicBool = AtomicBool::new(false);
 
 // macro to initialize onelock as per the config file
 macro_rules! init_lock {
@@ -239,6 +242,7 @@ pub fn init_all_statics() {
     init_lock!(EXEC_CMD, config().general.exec_cmd, "sh -c");
     init_lock!(EXTERNAL_EDITOR, config().general.external_editor);
     init_lock!(DEFAULT_MODULE, config().general.default_module);
+    init_lock!(ALTERNATIVE_MODULE, config().general.alternative_module);
     init_lock!(EMPTY_MODULE, config().general.empty_module);
     init_lock!(CHEATSHEET_ENTRY, config().general.cheatsheet_entry);
     init_lock!(

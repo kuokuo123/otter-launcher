@@ -319,6 +319,45 @@ impl ConditionalEventHandler for ListItemEnter {
     }
 }
 
+pub struct AltEnter;
+impl ConditionalEventHandler for AltEnter {
+    fn handle(
+        &self,
+        _evt: &Event,
+        _n: RepeatCount,
+        _positive: bool,
+        ctx: &EventContext,
+    ) -> Option<Cmd> {
+        if SELECTION_INDEX.load(Ordering::Relaxed) == 0 {
+            ALT_MODULE_SWITCH.store(true, Ordering::SeqCst);
+            Some(Cmd::AcceptLine)
+        } else {
+            let com_candidate = COMPLETION_CANDIDATE.read().unwrap()
+                .split_whitespace()
+                .next()?
+                .to_string();
+            let target_module = config()
+                .modules
+                .iter()
+                .find(|module| remove_ascii(&module.prefix) == com_candidate)
+                .unwrap();
+            Some(if target_module.with_argument.unwrap_or(false) == false {
+                run_designated_module(String::new(), com_candidate);
+                if LOOP_MODE.load(Ordering::Relaxed) == true {
+                    SELECTION_INDEX.store(0, Ordering::Relaxed);
+                    Cmd::Replace(Movement::WholeBuffer, Some(String::new()))
+                } else {
+                    Cmd::Interrupt
+                }
+            } else if ctx.pos() == ctx.line().len() {
+                Cmd::Complete
+            } else {
+                Cmd::CompleteHint
+            })
+        }
+    }
+}
+
 pub struct ListItemTab;
 impl ConditionalEventHandler for ListItemTab {
     fn handle(
@@ -720,7 +759,7 @@ pub fn customized_rustyline_editor()
     );
     rl.bind_sequence(
         KeyEvent::new('\r', Modifiers::ALT),
-        EventHandler::Simple(Cmd::AcceptLine),
+        EventHandler::Conditional(Box::from(AltEnter)),
     );
     rl.bind_sequence(
         KeyEvent::new('\t', Modifiers::NONE),

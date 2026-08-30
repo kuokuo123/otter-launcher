@@ -131,7 +131,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             match rl.readline(&header) {
                 Ok(line) => {
-                    prompt = line;
+                    // if using alt+enter, prefix general.alternative_module to the prompt
+                    let alt_module = ALTERNATIVE_MODULE.get_or_init(|| String::new()).to_string();
+                    if ALT_MODULE_SWITCH.load(Ordering::SeqCst) && !alt_module.is_empty() {
+                        prompt = format!("{} {}", alt_module, line);
+                    } else {
+                        prompt = line;
+                    };
                 }
                 Err(_) => {
                     process::exit(0);
@@ -216,5 +222,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !loop_switch {
             break Ok(());
         }
+
+        // reset alt_enter switch
+        ALT_MODULE_SWITCH.store(false, Ordering::SeqCst);
     }
 }
