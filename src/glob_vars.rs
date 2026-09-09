@@ -272,7 +272,7 @@ pub fn init_all_statics() {
     init_lock!(
         DEFAULT_MODULE_MESSAGE,
         config().interface.default_module_message,
-        "list"
+        ""
     );
     init_lock!(
         EMPTY_MODULE_MESSAGE,
