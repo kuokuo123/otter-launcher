@@ -296,7 +296,6 @@ impl Hinter for OtterHelper {
         let overlay_down = OVERLAY_DOWNWARD.load(Ordering::Relaxed);
         let header_line_count = HEADER_LINE_COUNT.load(Ordering::Relaxed);
         let customized_list_order = CUSTOMIZED_LIST_ORDER.load(Ordering::Relaxed);
-        let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
 
         // form separator lines, if any
         let separator = SEPARATOR.get_or_init(String::new);
@@ -315,6 +314,8 @@ impl Hinter for OtterHelper {
 
             separator_lines = format!("\n{}", expanded_separator);
         }
+
+        let separator_count = SEPARATOR_COUNT.load(Ordering::Relaxed);
 
         // form footer lines, if any
         let footer = FOOTER.get_or_init(|| String::new());
