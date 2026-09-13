@@ -562,7 +562,7 @@ impl Hinter for OtterHelper {
                             format!("\n{}{}", e_module, "\n ".repeat(padded_line_count_local))
                         } else {
                             if agg_line.is_empty() {
-                                format!("{}", "\x1b[0mn")
+                                format!("{}", "\x1b[0m")
                             } else {
                                 format!("\n{}{}", agg_line, "\n ".repeat(padded_line_count))
                             }
