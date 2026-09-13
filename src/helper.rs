@@ -213,7 +213,7 @@ impl Highlighter for OtterHelper {
                                 "\x1b[0m"
                             )
                         } else {
-                            format!("\x1b[{}G{}", layout_right + 1, line)
+                            format!("\x1b[{}G{}{}", layout_right + 1, line, "\x1b[0m")
                         }
                     } else if line == place_holder {
                         format!("{}{}{}", place_holder_color, place_holder, "\x1b[0m")
@@ -221,13 +221,15 @@ impl Highlighter for OtterHelper {
                         || empty_module_message.contains(line))
                         && !line.is_empty()
                     {
-                        format!("\x1b[{}G{}", layout_right + 1, line)
+                        format!("\x1b[{}G{}{}", layout_right + 1, line, "\x1b[0m")
                     } else if index <= separator_count {
-                        line.to_string()
+                        //line.to_string()
+                        format!("{}{}", line, "\x1b[0m")
                     } else if index > separator_count + selection_span
                         && FOOTER.get_or_init(|| String::new()).contains(line)
                     {
-                        line.to_string()
+                        //line.to_string()
+                        format!("{}{}", line, "\x1b[0m")
                     } else {
                         let (part0, part_rest) =
                             line.split_once(char::is_whitespace).unwrap_or((line, ""));
