@@ -223,12 +223,10 @@ impl Highlighter for OtterHelper {
                     {
                         format!("\x1b[{}G{}{}", layout_right + 1, line, "\x1b[0m")
                     } else if index <= separator_count {
-                        //line.to_string()
                         format!("{}{}", line, "\x1b[0m")
                     } else if index > separator_count + selection_span
                         && FOOTER.get_or_init(|| String::new()).contains(line)
                     {
-                        //line.to_string()
                         format!("{}{}", line, "\x1b[0m")
                     } else {
                         let (part0, part_rest) =
@@ -561,7 +559,7 @@ impl Hinter for OtterHelper {
                                 0
                             };
                             // if empty module is set
-                            format!("\n{}{}", e_module, "\n ".repeat(padded_line_count_local))
+                            format!("\n\x1b[1G{}\r{}", e_module, "\n ".repeat(padded_line_count_local))
                         } else {
                             if agg_line.is_empty() {
                                 format!("{}", "\x1b[0m")
@@ -618,7 +616,7 @@ impl Hinter for OtterHelper {
                                 0
                             };
                             format!(
-                                "{}\n{}{}{}",
+                                "{}\n\x1b[1G{}\r{}{}",
                                 separator_lines,
                                 d_module,
                                 "\n ".repeat(padded_line_count_local),
