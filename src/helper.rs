@@ -223,12 +223,10 @@ impl Highlighter for OtterHelper {
                     {
                         format!("\x1b[{}G{}{}", layout_right + 1, line, "\x1b[0m")
                     } else if index <= separator_count {
-                        //line.to_string()
                         format!("{}{}", line, "\x1b[0m")
                     } else if index > separator_count + selection_span
                         && FOOTER.get_or_init(|| String::new()).contains(line)
                     {
-                        //line.to_string()
                         format!("{}{}", line, "\x1b[0m")
                     } else {
                         let (part0, part_rest) =
