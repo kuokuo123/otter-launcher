@@ -273,20 +273,14 @@ pub fn init_all_statics() {
         DEFAULT_MODULE_MESSAGE,
         config()
             .interface
-            .default_module_message
-            .as_ref()
-            .filter(|message| !message.is_empty())
-            .map(|message| format!("{message}\r\x1b[1G")),
+            .default_module_message,
         ""
     );
     init_lock!(
         EMPTY_MODULE_MESSAGE,
         config()
             .interface
-            .empty_module_message
-            .as_ref()
-            .filter(|message| !message.is_empty())
-            .map(|message| format!("{message}\r\x1b[1G")),
+            .empty_module_message,
         ""
     );
     init_lock!(PREFIX_COLOR, config().interface.prefix_color);

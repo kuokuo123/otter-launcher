@@ -77,7 +77,7 @@ selection_prefix = "  \u001B[31;1m▌ "
 # format prefixes to have a uniformed width
 prefix_padding = 3
 # shown when the default module is in use
-default_module_message = "    \u001B[33msearch\u001B[0m the internet"
+default_module_message = "\u001B[33msearch\u001B[0m the internet"
 # shown when the empty module is in use
 empty_module_message = ""
 # false to list suggestions/hints alphabetically; true to list them as per the configured order in the below [[modules]] section

@@ -131,8 +131,6 @@ impl Completer for OtterHelper {
 // the coloring functionality of OtterHelper
 impl Highlighter for OtterHelper {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        let default_module_message = DEFAULT_MODULE_MESSAGE.get_or_init(|| String::new());
-        let empty_module_message = EMPTY_MODULE_MESSAGE.get_or_init(|| String::new());
         let description_color = DESCRIPTION_COLOR.get_or_init(|| String::new());
         let place_holder = PLACE_HOLDER.get_or_init(|| String::new());
         let place_holder_color = PLACE_HOLDER_COLOR.get_or_init(|| String::new());
@@ -217,11 +215,6 @@ impl Highlighter for OtterHelper {
                         }
                     } else if line == place_holder {
                         format!("{}{}{}", place_holder_color, place_holder, "\x1b[0m")
-                    } else if (default_module_message.contains(line)
-                        || empty_module_message.contains(line))
-                        && !line.is_empty()
-                    {
-                        format!("\x1b[{}G{}{}", layout_right + 1, line, "\x1b[0m")
                     } else if index <= separator_count {
                         format!("{}{}", line, "\x1b[0m")
                     } else if index > separator_count + selection_span
@@ -559,7 +552,7 @@ impl Hinter for OtterHelper {
                                 0
                             };
                             // if empty module is set
-                            format!("\n{}{}", e_module, "\n ".repeat(padded_line_count_local))
+                            format!("\n\x1b[0m{}{}", e_module, "\n ".repeat(padded_line_count_local))
                         } else {
                             if agg_line.is_empty() {
                                 format!("{}", "\x1b[0m")
@@ -616,7 +609,7 @@ impl Hinter for OtterHelper {
                                 0
                             };
                             format!(
-                                "{}\n{}{}{}",
+                                "{}\n\x1b[0m{}{}{}",
                                 separator_lines,
                                 d_module,
                                 "\n ".repeat(padded_line_count_local),
