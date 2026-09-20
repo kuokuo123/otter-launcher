@@ -65,8 +65,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             shell_cmd.env(
                 "COLUMNS",
                 terminal_size()
-                    .map(|(Width(w), _)| w.to_string())
-                    .unwrap_or_else(|| "80".to_string()),
+                    .map(|(Width(w), _)| w as usize)
+                    .unwrap_or(80)
+                    .saturating_sub(LAYOUT_RIGHTWARD.load(Ordering::Relaxed))
+                    .to_string(),
             );
             shell_cmd.env(
                 "HOSTNAME",
@@ -190,22 +192,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 // Condition 3: when no-arg modules is running with arguement
                 } else {
-                    run_designated_module(prompt, DEFAULT_MODULE.get_or_init(|| String::new()).into())
+                    run_designated_module(
+                        prompt,
+                        DEFAULT_MODULE.get_or_init(|| String::new()).into(),
+                    )
                 }
             }
             // if user input doesn't start with some module prefixes
             _ => {
                 // Condition 1: when user input is empty, run the empty module
                 if prompt.is_empty() {
-                    run_designated_module(prompt, EMPTY_MODULE.get_or_init(|| String::new()).to_string())
+                    run_designated_module(
+                        prompt,
+                        EMPTY_MODULE.get_or_init(|| String::new()).to_string(),
+                    )
                 // Condition 2: when helper keyword is passed, open cheatsheet
-                } else if prompt.trim_end() == CHEATSHEET_ENTRY.get_or_init(|| "?".to_string())
-{
+                } else if prompt.trim_end() == CHEATSHEET_ENTRY.get_or_init(|| "?".to_string()) {
                     let _ = cheat_sheet();
                     loop_switch = true;
                 // Condition 3: when no module is matched, run the default module
                 } else {
-                    run_designated_module(prompt, DEFAULT_MODULE.get_or_init(|| String::new()).into())
+                    run_designated_module(
+                        prompt,
+                        DEFAULT_MODULE.get_or_init(|| String::new()).into(),
+                    )
                 }
             }
         }

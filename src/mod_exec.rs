@@ -219,8 +219,10 @@ pub fn run_subshell(cmd: &str) -> String {
     shell_cmd.env(
         "COLUMNS",
         terminal_size()
-            .map(|(Width(w), _)| w.to_string())
-            .unwrap_or_else(|| "80".to_string()),
+            .map(|(Width(w), _)| w as usize)
+            .unwrap_or(80)
+            .saturating_sub(LAYOUT_RIGHTWARD.load(Ordering::Relaxed))
+            .to_string(),
     );
     shell_cmd.env(
         "HOSTNAME",
