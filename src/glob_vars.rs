@@ -281,7 +281,13 @@ pub fn init_all_statics() {
     );
     init_lock!(
         EMPTY_MODULE_MESSAGE,
-        config().interface.empty_module_message
+        config()
+            .interface
+            .empty_module_message
+            .as_ref()
+            .filter(|message| !message.is_empty())
+            .map(|message| format!("{message}\r\x1b[1G")),
+        ""
     );
     init_lock!(PREFIX_COLOR, config().interface.prefix_color);
     init_lock!(
