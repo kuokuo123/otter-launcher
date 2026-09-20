@@ -271,7 +271,12 @@ pub fn init_all_statics() {
     init_lock!(SUGGESTION_MODE, config().interface.suggestion_mode, "list");
     init_lock!(
         DEFAULT_MODULE_MESSAGE,
-        config().interface.default_module_message,
+        config()
+            .interface
+            .default_module_message
+            .as_ref()
+            .filter(|message| !message.is_empty())
+            .map(|message| format!("{message}\r\x1b[1G")),
         ""
     );
     init_lock!(
