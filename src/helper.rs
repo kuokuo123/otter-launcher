@@ -601,6 +601,7 @@ impl Hinter for OtterHelper {
                         if d_module.is_empty() {
                             format!("\x1b[0m{}", separator_lines)
                         } else {
+                            SELECTION_INDEX.store(0, Ordering::Relaxed);
                             let default_message_count = d_module.lines().count();
                             let padded_line_count_local = if overlay_height + overlay_down
                                 > header_line_count + default_message_count + separator_count
