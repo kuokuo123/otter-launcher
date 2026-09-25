@@ -28,19 +28,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // rustyline editor setup
     let mut rl = customized_rustyline_editor()?;
 
+    // delay startup if configured
+    let delay_startup = DELAY_STARTUP.load(Ordering::Relaxed);
+    if delay_startup > 0 {
+        std::thread::sleep(std::time::Duration::from_millis(
+            delay_startup.try_into().unwrap(),
+        ));
+    }
+
     // run overlay_cmd and cache the ouput, if any
     get_overlay_lines();
 
     // start the flow
     loop {
-        // delay startup if configured
-        let delay_startup = DELAY_STARTUP.load(Ordering::Relaxed);
-        if delay_startup > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(
-                delay_startup.try_into().unwrap(),
-            ));
-        }
-
         // moving layout around
         let layout_right = LAYOUT_RIGHTWARD.load(Ordering::Relaxed);
         let layout_down = LAYOUT_DOWNWARD.load(Ordering::Relaxed);
