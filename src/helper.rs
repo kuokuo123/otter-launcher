@@ -169,7 +169,7 @@ impl Highlighter for OtterHelper {
 
         if suggestion_mode == "hint" {
             (format!(
-                "\x1b[?7l\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G\x1b[?7h",
+                "\x1b_Ga=d,d=c\x1b\\\x1b[?7l\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G\x1b[?7h",
                 if hint == place_holder {
                     place_holder_color
                 } else {
@@ -230,7 +230,7 @@ impl Highlighter for OtterHelper {
                         let (part0, part_rest) =
                             line.split_once(char::is_whitespace).unwrap_or((line, ""));
                         format!(
-                            "\x1b[?7l\x1B[{}G{}{}{:prefix_width$} {}{}\x1b[0m\x1b[?7h",
+                            "\x1b_Ga=d,d=c\x1b\\\x1b[?7l\x1B[{}G{}{}{:prefix_width$} {}{}\x1b[0m\x1b[?7h",
                             layout_right + 1,
                             list_prefix,
                             prefix_color,
