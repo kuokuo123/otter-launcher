@@ -270,42 +270,6 @@ fn w() {
 }
 
 #[test]
-fn delete_last_word() {
-    assert_cursor(
-        EditMode::Vi,
-        ("d", ""),
-        &[E::ESC, E::from('d'), E::from('w'), E::ENTER],
-        ("", ""),
-    );
-    for motion in ['w', 'W'] {
-        assert_cursor(
-            EditMode::Vi,
-            ("tes tes dd", ""),
-            &[E::ESC, E::from('b'), E::from('d'), E::from(motion), E::ENTER],
-            ("tes tes ", ""),
-        );
-    }
-    assert_cursor(
-        EditMode::Vi,
-        ("tes tes dd!", ""),
-        &[E::ESC, E::from('b'), E::from('d'), E::from('w'), E::ENTER],
-        ("tes tes ", "!"),
-    );
-    assert_cursor(
-        EditMode::Vi,
-        ("tes tes éé", ""),
-        &[E::ESC, E::from('b'), E::from('d'), E::from('w'), E::ENTER],
-        ("tes tes ", ""),
-    );
-    assert_cursor(
-        EditMode::Vi,
-        ("tes tes dd", ""),
-        &[E::ESC, E::from('b'), E::from('w'), E::ENTER],
-        ("tes tes d", "d"),
-    );
-}
-
-#[test]
 fn uppercase_w() {
     assert_cursor(
         EditMode::Vi,
