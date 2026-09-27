@@ -1,0 +1,741 @@
+//! Customize line editor
+use crate::{layout::GraphemeClusterMode, Result};
+use std::default::Default;
+
+/// User preferences
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Config {
+    /// Maximum number of entries in History.
+    max_history_size: usize, // history_max_entries
+    history_duplicates: HistoryDuplicates,
+    history_ignore_space: bool,
+    completion_type: CompletionType,
+    /// Directly show all alternatives or not when [`CompletionType::List`] is
+    /// being used
+    completion_show_all_if_ambiguous: bool,
+    /// When listing completion alternatives, only display
+    /// one screen of possibilities at a time.
+    completion_prompt_limit: usize,
+    /// Duration (milliseconds) Rustyline will wait for a character when
+    /// reading an ambiguous key sequence.
+    keyseq_timeout: Option<u16>,
+    /// Emacs or Vi mode
+    edit_mode: EditMode,
+    /// If true, each nonblank line returned by `readline` will be
+    /// automatically added to the history.
+    auto_add_history: bool,
+    /// Beep or Flash or nothing
+    bell_style: BellStyle,
+    /// if colors should be enabled.
+    color_mode: ColorMode,
+    /// if terminal supports grapheme clustering
+    grapheme_cluster_mode: GraphemeClusterMode,
+    /// Whether to use stdio or not
+    behavior: Behavior,
+    /// Horizontal space taken by a tab.
+    tab_stop: u8,
+    /// Keep the editable input on a single terminal row.
+    horizontal_scroll: bool,
+    /// Columns at the right edge reserved for other terminal content.
+    horizontal_scroll_right_margin: u16,
+    /// Indentation size for indent/dedent commands
+    indent_size: u8,
+    /// Check if cursor position is at leftmost before displaying prompt
+    check_cursor_position: bool,
+    /// Bracketed paste on unix platform
+    enable_bracketed_paste: bool,
+    /// Synchronized output on unix platform
+    enable_synchronized_output: bool,
+    /// Whether to disable or not the signals in termios
+    enable_signals: bool,
+}
+
+impl Config {
+    /// Returns a `Config` builder.
+    #[must_use]
+    pub fn builder() -> Builder {
+        Builder::new()
+    }
+
+    /// Tell the maximum length (i.e. number of entries) for the history.
+    #[must_use]
+    pub fn max_history_size(&self) -> usize {
+        self.max_history_size
+    }
+
+    pub(crate) fn set_max_history_size(&mut self, max_size: usize) {
+        self.max_history_size = max_size;
+    }
+
+    /// Tell if lines which match the previous history entry are saved or not
+    /// in the history list.
+    ///
+    /// By default, they are ignored.
+    #[must_use]
+    pub fn history_duplicates(&self) -> HistoryDuplicates {
+        self.history_duplicates
+    }
+
+    pub(crate) fn set_history_ignore_dups(&mut self, yes: bool) {
+        self.history_duplicates = if yes {
+            HistoryDuplicates::IgnoreConsecutive
+        } else {
+            HistoryDuplicates::AlwaysAdd
+        };
+    }
+
+    /// Tell if lines which begin with a space character are saved or not in
+    /// the history list.
+    ///
+    /// By default, they are saved.
+    #[must_use]
+    pub fn history_ignore_space(&self) -> bool {
+        self.history_ignore_space
+    }
+
+    pub(crate) fn set_history_ignore_space(&mut self, yes: bool) {
+        self.history_ignore_space = yes;
+    }
+
+    /// Completion behaviour.
+    ///
+    /// By default, [`CompletionType::Circular`].
+    #[must_use]
+    pub fn completion_type(&self) -> CompletionType {
+        self.completion_type
+    }
+
+    /// When listing completion alternatives, only display
+    /// one screen of possibilities at a time (used for [`CompletionType::List`]
+    /// mode).
+    #[must_use]
+    pub fn completion_prompt_limit(&self) -> usize {
+        self.completion_prompt_limit
+    }
+
+    /// Directly show all alternatives when using list completion
+    ///
+    /// By default, they are not, a second tab is needed
+    #[must_use]
+    pub fn completion_show_all_if_ambiguous(&self) -> bool {
+        self.completion_show_all_if_ambiguous
+    }
+
+    /// Duration (milliseconds) Rustyline will wait for a character when
+    /// reading an ambiguous key sequence (used for [`EditMode::Vi`] mode on
+    /// unix platform).
+    ///
+    /// By default, no timeout (-1) or 500ms if [`EditMode::Vi`] is activated.
+    #[must_use]
+    pub fn keyseq_timeout(&self) -> Option<u16> {
+        self.keyseq_timeout
+    }
+
+    /// Emacs or Vi mode
+    #[must_use]
+    pub fn edit_mode(&self) -> EditMode {
+        self.edit_mode
+    }
+
+    /// Tell if lines are automatically added to the history.
+    ///
+    /// By default, they are not.
+    #[must_use]
+    pub fn auto_add_history(&self) -> bool {
+        self.auto_add_history
+    }
+
+    /// Bell style: beep, flash or nothing.
+    #[must_use]
+    pub fn bell_style(&self) -> BellStyle {
+        self.bell_style
+    }
+
+    /// Tell if colors should be enabled.
+    ///
+    /// By default, they are except if stdout is not a TTY or `NO_COLOR`
+    /// environment variable is set.
+    #[must_use]
+    pub fn color_mode(&self) -> ColorMode {
+        if self.color_mode == ColorMode::Enabled
+            && std::env::var_os("NO_COLOR").is_some_and(|os| !os.is_empty())
+        {
+            return ColorMode::Disabled;
+        }
+        self.color_mode
+    }
+
+    /// Tell if terminal supports grapheme clustering
+    #[must_use]
+    pub fn grapheme_cluster_mode(&self) -> GraphemeClusterMode {
+        self.grapheme_cluster_mode
+    }
+
+    pub(crate) fn set_color_mode(&mut self, color_mode: ColorMode) {
+        self.color_mode = color_mode;
+    }
+
+    /// Whether to use stdio or not
+    ///
+    /// By default, stdio is used.
+    #[must_use]
+    pub fn behavior(&self) -> Behavior {
+        self.behavior
+    }
+
+    pub(crate) fn set_behavior(&mut self, behavior: Behavior) {
+        self.behavior = behavior;
+    }
+
+    /// Horizontal space taken by a tab.
+    ///
+    /// By default, 8.
+    #[must_use]
+    pub fn tab_stop(&self) -> u8 {
+        self.tab_stop
+    }
+
+    /// Whether long input scrolls horizontally instead of wrapping.
+    #[must_use]
+    pub fn horizontal_scroll(&self) -> bool {
+        self.horizontal_scroll
+    }
+
+    /// Rightmost columns left free while horizontal scrolling is enabled.
+    #[must_use]
+    pub fn horizontal_scroll_right_margin(&self) -> u16 {
+        self.horizontal_scroll_right_margin
+    }
+
+    pub(crate) fn set_tab_stop(&mut self, tab_stop: u8) {
+        self.tab_stop = tab_stop;
+    }
+
+    /// Check if cursor position is at leftmost before displaying prompt.
+    ///
+    /// By default, we don't check.
+    #[must_use]
+    pub fn check_cursor_position(&self) -> bool {
+        self.check_cursor_position
+    }
+
+    /// Indentation size used by indentation commands
+    ///
+    /// By default, 2.
+    #[must_use]
+    pub fn indent_size(&self) -> u8 {
+        self.indent_size
+    }
+
+    pub(crate) fn set_indent_size(&mut self, indent_size: u8) {
+        self.indent_size = indent_size;
+    }
+
+    /// Bracketed paste on unix platform
+    ///
+    /// By default, it's enabled.
+    #[must_use]
+    pub fn enable_bracketed_paste(&self) -> bool {
+        self.enable_bracketed_paste
+    }
+
+    /// Synchronized output on unix platform
+    ///
+    /// By default, it's enabled.
+    #[must_use]
+    pub fn enable_synchronized_output(&self) -> bool {
+        self.enable_synchronized_output
+    }
+
+    /// Enable or disable signals in termios
+    ///
+    /// By default, it's disabled.
+    #[must_use]
+    pub fn enable_signals(&self) -> bool {
+        self.enable_signals
+    }
+
+    pub(crate) fn set_enable_signals(&mut self, enable_signals: bool) {
+        self.enable_signals = enable_signals;
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            max_history_size: 100,
+            history_duplicates: HistoryDuplicates::IgnoreConsecutive,
+            history_ignore_space: false,
+            completion_type: CompletionType::Circular, // TODO Validate
+            completion_prompt_limit: 100,
+            completion_show_all_if_ambiguous: false,
+            keyseq_timeout: None,
+            edit_mode: EditMode::Emacs,
+            auto_add_history: false,
+            bell_style: BellStyle::default(),
+            color_mode: ColorMode::Enabled,
+            grapheme_cluster_mode: GraphemeClusterMode::from_env(),
+            behavior: Behavior::default(),
+            tab_stop: 8,
+            horizontal_scroll: true,
+            horizontal_scroll_right_margin: std::env::var("RUSTYLINE_HORIZONTAL_SCROLL_RIGHT_MARGIN")
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(0),
+            indent_size: 2,
+            check_cursor_position: false,
+            enable_bracketed_paste: true,
+            enable_synchronized_output: true,
+            enable_signals: false,
+        }
+    }
+}
+
+/// Beep or flash or nothing
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BellStyle {
+    /// Beep
+    Audible,
+    /// Silent
+    None,
+    /// Flash screen (not supported)
+    Visible,
+}
+
+/// `Audible` by default on unix (overridden by current Terminal settings).
+/// `None` on windows.
+impl Default for BellStyle {
+    #[cfg(any(windows, target_arch = "wasm32"))]
+    fn default() -> Self {
+        Self::None
+    }
+
+    #[cfg(unix)]
+    fn default() -> Self {
+        Self::Audible
+    }
+}
+
+/// History filter
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HistoryDuplicates {
+    /// No filter
+    AlwaysAdd,
+    /// a line will not be added to the history if it matches the previous entry
+    IgnoreConsecutive,
+}
+
+/// Tab completion style
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum CompletionType {
+    /// Complete the next full match (like in Vim by default)
+    Circular,
+    /// Complete till longest match.
+    /// When more than one match, list all matches
+    /// (like in Bash/Readline).
+    List,
+
+    /// Complete the match using fuzzy search and selection
+    /// (like fzf and plugins)
+    /// Currently only available for unix platforms as dependency on
+    /// skim->tuikit Compile with `--features=fuzzy` to enable
+    #[cfg(all(unix, feature = "with-fuzzy"))]
+    Fuzzy,
+}
+
+/// Style of editing / Standard keymaps
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum EditMode {
+    /// Emacs keymap
+    Emacs,
+    /// Vi keymap
+    Vi,
+}
+
+/// Colorization mode
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ColorMode {
+    /// Activate highlighting if platform/terminal is supported.
+    Enabled,
+    /// Activate highlighting even if platform is not supported (windows < 10).
+    Forced,
+    /// Deactivate highlighting even if platform/terminal is supported.
+    Disabled,
+}
+
+/// Should the editor use stdio
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Behavior {
+    /// Use stdin / stdout
+    #[default]
+    Stdio,
+    /// Use terminal-style interaction whenever possible, even if 'stdin' and/or
+    /// 'stdout' are not terminals.
+    PreferTerm,
+    // TODO
+    // Use file-style interaction, reading input from the given file.
+    // useFile
+}
+
+/// Configuration builder
+#[derive(Clone, Debug, Default)]
+pub struct Builder {
+    p: Config,
+}
+
+impl Builder {
+    /// Returns a [`Config`] builder.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            p: Config::default(),
+        }
+    }
+
+    /// Set the maximum length for the history.
+    pub fn max_history_size(mut self, max_size: usize) -> Result<Self> {
+        self.set_max_history_size(max_size)?;
+        Ok(self)
+    }
+
+    /// Tell if lines which match the previous history entry are saved or not
+    /// in the history list.
+    ///
+    /// By default, they are ignored.
+    pub fn history_ignore_dups(mut self, yes: bool) -> Result<Self> {
+        self.set_history_ignore_dups(yes)?;
+        Ok(self)
+    }
+
+    /// Tell if lines which begin with a space character are saved or not in
+    /// the history list.
+    ///
+    /// By default, they are saved.
+    #[must_use]
+    pub fn history_ignore_space(mut self, yes: bool) -> Self {
+        self.set_history_ignore_space(yes);
+        self
+    }
+
+    /// Set `completion_type`.
+    #[must_use]
+    pub fn completion_type(mut self, completion_type: CompletionType) -> Self {
+        self.set_completion_type(completion_type);
+        self
+    }
+
+    /// The number of possible completions that determines when the user is
+    /// asked whether the list of possibilities should be displayed.
+    #[must_use]
+    pub fn completion_prompt_limit(mut self, completion_prompt_limit: usize) -> Self {
+        self.set_completion_prompt_limit(completion_prompt_limit);
+        self
+    }
+
+    /// Choose whether or not to show all alternatives immediately when using
+    /// list completion
+    ///
+    /// By default, a second tab is needed.
+    #[must_use]
+    pub fn completion_show_all_if_ambiguous(
+        mut self,
+        completion_show_all_if_ambiguous: bool,
+    ) -> Self {
+        self.set_completion_show_all_if_ambiguous(completion_show_all_if_ambiguous);
+        self
+    }
+
+    /// Timeout for ambiguous key sequences in milliseconds.
+    /// Currently, it is used only to distinguish a single ESC from an ESC
+    /// sequence.
+    /// After seeing an ESC key, wait at most `keyseq_timeout_ms` for another
+    /// byte.
+    #[must_use]
+    pub fn keyseq_timeout(mut self, keyseq_timeout_ms: Option<u16>) -> Self {
+        self.set_keyseq_timeout(keyseq_timeout_ms);
+        self
+    }
+
+    /// Choose between Emacs or Vi mode.
+    #[must_use]
+    pub fn edit_mode(mut self, edit_mode: EditMode) -> Self {
+        self.set_edit_mode(edit_mode);
+        self
+    }
+
+    /// Tell if lines are automatically added to the history.
+    ///
+    /// By default, they are not.
+    #[must_use]
+    pub fn auto_add_history(mut self, yes: bool) -> Self {
+        self.set_auto_add_history(yes);
+        self
+    }
+
+    /// Set bell style: beep, flash or nothing.
+    #[must_use]
+    pub fn bell_style(mut self, bell_style: BellStyle) -> Self {
+        self.set_bell_style(bell_style);
+        self
+    }
+
+    /// Forces colorization on or off.
+    ///
+    /// By default, colorization is on except if stdout is not a TTY.
+    #[must_use]
+    pub fn color_mode(mut self, color_mode: ColorMode) -> Self {
+        self.set_color_mode(color_mode);
+        self
+    }
+
+    /// Tell if terminal supports grapheme clustering
+    #[must_use]
+    pub fn grapheme_cluster_mode(mut self, grapheme_cluster_mode: GraphemeClusterMode) -> Self {
+        self.set_grapheme_cluster_mode(grapheme_cluster_mode);
+        self
+    }
+
+    /// Whether to use stdio or not
+    ///
+    /// By default, stdio is used.
+    #[must_use]
+    pub fn behavior(mut self, behavior: Behavior) -> Self {
+        self.p.set_behavior(behavior); // cannot be touched after editor / terminal creation
+        self
+    }
+
+    /// Horizontal space taken by a tab.
+    ///
+    /// By default, `8`
+    #[must_use]
+    pub fn tab_stop(mut self, tab_stop: u8) -> Self {
+        self.set_tab_stop(tab_stop);
+        self
+    }
+
+    /// Keep input on one visual row, scrolling it to keep the cursor visible.
+    ///
+    /// This is enabled by default. Set it to `false` to restore line wrapping.
+    #[must_use]
+    pub fn horizontal_scroll(mut self, enabled: bool) -> Self {
+        self.set_horizontal_scroll(enabled);
+        self
+    }
+
+    /// Reserve columns at the right edge for other content such as an overlay.
+    ///
+    /// By default, no columns are reserved. Applications using `Editor::new()`
+    /// can set `RUSTYLINE_HORIZONTAL_SCROLL_RIGHT_MARGIN` instead.
+    #[must_use]
+    pub fn horizontal_scroll_right_margin(mut self, columns: u16) -> Self {
+        self.set_horizontal_scroll_right_margin(columns);
+        self
+    }
+
+    /// Check if cursor position is at leftmost before displaying prompt.
+    ///
+    /// By default, we don't check.
+    #[must_use]
+    pub fn check_cursor_position(mut self, yes: bool) -> Self {
+        self.set_check_cursor_position(yes);
+        self
+    }
+
+    /// Indentation size
+    ///
+    /// By default, `2`
+    #[must_use]
+    pub fn indent_size(mut self, indent_size: u8) -> Self {
+        self.set_indent_size(indent_size);
+        self
+    }
+
+    /// Enable or disable bracketed paste on unix platform
+    ///
+    /// By default, it's enabled.
+    #[must_use]
+    pub fn bracketed_paste(mut self, enabled: bool) -> Self {
+        self.enable_bracketed_paste(enabled);
+        self
+    }
+
+    /// Enable or disable signals in termios
+    ///
+    /// By default, it's disabled.
+    #[must_use]
+    pub fn enable_signals(mut self, enable_signals: bool) -> Self {
+        self.set_enable_signals(enable_signals);
+        self
+    }
+
+    /// Builds a [`Config`] with the settings specified so far.
+    #[must_use]
+    pub fn build(self) -> Config {
+        self.p
+    }
+}
+
+impl Configurer for Builder {
+    fn config_mut(&mut self) -> &mut Config {
+        &mut self.p
+    }
+}
+
+/// Trait for component that holds a [`Config`].
+pub trait Configurer {
+    /// `Config` accessor.
+    fn config_mut(&mut self) -> &mut Config;
+
+    /// Set the maximum length for the history.
+    fn set_max_history_size(&mut self, max_size: usize) -> Result<()> {
+        self.config_mut().set_max_history_size(max_size);
+        Ok(())
+    }
+
+    /// Tell if lines which match the previous history entry are saved or not
+    /// in the history list.
+    ///
+    /// By default, they are ignored.
+    fn set_history_ignore_dups(&mut self, yes: bool) -> Result<()> {
+        self.config_mut().set_history_ignore_dups(yes);
+        Ok(())
+    }
+
+    /// Tell if lines which begin with a space character are saved or not in
+    /// the history list.
+    ///
+    /// By default, they are saved.
+    fn set_history_ignore_space(&mut self, yes: bool) {
+        self.config_mut().set_history_ignore_space(yes);
+    }
+    /// Set `completion_type`.
+    fn set_completion_type(&mut self, completion_type: CompletionType) {
+        self.config_mut().completion_type = completion_type;
+    }
+
+    /// Choose whether or not to show all alternatives immediately when using
+    /// list completion
+    ///
+    /// By default, a second tab is needed.
+    fn set_completion_show_all_if_ambiguous(&mut self, completion_show_all_if_ambiguous: bool) {
+        self.config_mut().completion_show_all_if_ambiguous = completion_show_all_if_ambiguous;
+    }
+
+    /// The number of possible completions that determines when the user is
+    /// asked whether the list of possibilities should be displayed.
+    fn set_completion_prompt_limit(&mut self, completion_prompt_limit: usize) {
+        self.config_mut().completion_prompt_limit = completion_prompt_limit;
+    }
+
+    /// Timeout for ambiguous key sequences in milliseconds.
+    fn set_keyseq_timeout(&mut self, keyseq_timeout_ms: Option<u16>) {
+        self.config_mut().keyseq_timeout = keyseq_timeout_ms;
+    }
+
+    /// Choose between Emacs or Vi mode.
+    fn set_edit_mode(&mut self, edit_mode: EditMode) {
+        self.config_mut().edit_mode = edit_mode;
+        match edit_mode {
+            EditMode::Emacs => self.set_keyseq_timeout(None), // no timeout
+            EditMode::Vi => self.set_keyseq_timeout(Some(500)),
+        }
+    }
+
+    /// Tell if lines are automatically added to the history.
+    ///
+    /// By default, they are not.
+    fn set_auto_add_history(&mut self, yes: bool) {
+        self.config_mut().auto_add_history = yes;
+    }
+
+    /// Set bell style: beep, flash or nothing.
+    fn set_bell_style(&mut self, bell_style: BellStyle) {
+        self.config_mut().bell_style = bell_style;
+    }
+
+    /// Forces colorization on or off.
+    ///
+    /// By default, colorization is on except if stdout is not a TTY.
+    fn set_color_mode(&mut self, color_mode: ColorMode) {
+        self.config_mut().set_color_mode(color_mode);
+    }
+
+    /// Tell if terminal supports grapheme clustering
+    fn set_grapheme_cluster_mode(&mut self, grapheme_cluster_mode: GraphemeClusterMode) {
+        self.config_mut().grapheme_cluster_mode = grapheme_cluster_mode;
+    }
+
+    /// Horizontal space taken by a tab.
+    ///
+    /// By default, `8`
+    fn set_tab_stop(&mut self, tab_stop: u8) {
+        self.config_mut().set_tab_stop(tab_stop);
+    }
+
+    /// Scroll long input horizontally instead of wrapping it.
+    fn set_horizontal_scroll(&mut self, enabled: bool) {
+        self.config_mut().horizontal_scroll = enabled;
+    }
+
+    /// Reserve columns at the right edge while horizontal scrolling.
+    fn set_horizontal_scroll_right_margin(&mut self, columns: u16) {
+        self.config_mut().horizontal_scroll_right_margin = columns;
+    }
+
+    /// Check if cursor position is at leftmost before displaying prompt.
+    ///
+    /// By default, we don't check.
+    fn set_check_cursor_position(&mut self, yes: bool) {
+        self.config_mut().check_cursor_position = yes;
+    }
+    /// Indentation size for indent/dedent commands
+    ///
+    /// By default, `2`
+    fn set_indent_size(&mut self, size: u8) {
+        self.config_mut().set_indent_size(size);
+    }
+
+    /// Enable or disable bracketed paste on unix platform
+    ///
+    /// By default, it's enabled.
+    fn enable_bracketed_paste(&mut self, enabled: bool) {
+        self.config_mut().enable_bracketed_paste = enabled;
+    }
+
+    /// Enable or disable synchronized output on unix platform
+    ///
+    /// By default, it's enabled.
+    fn enable_synchronized_output(&mut self, enabled: bool) {
+        self.config_mut().enable_synchronized_output = enabled;
+    }
+
+    /// Enable or disable signals in termios
+    ///
+    /// By default, it's disabled.
+    fn set_enable_signals(&mut self, enable_signals: bool) {
+        self.config_mut().set_enable_signals(enable_signals);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Config;
+
+    #[test]
+    fn explicit_horizontal_scroll_setting() {
+        assert!(Config::default().horizontal_scroll());
+        assert!(Config::builder().horizontal_scroll(true).build().horizontal_scroll());
+        assert!(!Config::builder().horizontal_scroll(false).build().horizontal_scroll());
+        assert_eq!(
+            Config::builder()
+                .horizontal_scroll_right_margin(20)
+                .build()
+                .horizontal_scroll_right_margin(),
+            20
+        );
+    }
+}

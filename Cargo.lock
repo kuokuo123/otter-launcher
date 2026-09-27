@@ -233,9 +233,7 @@ dependencies = [
 
 [[package]]
 name = "rustyline"
-version = "18.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a990b25f351b25139ddc7f21ee3f6f56f86d6846b74ac8fad3a719a287cd4a0"
+version = "18.0.1"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -255,8 +253,6 @@ dependencies = [
 [[package]]
 name = "rustyline-derive"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64e5587417a3c4e16a4415e8d7d07f80998ed835ade621d19dfbe9fbe3205b0f"
 dependencies = [
  "proc-macro2",
  "quote",

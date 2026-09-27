@@ -1,0 +1,29 @@
+[package]
+name = "rustyline-derive"
+version = "0.12.0"
+authors = ["gwenn"]
+edition = "2018"
+description = "Rustyline macros implementation of #[derive(Completer, Helper, Hinter, Highlighter)]"
+repository = "https://github.com/kkawakam/rustyline"
+#readme = "README.md"
+keywords = ["readline"]
+license = "MIT"
+categories = ["command-line-interface"]
+
+[badges]
+travis-ci = { repository = "kkawakam/rustyline" }
+appveyor = { repository = "kkawakam/rustyline" }
+maintenance = { status = "actively-developed" }
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0.116", default-features = false, features = [
+    "derive",
+    "parsing",
+    "printing",
+    "proc-macro",
+] }
+quote = { version = "1.0.44", default-features = false }
+proc-macro2 = { version = "1.0.106", default-features = false }
