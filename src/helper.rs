@@ -163,7 +163,7 @@ impl Highlighter for OtterHelper {
 
         if suggestion_mode == "hint" {
             (format!(
-                "\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G",
+                "\x1b[?7l\x1b[0m{}{}\x1b[0m\x1b[s{}{}\x1b[{}G\x1b[?7h",
                 if hint == place_holder {
                     place_holder_color
                 } else {
@@ -201,38 +201,36 @@ impl Highlighter for OtterHelper {
                             line.split_once(char::is_whitespace).unwrap_or((line, ""));
                         if !part_rest.is_empty() {
                             format!(
-                                "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
+                                "\x1b[?7l\x1B[{}G{}{}{:prefix_width$} {}{}\x1b[0m\x1b[?7h",
                                 layout_right + 1,
                                 selection_prefix,
                                 prefix_color,
                                 part0,
                                 description_color,
-                                part_rest,
-                                "\x1b[0m"
+                                part_rest
                             )
                         } else {
-                            format!("\x1b[{}G{}{}", layout_right + 1, line, "\x1b[0m")
+                            format!("\x1b[?7l\x1b[{}G{}\x1b[0m\x1b[?7h", layout_right + 1, line)
                         }
                     } else if line == place_holder {
-                        format!("{}{}{}", place_holder_color, place_holder, "\x1b[0m")
+                        format!("\x1b[?7l{}{}\x1b[0m\x1b[?7h", place_holder_color, place_holder)
                     } else if index <= separator_count {
-                        format!("\x1B[{}G{}\x1b[0m", layout_right + 1, line)
+                        format!("\x1b[?7l\x1B[{}G{}\x1b[0m\x1b[?7h", layout_right + 1, line)
                     } else if index > separator_count + selection_span
                         && FOOTER.get_or_init(|| String::new()).contains(line)
                     {
-                        format!("{}{}", line, "\x1b[0m")
+                        format!("\x1b[?7l{}\x1b[0m\x1b[?7h", line)
                     } else {
                         let (part0, part_rest) =
                             line.split_once(char::is_whitespace).unwrap_or((line, ""));
                         format!(
-                            "\x1B[{}G{}{}{:prefix_width$} {}{}{}",
+                            "\x1b[?7l\x1B[{}G{}{}{:prefix_width$} {}{}\x1b[0m\x1b[?7h",
                             layout_right + 1,
                             list_prefix,
                             prefix_color,
                             part0,
                             description_color,
-                            part_rest,
-                            "\x1b[0m"
+                            part_rest
                         )
                     }
                 })
