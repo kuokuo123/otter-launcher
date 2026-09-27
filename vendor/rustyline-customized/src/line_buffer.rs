@@ -1,12 +1,13 @@
 //! Line buffer with current cursor position
-use crate::keymap::{At, CharSearch, Movement, RepeatCount, Word};
-use crate::layout::Layout;
 use std::cmp::min;
-use std::fmt;
-use std::iter;
 use std::ops::{Deref, Index as _, Range};
 use std::string::Drain;
+use std::{fmt, iter};
+
 use unicode_segmentation::UnicodeSegmentation as _;
+
+use crate::keymap::{At, CharSearch, Movement, RepeatCount, Word};
+use crate::layout::Layout;
 
 /// Default maximum buffer size for the line read
 pub(crate) const MAX_LINE: usize = 4096;
@@ -142,6 +143,9 @@ impl LineBuffer {
     }
 
     /// Set cursor position (byte position)
+    ///
+    /// # Panics
+    /// when `pos` > lenngth
     pub fn set_pos(&mut self, pos: usize) {
         assert!(pos <= self.buf.len());
         self.pos = pos;
@@ -160,6 +164,9 @@ impl LineBuffer {
     }
 
     /// Set line content (`buf`) and cursor position (`pos`).
+    ///
+    /// # Panics
+    /// when `pos` > lenngth
     pub fn update<C: ChangeListener>(&mut self, buf: &str, pos: usize, cl: &mut C) {
         assert!(pos <= buf.len());
         let end = self.len();
@@ -528,6 +535,27 @@ impl LineBuffer {
     }
 
     fn next_word_pos(&self, pos: usize, at: At, word_def: Word, n: RepeatCount) -> Option<usize> {
+        self.next_word_pos_with_end(pos, at, word_def, n, false)
+    }
+
+    fn next_word_pos_for_operator(
+        &self,
+        pos: usize,
+        at: At,
+        word_def: Word,
+        n: RepeatCount,
+    ) -> Option<usize> {
+        self.next_word_pos_with_end(pos, at, word_def, n, true)
+    }
+
+    fn next_word_pos_with_end(
+        &self,
+        pos: usize,
+        at: At,
+        word_def: Word,
+        n: RepeatCount,
+        for_operator: bool,
+    ) -> Option<usize> {
         if pos == self.buf.len() {
             return None;
         }
@@ -567,7 +595,9 @@ impl LineBuffer {
             }
         }
         if wp == 0 {
-            if word_def == Word::Emacs || at == At::AfterEnd {
+            if word_def == Word::Emacs || at == At::AfterEnd || (for_operator && at == At::Start) {
+                // Vi's `w` stops on the final grapheme, but `dw`/`yw` must
+                // include that grapheme when there is no following word.
                 Some(self.buf.len())
             } else {
                 match gi {
@@ -625,10 +655,9 @@ impl LineBuffer {
     ///
     /// Fails if the cursor is on the first line
     fn n_lines_up(&self, n: RepeatCount) -> Option<(usize, usize)> {
-        let mut start = if let Some(off) = self.buf[..self.pos].rfind('\n') {
+        let mut start = {
+            let off = self.buf[..self.pos].rfind('\n')?;
             off + 1
-        } else {
-            return None;
         };
         let end = self.buf[self.pos..]
             .find('\n')
@@ -648,10 +677,9 @@ impl LineBuffer {
     ///
     /// Fails if the cursor is on the last line
     fn n_lines_down(&self, n: RepeatCount) -> Option<(usize, usize)> {
-        let mut end = if let Some(off) = self.buf[self.pos..].find('\n') {
+        let mut end = {
+            let off = self.buf[self.pos..].find('\n')?;
             self.pos + off + 1
-        } else {
-            return None;
         };
         let start = self.buf[..self.pos].rfind('\n').unwrap_or(0);
         for _ in 0..n {
@@ -764,7 +792,7 @@ impl LineBuffer {
         n: RepeatCount,
         dl: &mut D,
     ) -> bool {
-        if let Some(pos) = self.next_word_pos(self.pos, at, word_def, n) {
+        if let Some(pos) = self.next_word_pos_for_operator(self.pos, at, word_def, n) {
             let start = self.pos;
             self.drain(start..pos, Direction::Forward, dl);
             true
@@ -824,27 +852,27 @@ impl LineBuffer {
 
     /// Alter the next word.
     pub fn edit_word<C: ChangeListener>(&mut self, a: WordAction, cl: &mut C) -> bool {
-        if let Some(start) = self.skip_whitespace() {
-            if let Some(end) = self.next_word_pos(start, At::AfterEnd, Word::Emacs, 1) {
-                if start == end {
-                    return false;
-                }
-                let word = self
-                    .drain(start..end, Direction::default(), cl)
-                    .collect::<String>();
-                let result = match a {
-                    WordAction::Capitalize => {
-                        let ch = word.graphemes(true).next().unwrap();
-                        let cap = ch.to_uppercase();
-                        cap + &word[ch.len()..].to_lowercase()
-                    }
-                    WordAction::Lowercase => word.to_lowercase(),
-                    WordAction::Uppercase => word.to_uppercase(),
-                };
-                self.insert_str(start, &result, cl);
-                self.pos = start + result.len();
-                return true;
+        if let Some(start) = self.skip_whitespace()
+            && let Some(end) = self.next_word_pos(start, At::AfterEnd, Word::Emacs, 1)
+        {
+            if start == end {
+                return false;
             }
+            let word = self
+                .drain(start..end, Direction::default(), cl)
+                .collect::<String>();
+            let result = match a {
+                WordAction::Capitalize => {
+                    let ch = word.graphemes(true).next().unwrap();
+                    let cap = ch.to_uppercase();
+                    cap + &word[ch.len()..].to_lowercase()
+                }
+                WordAction::Lowercase => word.to_lowercase(),
+                WordAction::Uppercase => word.to_uppercase(),
+            };
+            self.insert_str(start, &result, cl);
+            self.pos = start + result.len();
+            return true;
         }
         false
     }
@@ -987,7 +1015,7 @@ impl LineBuffer {
                 .prev_word_pos(self.pos, word_def, n)
                 .map(|pos| self.buf[pos..self.pos].to_owned()),
             Movement::ForwardWord(n, at, word_def) => self
-                .next_word_pos(self.pos, at, word_def, n)
+                .next_word_pos_for_operator(self.pos, at, word_def, n)
                 .map(|pos| self.buf[self.pos..pos].to_owned()),
             Movement::ViCharSearch(n, cs) => {
                 let search_result = match cs {
@@ -1123,7 +1151,7 @@ impl LineBuffer {
                 .prev_word_pos(self.pos, word_def, n)
                 .map(|pos| (pos, self.pos)),
             Movement::ForwardWord(n, at, word_def) => self
-                .next_word_pos(self.pos, at, word_def, n)
+                .next_word_pos_for_operator(self.pos, at, word_def, n)
                 .map(|pos| (self.pos, pos)),
             Movement::LineUp(n) => self.n_lines_up(n),
             Movement::LineDown(n) => self.n_lines_down(n),
@@ -1201,12 +1229,10 @@ fn is_other_char(grapheme: &str) -> bool {
 #[cfg(test)]
 mod test {
     use super::{
-        ChangeListener, DeleteListener, Direction, LineBuffer, NoListener, WordAction, MAX_LINE,
+        ChangeListener, DeleteListener, Direction, LineBuffer, MAX_LINE, NoListener, WordAction,
     };
-    use crate::{
-        keymap::{At, CharSearch, Word},
-        layout::Layout,
-    };
+    use crate::keymap::{At, CharSearch, Movement, Word};
+    use crate::layout::Layout;
 
     struct Listener {
         deleted_str: Option<String>,
@@ -1899,5 +1925,67 @@ mod test {
     fn test_sync() {
         fn assert_sync<T: Sync>() {}
         assert_sync::<LineBuffer>();
+    }
+
+    #[test]
+    fn discard_buffer() {
+        let mut dl = Listener::new();
+        let mut s = LineBuffer::init("text", 4);
+        s.kill(&Movement::BeginningOfBuffer, &mut dl);
+        assert_eq!("", s.buf);
+        assert_eq!(0, s.pos);
+        dl.assert_deleted_str_eq("text");
+    }
+
+    #[test]
+    fn kill_buffer() {
+        let mut dl = Listener::new();
+        let mut s = LineBuffer::init("text", 4);
+        s.kill(&Movement::WholeBuffer, &mut dl);
+        assert_eq!("", s.buf);
+        assert_eq!(0, s.pos);
+        dl.assert_deleted_str_eq("text");
+    }
+
+    #[test]
+    fn copy() {
+        let s = LineBuffer::init("text", 4);
+        assert_eq!(None, s.copy(&Movement::EndOfBuffer));
+        assert_eq!(None, s.copy(&Movement::EndOfLine));
+        assert_eq!(None, s.copy(&Movement::ForwardChar(1)));
+        assert_eq!(
+            None,
+            s.copy(&Movement::ForwardWord(1, At::Start, Word::Big))
+        );
+        assert_eq!(
+            None,
+            s.copy(&Movement::ViCharSearch(1, CharSearch::Forward('x')))
+        );
+        assert_eq!(None, s.copy(&Movement::LineDown(1)));
+        assert_eq!(None, s.copy(&Movement::LineUp(1)));
+        assert_eq!(
+            Some("text"),
+            s.copy(&Movement::BeginningOfBuffer).as_deref()
+        );
+        assert_eq!(Some("text"), s.copy(&Movement::BeginningOfLine).as_deref());
+        assert_eq!(Some("text"), s.copy(&Movement::WholeBuffer).as_deref());
+        assert_eq!(Some("text"), s.copy(&Movement::WholeLine).as_deref());
+        assert_eq!(Some("text"), s.copy(&Movement::BackwardChar(4)).as_deref());
+        assert_eq!(
+            Some("text"),
+            s.copy(&Movement::BackwardWord(1, Word::Big)).as_deref()
+        );
+        assert_eq!(
+            Some("text"),
+            s.copy(&Movement::ViCharSearch(2, CharSearch::Backward('t')))
+                .as_deref()
+        );
+
+        let s = LineBuffer::init("tes tes dd", 8);
+        assert_eq!(
+            Some("dd"),
+            s.copy(&Movement::ForwardWord(1, At::Start, Word::Vi))
+                .as_deref()
+        );
     }
 }

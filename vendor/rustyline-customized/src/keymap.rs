@@ -1168,7 +1168,7 @@ impl InputState<'_> {
     ) -> Result<Option<Cmd>> {
         while let Some(subtrie) = self.custom_bindings.get_raw_descendant(evt) {
             let snd_key = rdr.next_key(true)?;
-            if let Event::KeySeq(ref mut key_seq) = evt {
+            if let Event::KeySeq(key_seq) = evt {
                 key_seq.push(snd_key);
             } else {
                 break;
