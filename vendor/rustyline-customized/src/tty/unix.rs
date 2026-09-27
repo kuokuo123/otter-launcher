@@ -1093,6 +1093,7 @@ impl Renderer for PosixRenderer {
         // we have to generate our own newline on line wrap
         if end_pos.col == 0
             && end_pos.row > 0
+            && !(visible_hint.is_some() && highlighter.is_some_and(|h| !h.hint_wraps()))
             && !visible_hint.map_or_else(|| visible_line.ends_with('\n'), |h| h.ends_with('\n'))
         {
             self.buffer.push('\n');
@@ -1145,6 +1146,26 @@ impl Renderer for PosixRenderer {
         if pos.col == self.cols {
             pos.col = 0;
             pos.row += 1;
+        }
+        pos
+    }
+
+    fn calculate_position_no_wrap(&self, s: &str, orig: Position) -> Position {
+        let mut pos = orig;
+        let mut esc_seq = 0;
+        let rightmost = self.cols.saturating_sub(1);
+        for c in s.graphemes(true) {
+            if c == "\n" {
+                pos.row += 1;
+                pos.col = 0;
+                continue;
+            }
+            let cw = if c == "\t" {
+                self.tab_stop - (pos.col % self.tab_stop)
+            } else {
+                width(self.grapheme_cluster_mode, c, &mut esc_seq)
+            };
+            pos.col = pos.col.saturating_add(cw).min(rightmost);
         }
         pos
     }
@@ -1928,6 +1949,51 @@ mod test {
         let layout = out.compute_layout(Position::default(), true, &line, None, None);
         assert_eq!(layout.input_viewport, None);
         assert_eq!(layout.cursor, Position { col: 3, row: 1 });
+    }
+
+    #[test]
+    fn no_wrap_hint_clips_at_edge_but_preserves_explicit_newlines() {
+        let mut out = PosixRenderer::new(
+            AltFd(libc::STDOUT_FILENO),
+            8,
+            true,
+            false,
+            GraphemeClusterMode::Unicode,
+            BellStyle::None,
+            false,
+            0,
+        );
+        out.cols = 8;
+        let prompt_size = out.calculate_position("> ", Position::default());
+        let line = LineBuffer::init("x", 1);
+        let hint = "\x1b[31m0123456789\x1b[0m\n界xyz";
+
+        let wrapped = out.compute_layout(prompt_size, true, &line, Some(hint), None);
+        let clipped = out.compute_layout_with_hint_wrap(
+            prompt_size,
+            true,
+            &line,
+            Some(hint),
+            None,
+            false,
+        );
+        assert_eq!(wrapped.cursor, Position { col: 3, row: 0 });
+        assert_eq!(clipped.cursor, wrapped.cursor);
+        assert_eq!(wrapped.end, Position { col: 5, row: 2 });
+        assert_eq!(clipped.end, Position { col: 5, row: 1 });
+
+        // Disabling hint wrapping must not disable wrapping of the input.
+        let line = LineBuffer::init("12345678", 8);
+        let clipped = out.compute_layout_with_hint_wrap(
+            prompt_size,
+            true,
+            &line,
+            Some(hint),
+            None,
+            false,
+        );
+        assert_eq!(clipped.cursor, Position { col: 2, row: 1 });
+        assert_eq!(clipped.end.row, 2);
     }
 
     #[test]

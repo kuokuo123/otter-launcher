@@ -142,12 +142,13 @@ impl<'out, 'prompt, H: Helper, P: Prompt + ?Sized> State<'out, 'prompt, H, P> {
     pub fn move_cursor(&mut self, kind: CmdKind) -> Result<()> {
         // calculate the desired position of the cursor
         let cursor = if self.layout.input_viewport.is_some() {
-            let new_layout = self.out.compute_layout(
+            let new_layout = self.out.compute_layout_with_hint_wrap(
                 self.prompt_size,
                 self.layout.default_prompt,
                 &self.line,
                 self.hint.as_ref().map(|hint| hint.display()),
                 Some(&self.layout),
+                self.highlighter().map_or(true, |h| h.hint_wraps()),
             );
             if new_layout.input_viewport != self.layout.input_viewport {
                 self.highlight_char(kind);
@@ -216,7 +217,14 @@ impl<'out, 'prompt, H: Helper, P: Prompt + ?Sized> State<'out, 'prompt, H, P> {
         } else {
             let new_layout = self
                 .out
-                .compute_layout(prompt_size, default_prompt, &self.line, info, Some(&self.layout));
+                .compute_layout_with_hint_wrap(
+                    prompt_size,
+                    default_prompt,
+                    &self.line,
+                    info,
+                    Some(&self.layout),
+                    highlighter.map_or(true, |h| h.hint_wraps()),
+                );
 
             debug!(target: "rustyline", "old layout: {:?}", self.layout);
             debug!(target: "rustyline", "new layout: {new_layout:?}");

@@ -46,6 +46,11 @@ pub trait Highlighter {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
         Borrowed(hint)
     }
+    /// Whether a highlighted hint is allowed to wrap at the terminal edge.
+    /// The layout calculation must use the same rule as the terminal output.
+    fn hint_wraps(&self) -> bool {
+        true
+    }
     /// Takes the completion `candidate` and
     /// returns the highlighted version (with ANSI color).
     ///

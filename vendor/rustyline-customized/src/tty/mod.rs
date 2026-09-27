@@ -71,6 +71,27 @@ pub trait Renderer {
         info: Option<&str>,
         old_layout: Option<&Layout>,
     ) -> Layout {
+        self.compute_layout_with_hint_wrap(
+            prompt_size,
+            default_prompt,
+            line,
+            info,
+            old_layout,
+            true,
+        )
+    }
+
+    /// Compute a layout with the hint's actual terminal wrapping behavior.
+    /// Prompt and input still wrap (or use the input viewport) as usual.
+    fn compute_layout_with_hint_wrap(
+        &self,
+        prompt_size: Position,
+        default_prompt: bool,
+        line: &LineBuffer,
+        info: Option<&str>,
+        old_layout: Option<&Layout>,
+        hint_wraps: bool,
+    ) -> Layout {
         let pos = line.pos();
         // Leave the last column unused so writing a character cannot trigger
         // the terminal's automatic line wrap. When there is a hint, reserve
@@ -164,7 +185,11 @@ pub trait Renderer {
             input_viewport: viewport,
         };
         if let Some(info) = new_layout.visible_hint(info, line.len()) {
-            end = self.calculate_position(info, end);
+            end = if hint_wraps {
+                self.calculate_position(info, end)
+            } else {
+                self.calculate_position_no_wrap(info, end)
+            };
             new_layout.end = end;
         }
         debug_assert!(new_layout.prompt_size <= new_layout.cursor);
@@ -175,6 +200,12 @@ pub trait Renderer {
     /// Calculate the number of columns and rows used to display `s` on a
     /// `cols` width terminal starting at `orig`.
     fn calculate_position(&self, s: &str, orig: Position) -> Position;
+
+    /// Position after text printed with automatic line wrapping disabled.
+    /// Explicit newlines still move down; printable text stops at the edge.
+    fn calculate_position_no_wrap(&self, s: &str, orig: Position) -> Position {
+        self.calculate_position(s, orig)
+    }
 
     fn write_and_flush(&mut self, buf: &str) -> Result<()>;
 

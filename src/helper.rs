@@ -130,6 +130,12 @@ impl Completer for OtterHelper {
 
 // the coloring functionality of OtterHelper
 impl Highlighter for OtterHelper {
+    fn hint_wraps(&self) -> bool {
+        // highlight_hint uses DECAWM (?7l) on Unix. The Windows renderer
+        // handles wrapping itself instead of honoring that escape sequence.
+        !cfg!(unix)
+    }
+
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
         let description_color = DESCRIPTION_COLOR.get_or_init(|| String::new());
         let place_holder = PLACE_HOLDER.get_or_init(|| String::new());
@@ -153,7 +159,7 @@ impl Highlighter for OtterHelper {
         let overlay_down_cached = OVERLAY_DOWNWARD.load(Ordering::Relaxed);
         let overlay_up = format!(
             "\x1b[{}A",
-            hint.lines().count() + HEADER_LINE_COUNT.load(Ordering::Relaxed) - 2
+            hint.split('\n').count() + HEADER_LINE_COUNT.load(Ordering::Relaxed) - 2
         );
         let overlay_down = if overlay_down_cached == 0 {
             String::new()
@@ -193,7 +199,7 @@ impl Highlighter for OtterHelper {
 
             // format every line
             let aggregated_hint_lines = hint
-                .lines()
+                .split('\n') // preserve trailing newlines counted by the layout
                 .enumerate()
                 .map(|(index, line)| {
                     if index == selection_index + separator_count && selection_index > 0 {
