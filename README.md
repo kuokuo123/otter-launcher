@@ -357,7 +357,7 @@ fastfetch \
     --logo-print-remaining false \
     --logo-height 8 \
     --logo-padding-left 3 \
-    --sixel $HOME/.config/otter-launcher/images/images_squ/archlinux_chan.jpg
+    --kitty $HOME/.config/otter-launcher/images/images_squ/archlinux_chan.jpg
 """
 header = "   \u001B[33;1m  otterly awesome \u001B[0m  \u001B[36;1m:\u001B[0;1m "
 place_holder = "type & search"
@@ -412,26 +412,33 @@ Render chafa image at the left, moving the inteface to the right.
 ```toml
 [overlay]
 # render image in overlay layer using chafa
-overlay_cmd = "chafa -s x10 $HOME/.config/otter-launcher/image.png"
-overlay_trimmed_lines = 0
+overlay_cmd = "chafa -s x7 $HOME/.config/otter-launcher/images_rec.image"
 
 [interface]
-header = "  $USER@$(echo $HOSTNAME)     \u001B[31m\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n  "
+header = """
+\u001B[34;1m> \u001B[0;1m"""
+place_holder = "type and search"
 list_prefix = "  "
-selection_prefix = "\u001B[31;1m> "
-place_holder = "type & search"
-default_module_message = "\u001B[33msearch\u001B[0m the internet"
+selection_prefix = "\u001B[31;40;1m▌ "
 suggestion_mode = "list"
-suggestion_lines = 4
-prefix_padding = 3
+suggestion_lines = 3
+separator = """
+$( \
+    text="  otter"; \
+    printf "\u001B[0;90m$text \
+    $(printf -v line '%*s' \"$(( COLUMNS - $(printf "$text" | wc -m) - 3 ))\" ''; printf '%s' \"${line// /─}\")" \
+)"""
 prefix_color = "\u001B[33m"
 description_color = "\u001B[39m"
-place_holder_color = "\u001B[90m"
+place_holder_color = "\u001B[0;30m"
 hint_color = "\u001B[90m"
+default_module_message = "\u001B[33msearch\u001B[0m the internet"
+prefix_padding = 3
+cursor_shape = 5
 
 # move the interface
-move_interface_right = 20
-move_interface_down = 2
+move_interface_right = 13
+move_interface_down = 1
 ```
 
 ### Image to the Right
