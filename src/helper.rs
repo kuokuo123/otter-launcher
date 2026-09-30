@@ -233,6 +233,8 @@ impl Highlighter for OtterHelper {
                         && FOOTER.get_or_init(|| String::new()).contains(line)
                     {
                         format!("\x1b[?7l{}\x1b[0m\x1b[?7h", line)
+                    } else if line.trim().is_empty() {
+                        format!("{}", line)
                     } else {
                         let (part0, part_rest) =
                             line.split_once(char::is_whitespace).unwrap_or((line, ""));
