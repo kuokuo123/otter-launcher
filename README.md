@@ -413,14 +413,14 @@ Render chafa image at the left, moving the inteface to the right.
 [overlay]
 # render image in overlay layer using chafa
 overlay_cmd = "chafa -s x10 $HOME/.config/otter-launcher/image.png"
-overlay_trimmed_lines = 1
+overlay_trimmed_lines = 0
 
 [interface]
 header = "  $USER@$(echo $HOSTNAME)     \u001B[31m\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')\n  "
 list_prefix = "  "
 selection_prefix = "\u001B[31;1m> "
 place_holder = "type & search"
-default_module_message = "  \u001B[33msearch\u001B[0m the internet"
+default_module_message = "\u001B[33msearch\u001B[0m the internet"
 suggestion_mode = "list"
 suggestion_lines = 4
 prefix_padding = 3
@@ -448,7 +448,7 @@ This config renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/
 [overlay]
 # render image in overlay layer using chafa
 overlay_cmd = "chafa -s x10 $HOME/.config/otter-launcher/image.png"
-overlay_trimmed_lines = 1
+overlay_trimmed_lines = 0
 
 #move overlay rightwards
 move_overlay_right = 32
@@ -468,7 +468,7 @@ header = """
     │ \u001B[90m\u001B[0m  """
 list_prefix = "    └ \u001B[34m󱓞  "
 selection_prefix = "    └ \u001B[31m󱓞  "
-default_module_message = "    └ \u001B[34m󱓞  \u001B[33msearch\u001B[0m the internet"
+default_module_message = "\u001B[33msearch\u001B[0m the internet"
 
 place_holder = "type & search"
 suggestion_mode = "list"

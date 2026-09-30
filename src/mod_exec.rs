@@ -291,7 +291,7 @@ pub fn get_overlay_lines() -> &'static str {
         let lines_count = lines.len();
 
         if lines_count > remove_lines_count {
-            lines[..lines_count - remove_lines_count]
+            lines[..lines_count - remove_lines_count - 1]
                 .join(&format!("\n\x1b[{}G", overlay_right + 1))
         } else {
             "not enough lines of overlay_cmd output to be trimmed".to_string()
