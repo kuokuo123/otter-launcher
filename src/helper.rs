@@ -13,6 +13,12 @@ use crate::glob_vars::*;
 use crate::graphics::*;
 use crate::mod_exec::*;
 
+fn overlay_padding(height: usize, down: usize, header: usize, content: usize) -> usize {
+    height
+        .saturating_add(down)
+        .saturating_sub(header.saturating_add(content))
+}
+
 // define the structure of every formatted hint
 pub struct ModuleHint {
     display: String,
@@ -179,8 +185,9 @@ impl Highlighter for OtterHelper {
                 overlay_up,
                 overlay_down,
                 overlay_right + 1
-            ) + &overlay_lines
-                + "\x1b[u\x1b[?25h")
+            ) + "\x1b[?7l"
+                + &overlay_lines
+                + "\x1b[?7h\x1b[u\x1b[?25h")
                 .into()
         } else {
             // shrink selection span if filtered_hint_count shrinks
@@ -248,8 +255,9 @@ impl Highlighter for OtterHelper {
                     overlay_down,
                     overlay_right + 1
                 )
+                + "\x1b[?7l"
                 + &overlay_lines
-                + "\x1b[u\x1b[?25h";
+                + "\x1b[?7h\x1b[u\x1b[?25h";
 
             return aggregated_hint_lines.into();
         }
@@ -327,19 +335,10 @@ impl Hinter for OtterHelper {
         // load overlay_cmd
         let overlay_lines = OVERLAY_LINES_CACHE.get()?;
 
-        // measure overlay row height, using either kitty or sixel or raw lines
+        // Reserve the rows actually reached by the cached overlay output.
         let overlay_height_cached = OVERLAY_HEIGHT.load(Ordering::Relaxed);
         let overlay_height = if overlay_height_cached == 0 {
-            let overlay_line_count = overlay_lines.lines().count();
-            if let Some(r) = kitty_rows(&overlay_lines) {
-                r + overlay_line_count - 1
-            } else if let Some(r) = sixel_rows(&overlay_lines) {
-                // convert pixels -> terminal rows using ceil
-                let term_cell_height = term_cell_height_cached().unwrap_or(22);
-                r * 6 / term_cell_height + overlay_line_count - 1
-            } else {
-                overlay_line_count
-            }
+            overlay_rows(overlay_lines)
         } else {
             let overlay_line_count = overlay_lines.lines().count();
             if overlay_height_cached >= overlay_line_count {
@@ -350,11 +349,7 @@ impl Hinter for OtterHelper {
         };
 
         // calculate overlay padding, to maintain layout when printing at window bottom
-        let mut padded_line_count = if overlay_height + overlay_down > header_line_count {
-            overlay_height - header_line_count + overlay_down
-        } else {
-            0
-        };
+        let padded_line_count = overlay_padding(overlay_height, overlay_down, header_line_count, 0);
 
         // hint mode behavior
         if suggestion_mode == "hint" {
@@ -505,21 +500,16 @@ impl Hinter for OtterHelper {
                     .copied()
                     .collect::<Vec<_>>();
 
-                // calculate overlay padding, to maintain layout when printing at window bottom
-                let join_range_count = join_range.len();
-
-                padded_line_count = if overlay_height + overlay_down
-                    > header_line_count + join_range_count + separator_count
-                {
-                    overlay_height + overlay_down
-                        - header_line_count
-                        - join_range_count
-                        - separator_count
-                } else {
-                    0
-                };
                 join_range.join("\n")
             };
+            // Both branches above need the same padding for their actual
+            // number of visible suggestions.
+            let list_padding = overlay_padding(
+                overlay_height,
+                overlay_down,
+                header_line_count,
+                filtered_items.len().min(suggestion_lines).saturating_add(separator_count),
+            );
 
             // set completion candidate according to list selection index
             let mut candidate = COMPLETION_CANDIDATE.write().unwrap();
@@ -545,16 +535,10 @@ impl Hinter for OtterHelper {
                         if !e_module.is_empty() && selection_index == 0 {
                             // calculate overlay padding, to maintain layout when printing at window bottom
                             let empty_message_count = e_module.lines().count();
-                            let padded_line_count_local = if overlay_height + overlay_down
-                                > header_line_count + empty_message_count + separator_count
-                            {
-                                overlay_height + overlay_down
-                                    - header_line_count
-                                    - empty_message_count
-                                    - separator_count
-                            } else {
-                                0
-                            };
+                            let padded_line_count_local = overlay_padding(
+                                overlay_height, overlay_down, header_line_count,
+                                empty_message_count.saturating_add(separator_count),
+                            );
                             // if empty module is set
                             format!(
                                 "\n\x1b[0m{}{}",
@@ -563,9 +547,15 @@ impl Hinter for OtterHelper {
                             )
                         } else {
                             if agg_line.is_empty() {
-                                format!("{}", "\x1b[0m")
+                                format!(
+                                    "\x1b[0m{}",
+                                    "\n ".repeat(overlay_padding(
+                                        overlay_height, overlay_down, header_line_count,
+                                        separator_count,
+                                    ))
+                                )
                             } else {
-                                format!("\n{}{}", agg_line, "\n ".repeat(padded_line_count))
+                                format!("\n{}{}", agg_line, "\n ".repeat(list_padding))
                             }
                         },
                         footer_lines
@@ -579,17 +569,10 @@ impl Hinter for OtterHelper {
                 Some(ModuleHint {
                     display: (if line.trim_end() == cheatsheet_entry {
                         let cheatsheet_count = cheatsheet_entry.lines().count();
-                        let padded_line_count_local =
-                            if overlay_height + overlay_down + separator_count
-                                > header_line_count + cheatsheet_count
-                            {
-                                overlay_height + overlay_down
-                                    - header_line_count
-                                    - cheatsheet_count
-                                    - separator_count
-                            } else {
-                                0
-                            };
+                        let padded_line_count_local = overlay_padding(
+                            overlay_height, overlay_down, header_line_count,
+                            cheatsheet_count.saturating_add(separator_count),
+                        );
                         format!(
                             "{}\n{} {}{}{}{}",
                             separator_lines,
@@ -603,20 +586,21 @@ impl Hinter for OtterHelper {
                     } else if agg_line.is_empty() {
                         // check if default module message is set
                         if d_module.is_empty() {
-                            format!("\x1b[0m{}", separator_lines)
+                            format!(
+                                "\x1b[0m{}{}",
+                                separator_lines,
+                                "\n ".repeat(overlay_padding(
+                                    overlay_height, overlay_down, header_line_count,
+                                    separator_count,
+                                ))
+                            )
                         } else {
                             SELECTION_INDEX.store(0, Ordering::Relaxed);
                             let default_message_count = d_module.lines().count();
-                            let padded_line_count_local = if overlay_height + overlay_down
-                                > header_line_count + default_message_count + separator_count
-                            {
-                                overlay_height + overlay_down
-                                    - header_line_count
-                                    - default_message_count
-                                    - separator_count
-                            } else {
-                                0
-                            };
+                            let padded_line_count_local = overlay_padding(
+                                overlay_height, overlay_down, header_line_count,
+                                default_message_count.saturating_add(separator_count),
+                            );
                             format!(
                                 "{}\n\x1b[0m{}{}{}",
                                 separator_lines,
@@ -627,16 +611,10 @@ impl Hinter for OtterHelper {
                         }
                     // if some module is matched
                     } else {
-                        let padded_line_count_local = if overlay_height + overlay_down
-                            > header_line_count + agg_count + separator_count
-                        {
-                            overlay_height + overlay_down
-                                - header_line_count
-                                - agg_count
-                                - separator_count
-                        } else {
-                            0
-                        };
+                        let padded_line_count_local = overlay_padding(
+                            overlay_height, overlay_down, header_line_count,
+                            agg_count.saturating_add(separator_count),
+                        );
                         format!(
                             "{}\n{}{}{}",
                             separator_lines,

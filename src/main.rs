@@ -12,7 +12,6 @@ use mod_exec::*;
 use std::sync::atomic::Ordering;
 use std::{
     io::Write,
-    process,
     process::{Command, Stdio},
 };
 use terminal_size::{Width, terminal_size};
@@ -142,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                 }
                 Err(_) => {
-                    process::exit(0);
+                    return Ok(())
                 }
             }
         }

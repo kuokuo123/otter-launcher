@@ -184,7 +184,6 @@ pub static LAYOUT_DOWNWARD: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_RIGHTWARD: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_DOWNWARD: AtomicUsize = AtomicUsize::new(0);
 pub static CUSTOMIZED_LIST_ORDER: AtomicBool = AtomicBool::new(false);
-pub static CELL_HEIGHT: AtomicUsize = AtomicUsize::new(0);
 pub static SEPARATOR_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub static CTRLX_LOCK: AtomicUsize = AtomicUsize::new(0);
 pub static OVERLAY_LINES_CACHE: OnceLock<String> = OnceLock::new();
