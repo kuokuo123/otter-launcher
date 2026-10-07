@@ -20,6 +20,7 @@
 
 
 [general]
+height = 7 # the total lines that otter-launcher should occupy
 # module to run when no prefix is in use
 default_module = "gg"
 # module to run with an empty prompt
@@ -31,25 +32,26 @@ exec_cmd = "sh -c" # accept wm commands like "hyprctl dispatch exec"
 vi_mode = false # true for vi keybinds, false emacs keybinds
 cheatsheet_entry = "?" # the key to show configured modules
 cheatsheet_viewer = "less -R; clear" # command to show cheatsheet; through piping stdout
-external_editor = "nvim" # ctrl+x ctrl+e (or v in vi normal mode)
+external_editor = "vi" # ctrl+x ctrl+e (or v in vi normal mode)
 
 
 [interface]
 # options for the layout
-height = 7 # the total height of otter's layout
 padding = [0, 1, 0, 1] # pad with columns/lines, [top, right, down, left]
 # use three quotes to write longer codes; ANSI color codes and shell expansion are allowed
 header = """
 $(
-user=$(printf "\x1b[34;1m> \x1b[0m$USER@$HOSTNAME")
-load=$(awk 'NR == 1 {print $1}' /proc/loadavg)
-mem=$(free -h | awk 'NR == 2 {print $3}' | sed 's/Gi/0/')
+load=$(awk 'NR == 1 {print $1"%"}' /proc/loadavg)
+mem=$(free -h | awk 'NR == 2 {print $3}' | sed 's/Gi/0G/')
 
-right="\x1b[31m> \x1b[0m$load  \x1b[33m> \x1b[0m$mem"
-gap=$((COLUMNS - ${#left}))
-(( width < 5 )) && width=5
+left="$USER@$HOSTNAME"
+left="> $left"
+right="> $load%  > $mem"
 
-printf '%s%*s' "$user" "$gap" "$right") """
+gap=$(( COLUMNS - ${#left} - ${#right} ))
+(( gap < 0 )) && gap=0
+
+printf '\x1b[34;1m> \x1b[0m%s@%s%*s\x1b[31;1m> \x1b[0m%s  \x1b[33;1m> \x1b[0m%s' "$USER" "$HOSTNAME" "$gap" '' "$load" "$mem")"""
 # available [color options](https://docs.rs/ratatui/latest/ratatui/prelude/enum.Color.html)
 header_color = "blue"
 # options for input field

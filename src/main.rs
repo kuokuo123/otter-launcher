@@ -109,7 +109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 };
 
             // Set up viewport
-            let height = cfg.interface.height.unwrap();
+            let height = cfg.general.height.unwrap();
             let mut terminal = ratatui::try_init_with_options(TerminalOptions {
                 viewport: Viewport::Inline(height),
             })?;

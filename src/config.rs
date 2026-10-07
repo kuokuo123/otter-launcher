@@ -17,6 +17,7 @@ pub struct Config {
 
 #[derive(Deserialize, Default)]
 pub struct General {
+    pub height: Option<u16>,
     pub default_module: Option<String>,
     pub alternative_module: Option<String>,
     pub empty_module: Option<String>,
@@ -29,7 +30,6 @@ pub struct General {
 
 #[derive(Deserialize, Default)]
 pub struct Interface {
-    pub height: Option<u16>,
     pub padding: Option<[u16; 4]>,
     pub header: Option<String>,
     pub header_color: Option<String>,
@@ -78,6 +78,7 @@ static CONFIG: OnceLock<Config> = OnceLock::new();
 impl Config {
     fn apply_defaults(&mut self) {
         // General defaults — adjust these to your preferences.
+        self.general.height.get_or_insert_with(|| 7);
         self.general.exec_cmd.get_or_insert("sh -c".to_string());
         self.general.vi_mode.get_or_insert_with(|| false);
         self.general
@@ -91,7 +92,6 @@ impl Config {
             .get_or_insert_with(|| "less -R".to_owned());
 
         // Interface defaults.
-        self.interface.height.get_or_insert_with(|| 7);
         self.interface.padding.get_or_insert_with(|| [0, 0, 0, 0,]);
         self.interface.header.get_or_insert_with(|| "".to_owned());
         self.interface

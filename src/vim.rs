@@ -1042,7 +1042,7 @@ pub fn edit_externally(
 
         // Restore the TUI before propagating an editor-launch or file-read error.
         *terminal = ratatui::try_init_with_options(ratatui::TerminalOptions {
-            viewport: ratatui::Viewport::Inline(config().interface.height.unwrap()),
+            viewport: ratatui::Viewport::Inline(config().general.height.unwrap()),
         })?;
         terminal.clear()?;
 
