@@ -5,8 +5,8 @@ use std::{
     io::Write,
     process::{Command, Stdio},
 };
-use urlencoding::encode;
 use terminal_size::{Width, terminal_size};
+use urlencoding::encode;
 
 // Function to remove ascii color code from &str
 pub fn remove_ascii(text: &str) -> String {
@@ -224,13 +224,22 @@ pub fn expand_header(template: &str) -> Result<String, Box<dyn Error>> {
     for arg in &cmd_parts[1..] {
         shell_cmd.arg(arg);
     }
-    shell_cmd.env(
-        "COLUMNS",
-        terminal_size()
-            .map(|(Width(w), _)| w as usize)
-            .unwrap_or(80)
-            .to_string(),
-    );
+
+    // Calculate $COLUMNS
+    let cfg = config();
+    let iface_pad_right = cfg.interface.padding.unwrap()[1];
+    let iface_pad_left = cfg.interface.padding.unwrap()[3];
+    let image_pad_right = cfg.image.padding.unwrap()[1];
+    let image_pad_left = cfg.image.padding.unwrap()[3];
+    let columns = terminal_size()
+        .map(|(Width(w), _)| w)
+        .unwrap_or(80)
+        .saturating_sub(iface_pad_right)
+        .saturating_sub(iface_pad_left)
+        .saturating_sub(image_pad_right)
+        .saturating_sub(image_pad_left);
+
+    shell_cmd.env("COLUMNS", columns.to_string());
     shell_cmd.env(
         "HOSTNAME",
         hostname::get()

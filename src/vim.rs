@@ -28,7 +28,7 @@ impl Mode {
     pub fn cursor_style(&self) -> Style {
         let color = match self {
             Self::Normal => Color::Reset,
-            Self::Insert => {Color::DarkGray},
+            Self::Insert => Color::DarkGray,
             Self::Replace(_) => Color::Reset,
             Self::Operator(_) => Color::Reset,
         };
@@ -51,7 +51,6 @@ pub enum Transition {
     Nop,
     Mode(Mode),
     Pending(Input),
-    // The caller owns the terminal and handles this with edit_externally().
     EditExternally,
     Quit,
 }
@@ -1008,57 +1007,60 @@ pub fn edit_externally(
     terminal: &mut DefaultTerminal,
     textarea: &mut TextArea<'_>,
 ) -> io::Result<()> {
-    let text = textarea.lines().join("\n");
-    let position = cursor(textarea);
+    let editor = config().general.external_editor.as_deref().unwrap();
+    if !editor.is_empty() {
+        let text = textarea.lines().join("\n");
+        let position = cursor(textarea);
 
-    ratatui::restore();
-    let result = (|| -> std::io::Result<String> {
-        let file = tempfile::NamedTempFile::new()?;
-        std::fs::write(file.path(), &text)?;
+        ratatui::restore();
+        let result = (|| -> std::io::Result<String> {
+            let file = tempfile::NamedTempFile::new()?;
+            std::fs::write(file.path(), &text)?;
 
-        let editor = config().general.external_editor.as_deref().unwrap();
+            let editor = config().general.external_editor.as_deref().unwrap();
 
-        let mut exec_cmd = "sh -c".to_string();
-        if let Some(module_name) = config().general.exec_cmd.as_ref() {
-            exec_cmd = module_name.to_string()
-        };
-        let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-        let mut shell_cmd = std::process::Command::new(cmd_parts[0]);
-        for arg in &cmd_parts[1..] {
-            shell_cmd.arg(arg);
-        }
+            let mut exec_cmd = "sh -c".to_string();
+            if let Some(module_name) = config().general.exec_cmd.as_ref() {
+                exec_cmd = module_name.to_string()
+            };
+            let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
+            let mut shell_cmd = std::process::Command::new(cmd_parts[0]);
+            for arg in &cmd_parts[1..] {
+                shell_cmd.arg(arg);
+            }
 
-        let _ = shell_cmd
-            .arg(format!("{} {} 2>/dev/null", editor, file.path().display()))
-            .status();
+            let _ = shell_cmd
+                .arg(format!("{} {} 2>/dev/null", editor, file.path().display()))
+                .status();
 
-        std::fs::read_to_string(file.path())
-    })();
+            std::fs::read_to_string(file.path())
+        })();
 
-    // Move cursor up one line to offset the line created by creating a viewport
-    let mut stdout = io::stdout();
-    write!(stdout, "\x1b[1A")?;
+        // Move cursor up one line to offset the line created by creating a viewport
+        let mut stdout = io::stdout();
+        write!(stdout, "\x1b[1A")?;
 
-    // Restore the TUI before propagating an editor-launch or file-read error.
-    *terminal = ratatui::try_init_with_options(ratatui::TerminalOptions {
-        viewport: ratatui::Viewport::Inline(config().interface.height.unwrap()),
-    })?;
-    terminal.clear()?;
+        // Restore the TUI before propagating an editor-launch or file-read error.
+        *terminal = ratatui::try_init_with_options(ratatui::TerminalOptions {
+            viewport: ratatui::Viewport::Inline(config().interface.height.unwrap()),
+        })?;
+        terminal.clear()?;
 
-    let edited = result?;
-    textarea.cancel_selection();
-    if edited != text {
-        // Replace the contents without rebuilding the styled textarea.
-        textarea.select_all();
-        textarea.insert_str(&edited.trim_end());
+        let edited = result?;
         textarea.cancel_selection();
+        if edited != text {
+            // Replace the contents without rebuilding the styled textarea.
+            textarea.select_all();
+            textarea.insert_str(&edited.trim_end());
+            textarea.cancel_selection();
 
-        // Retain the old cursor position as far as the edited text permits.
-        let row = position.0.min(textarea.lines().len() - 1);
-        let col = position.1.min(line_len(textarea, row));
-        jump(textarea, row, col);
+            // Retain the old cursor position as far as the edited text permits.
+            let row = position.0.min(textarea.lines().len() - 1);
+            let col = position.1.min(line_len(textarea, row));
+            jump(textarea, row, col);
+        }
+        normal_cursor(textarea);
     }
-    normal_cursor(textarea);
     Ok(())
 }
 

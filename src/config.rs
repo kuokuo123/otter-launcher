@@ -82,7 +82,7 @@ impl Config {
         self.general.vi_mode.get_or_insert_with(|| false);
         self.general
             .external_editor
-            .get_or_insert_with(|| "nvim".to_owned());
+            .get_or_insert_with(|| "".to_owned());
         self.general
             .cheatsheet_entry
             .get_or_insert_with(|| "?".to_owned());
