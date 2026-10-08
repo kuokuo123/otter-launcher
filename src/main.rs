@@ -86,7 +86,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // Initialize editor
             let vi_mode = cfg.general.vi_mode.unwrap();
-            //let placeholder = cfg.interface.placeholder.as_deref().unwrap();
             let mut textarea = TextArea::default();
             textarea.set_cursor_line_style(Style::default());
             textarea.set_block(Mode::Insert.block());
@@ -94,8 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut external_edit_pending = false;
             let mut vim = Vim::new(Mode::Insert);
             let mut tab_original: Option<String> = None;
-            //textarea.set_placeholder_text(placeholder);
-            //textarea.set_placeholder_style(Style::default().fg(Color::Black));
+            let suggestion_mode = config().interface.suggestion_mode.as_deref().unwrap();
 
             // Initialize suggestions
             let suggestions: Vec<&Module> = cfg.modules.iter().collect();
@@ -237,7 +235,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     }
                                 } else {
                                     // Non-argument-taking module: replace the entire input.
-                                    module.prefix.clone()
+                                    format!("{} ", module.prefix)
                                 };
 
                                 tab_original = Some(prompt);

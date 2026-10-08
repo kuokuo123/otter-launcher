@@ -16,7 +16,6 @@ use ratatui::{
 use ratatui_image::{Resize, StatefulImage, protocol::StatefulProtocol};
 use ratatui_textarea::TextArea;
 use std::time::{Duration, Instant};
-use unicode_width::UnicodeWidthStr;
 
 /// The event loop maps Activate to its existing Enter handler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -405,7 +404,6 @@ pub fn draw(
 
     let header_text = header.into_text().expect("failed to parse header ANSI");
 
-    // Earlier lines go above the input; the last line goes beside it.
     let header_height = if !header.is_empty() {
         u16::try_from(header_text.lines.len()).unwrap_or(0)
     } else {
@@ -470,7 +468,6 @@ pub fn draw(
         separator_area,
     );
 
-    // Earlier header lines remain above the border.
     frame.render_widget(
         Paragraph::new(header_text).style(
             Style::default()
@@ -480,21 +477,34 @@ pub fn draw(
         header_area,
     );
 
-    // One shared border around the last header line and input.
+    // Input field rendering
     let input_block = Block::default().borders(Borders::NONE);
     let input_inner = input_block.inner(input_area);
 
     frame.render_widget(input_block, input_area);
 
     // Leave at least one column for editable text.
-    let prompt_sign_width = u16::try_from(prompt_sign.width()).unwrap_or(2);
+    let prompt_text = prompt_sign
+        .into_text()
+        .expect("failed to parse prompt ANSI");
+
+    let prompt_sign_width = u16::try_from(prompt_text.width()).unwrap_or(u16::MAX);
 
     let [prefix_area, textarea_area] =
         Layout::horizontal([Constraint::Length(prompt_sign_width), Constraint::Fill(1)])
             .areas(input_inner);
 
     frame.render_widget(
-        Paragraph::new(prompt_sign).style(
+        Paragraph::new(prompt_text).style(
+            Style::default()
+                .fg(prompt_sign_color)
+                .add_modifier(Modifier::BOLD),
+        ),
+        prefix_area,
+    );
+
+    frame.render_widget(
+        Paragraph::new(prompt_sign.into_text().unwrap()).style(
             Style::default()
                 .fg(prompt_sign_color)
                 .add_modifier(Modifier::BOLD),
@@ -504,7 +514,7 @@ pub fn draw(
 
     frame.render_widget(textarea, textarea_area);
 
-    // Render placeholder 
+    // Render placeholder
     if textarea.is_empty() {
         let inner = textarea
             .block()
@@ -579,7 +589,6 @@ pub fn draw(
 
     // Exclude the block's border from the available list space.
     let inner = suggestion_block.inner(suggestions_area);
-    //let inner = suggestions_area;
     let visible_rows = usize::from(inner.height);
 
     let show_scrollbar = visible_rows > 0 && inner.width > 1 && suggestions.len() > visible_rows;
@@ -753,53 +762,70 @@ pub fn matching_suggestions<'a>(
     suggestions: &[&'a Module],
 ) -> Vec<&'a Module> {
     let input = textarea.lines().join(" ");
-    let query = input.to_lowercase();
-    let query_prefix = query.split_whitespace().next().unwrap_or("");
 
-    let matcher = SkimMatcherV2::default();
+    // List mode behavior
+    if config().interface.suggestion_mode.as_deref().unwrap() == "list" {
+        let query = input.to_lowercase();
+        let query_prefix = query.split_whitespace().next().unwrap_or("");
 
-    let mut prefix_matches = Vec::new();
-    let mut whole_input_matches: Vec<(i64, &'a Module)> = Vec::new();
-    let mut first_word_matches: Vec<(i64, &'a Module)> = Vec::new();
+        let matcher = SkimMatcherV2::default();
 
-    for module in suggestions.iter().copied() {
-        let prefix = module.prefix.to_lowercase();
+        let mut prefix_matches = Vec::new();
+        let mut whole_input_matches: Vec<(i64, &'a Module)> = Vec::new();
+        let mut first_word_matches: Vec<(i64, &'a Module)> = Vec::new();
 
-        // Group 1: prefix starts with the first word.
-        if prefix.starts_with(query_prefix) {
-            prefix_matches.push(module);
-            continue;
+        for module in suggestions.iter().copied() {
+            let prefix = module.prefix.to_lowercase();
+
+            // Group 1: prefix starts with the first word.
+            if prefix.starts_with(query_prefix) {
+                prefix_matches.push(module);
+                continue;
+            }
+
+            let description = module.description.to_lowercase();
+
+            // Group 2: fuzzy match against the entire input.
+            let whole_score = matcher
+                .fuzzy_match(&prefix, &query)
+                .max(matcher.fuzzy_match(&description, &query));
+
+            if let Some(score) = whole_score {
+                whole_input_matches.push((score, module));
+                continue;
+            }
+
+            // Group 3: fuzzy match against only the first word.
+            let first_word_score = matcher
+                .fuzzy_match(&prefix, query_prefix)
+                .max(matcher.fuzzy_match(&description, query_prefix));
+
+            if let Some(score) = first_word_score {
+                first_word_matches.push((score, module));
+            }
         }
 
-        let description = module.description.to_lowercase();
+        whole_input_matches.sort_by(|a, b| b.0.cmp(&a.0));
+        first_word_matches.sort_by(|a, b| b.0.cmp(&a.0));
 
-        // Group 2: fuzzy match against the entire input.
-        let whole_score = matcher
-            .fuzzy_match(&prefix, &query)
-            .max(matcher.fuzzy_match(&description, &query));
+        prefix_matches.extend(whole_input_matches.into_iter().map(|(_, module)| module));
+        prefix_matches.extend(first_word_matches.into_iter().map(|(_, module)| module));
 
-        if let Some(score) = whole_score {
-            whole_input_matches.push((score, module));
-            continue;
-        }
+        prefix_matches
 
-        // Group 3: fuzzy match against only the first word.
-        let first_word_score = matcher
-            .fuzzy_match(&prefix, query_prefix)
-            .max(matcher.fuzzy_match(&description, query_prefix));
+    // Hint mode behaviour
+    } else {
+        let query = input.split_whitespace().next().unwrap_or("").to_lowercase();
 
-        if let Some(score) = first_word_score {
-            first_word_matches.push((score, module));
-        }
+        suggestions
+            .iter()
+            .copied()
+            .filter(|module| {
+                query.is_empty()
+                    || module.prefix.to_lowercase().starts_with(&query)
+            })
+            .collect()
     }
-
-    whole_input_matches.sort_by(|a, b| b.0.cmp(&a.0));
-    first_word_matches.sort_by(|a, b| b.0.cmp(&a.0));
-
-    prefix_matches.extend(whole_input_matches.into_iter().map(|(_, module)| module));
-    prefix_matches.extend(first_word_matches.into_iter().map(|(_, module)| module));
-
-    prefix_matches
 }
 
 pub fn normalize_selection(state: &mut ListState, item_count: usize) {
