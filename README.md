@@ -313,40 +313,7 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
 
 ## Styling
 
-### Fastfetch
-
-<div align="center">
-
-![fastfetch](./assets/fastfetch.png)
-
-</div>
-
-Using fastfetch in interface.header_cmd works without extra setting. However, add '--pipe false' to fastfetch in overlay.overlay_cmd to prevent its pipe mode from stripping colors.
-
-``` toml
-[interface]
-header_cmd = """
-fastfetch \
-    --structure break:colors:break:title:os:shell:kernel:uptime \
-    --logo-print-remaining false \
-    --logo-height 8 \
-    --logo-padding-left 3 \
-    --kitty $HOME/.config/otter-launcher/images/images_squ/archlinux_chan.jpg
-"""
-header = "   \u001B[33;1m  otterly awesome \u001B[0m  \u001B[36;1m:\u001B[0;1m "
-place_holder = "type & search"
-suggestion_mode = "hint"
-prefix_color = "\u001B[33m"
-description_color = "\u001B[39m"
-place_holder_color = "\u001B[30m"
-hint_color = "\u001B[90m"
-```
-
-### Image Protocol
-
-Use chafa in header_cmd to render the image.
-
-<div align="center">
+### Banner
 
 ![Foot Config](./assets/foot.png)
 
@@ -355,27 +322,103 @@ Use chafa in header_cmd to render the image.
 </div>
 
 ``` toml
+[general]
+height = 14
+
 [interface]
-header_cmd = "chafa --fit-width $HOME/.config/otter-launcher/images_other/waterways_and_otterways.jpg"
-header_cmd_trimmed_lines = 1
-header = """  \u001B[34;1m  󱎘 \u001B[0m $USER@$(echo $HOSTNAME)          \u001B[31m\u001B[0m $(cat /proc/loadavg | cut -d ' ' -f 1)  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}')\n    \u001B[34;1m󱎘 \u001B[0;1m """
-list_prefix = "       "
-selection_prefix = "     \u001B[31;1m> "
-place_holder = "type and search..."
-default_module_message = """
-       \u001B[35msearch\u001B[0m on the internet"""
-suggestion_mode = "list"
-suggestion_lines = 3
-prefix_padding = 3
-prefix_color = "\u001B[33m"
-description_color = "\u001B[39m"
-place_holder_color = "\u001B[90m"
-hint_color = "\u001B[90m"
+# Bash scripting widgets in $()
+header = """
+$(
+load=$(awk 'NR == 1 {print $1}' /proc/loadavg)
+mem=$(free -h | awk 'NR == 2 {print $3}' | sed 's/Gi/0/')
+left="$USER@$HOSTNAME"
+left="  > $left"
+right="> $load  > $mem"
+gap=$(( COLUMNS - ${#left} - ${#right} ))
+(( gap < 0 )) && gap=0
+printf '\x1b[34;1m   \x1b[0m%s@%s%*s\x1b[31;1m \x1b[0m%s  \x1b[33;1m \x1b[0m%s' "$USER" "$HOSTNAME" "$gap" '' "$load" "$mem")"""
+prompt_sign = "    "
+padding = [0, 1, 0, 1]
+separator_label = "   otter "
+list_prefix = "   "
+selection_prefix = " ▌ "
+inverse_selection = false
+suggestion_position = "bottom"
+indicator_bare = "$ "
+indicator_args = "^ "
+prefix_padding = 4
+
+[image]
+format = "kitty"
+path = "$HOME/.config/otter-launcher/images/images_other/waterways_and_otterways.jpg"
+width = 6
+position = "top"
 ```
 
-### Image to the Left
+### Two-liner
 
-Render chafa image at the left, moving the inteface to the right.
+<div align="center">
+
+![Two-liner Config](./assets/two_liner.png)
+
+</div>
+
+```toml
+[general]
+height = 2
+
+[interface]
+header = """
+$(
+load=$(awk 'NR == 1 {print $1}' /proc/loadavg)
+mem=$(free -h | awk 'NR == 2 {print $3}' | sed 's/Gi/0 /')
+
+left="$USER@$HOSTNAME"
+left="  > $left"
+right="> $load  > $mem"
+
+gap=$(( COLUMNS - ${#left} - ${#right} ))
+(( gap < 0 )) && gap=0
+
+printf '\x1b[34;1m   \x1b[0m%s@%s%*s\x1b[31;1m \x1b[0m%s  \x1b[33;1m \x1b[0m%s' "$USER" "$HOSTNAME" "$gap" '' "$load" "$mem")"""
+prompt_sign = "    "
+suggestion_mode = "hint"
+```
+
+### Fastfetch
+
+<div align="center">
+
+![fastfetch](./assets/fastfetch.png)
+
+</div>
+
+Images should be rendered by otter-launcher, and "--pipe false" should be attached to fastfetch itself.
+
+``` toml
+[general]
+height = 9
+
+[interface]
+# Strip fastfetch of the image and use the --pipe flag
+header = "$( fastfetch --structure colors:title:os:shell:uptime  --pipe false  --logo none)"
+prompt_sign = "\x1b[0m: "
+prompt_sign_color = "cyan"
+padding = [1, 2, 1, 0]
+suggestion_mode = "hint"
+suggestion_position = "top"
+indicator_bare = "$ "
+indicator_args = "^ "
+
+# Let otter handles the image
+[image]
+format = "kitty"
+path = "$HOME/.config/otter-launcher/images/images_squ/archlinux_chan.jpg"
+width = 20
+padding = [1, 1, 1, 2]
+```
+
+### Fzf-like
 
 <div align="center">
 
@@ -384,40 +427,41 @@ Render chafa image at the left, moving the inteface to the right.
 </div>
 
 ```toml
-[overlay]
-# render image in overlay layer using chafa
-overlay_cmd = "chafa -s x7 $HOME/.config/otter-launcher/images_rec.image"
+[general]
+height = 7
 
 [interface]
-header = """
-\u001B[34;1m> \u001B[0;1m"""
-place_holder = "type and search"
+padding = [1, 1, 1, 1]
+separator_label = "  otter "
 list_prefix = "  "
-selection_prefix = "\u001B[31;40;1m▌ "
-suggestion_mode = "list"
-suggestion_lines = 3
-separator = """
-$( \
-    text="  otter"; \
-    printf "\u001B[0;90m$text \
-    $(printf -v line '%*s' \"$(( COLUMNS - $(printf "$text" | wc -m) - 3 ))\" ''; printf '%s' \"${line// /─}\")" \
-)"""
-prefix_color = "\u001B[33m"
-description_color = "\u001B[39m"
-place_holder_color = "\u001B[0;30m"
-hint_color = "\u001B[90m"
-default_module_message = "\u001B[33msearch\u001B[0m the internet"
-prefix_padding = 3
-cursor_shape = 5
+selection_prefix = "▌ "
+inverse_selection = true
 
-# move the interface
-move_interface_right = 13
-move_interface_down = 1
+[image]
+format = "kitty"
+path = "$HOME/.config/otter-launcher/images_rec.image"
+width = 12
+```
+
+### One-liner
+
+<div align="center">
+
+![One-liner Config](./assets/one_liner.png)
+
+</div>
+
+```toml
+[general]
+height = 1
+
+[interface]
+prompt_sign = " > "
+suggestion_mode = "hint"
+placeholder = ""
 ```
 
 ### Image to the Right
-
-This config renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/main/assets/prinny-raisehand.png) using overlay_cmd, and then move the overlay right.
 
 <div align="center">
 
@@ -426,38 +470,34 @@ This config renders a [prinny](https://github.com/kuokuo123/otter-launcher/tree/
 </div>
 
 ```toml
-[overlay]
-# render image in overlay layer using chafa
-overlay_cmd = "chafa -s x10 $HOME/.config/otter-launcher/image.png"
-overlay_trimmed_lines = 0
-
-#move overlay rightwards
-move_overlay_right = 32
+[general]
+height = 10
 
 [interface]
-# move the interface
-move_interface_down = 1
-
-# customized header & list prefix
+padding = [1, 2, 1, 2]
 header = """
-    ┌ \u001B[1;34m  $USER@$(echo $HOSTNAME) \u001B[0m───┐
-    │ \u001B[90m󱎘  \u001B[31m󱎘  \u001B[32m󱎘  \u001B[33m󱎘  \u001B[34m󱎘  \u001B[35m󱎘  \u001B[36m󱎘\u001B[0m │
-    └ \u001B[36m \u001B[1;36m system\u001B[0m archlinux ┘
-    ┌ \u001B[33m \u001B[1;36m window \u001B[0m     $XDG_CURRENT_DESKTOP ┐
-    │ \u001B[31m \u001B[1;36m loads\u001B[0m       $(cat /proc/loadavg | cut -d ' ' -f 1) │
-    │ \u001B[32m \u001B[1;36m memory\u001B[0m     $(free -h | awk 'FNR == 2 {print $3}') │
-    │ \u001B[90m\u001B[0m  """
-list_prefix = "    └ \u001B[34m󱓞  "
-selection_prefix = "    └ \u001B[31m󱓞  "
-default_module_message = "\u001B[33msearch\u001B[0m the internet"
-
-place_holder = "type & search"
+ ┌ \u001B[1;34m  $USER@$(echo $HOSTNAME) \u001B[0m───┐
+ │ \u001B[90m󱎘  \u001B[31m󱎘  \u001B[32m󱎘  \u001B[33m󱎘  \u001B[34m󱎘  \u001B[35m󱎘  \u001B[36m󱎘\u001B[0m │
+ └ \u001B[36m \u001B[1;36m system\u001B[0m archlinux ┘
+ ┌ \u001B[33m \u001B[1;36m window \u001B[0m     $XDG_CURRENT_DESKTOP ┐
+ │ \u001B[31m \u001B[1;36m loads\u001B[0m       $(cat /proc/loadavg | cut -d ' ' -f 1) │
+ │ \u001B[32m \u001B[1;36m memory\u001B[0m     $(free -h | awk 'FNR == 2 {print $3}') │"""
+prompt_sign = " └ \u001B[90m \u001B[0m "
+prompt_sign_color = "reset"
 suggestion_mode = "list"
-suggestion_lines = 1
-prefix_color = "\u001B[33m"
-description_color = "\u001B[39m"
-place_holder_color = "\u001B[90m"
-hint_color = "\u001B[90m"
+suggestion_position = "bottom"
+inverse_selection = false
+separator = false
+prefix_padding = 3
+list_prefix = "  "
+selection_prefix = "  "
+
+[image]
+padding = [1, 2, 0, 0]
+format = "kitty"
+path = "$HOME/.config/otter-launcher/images/images_rec/prinny.png"
+width = 19
+position = "right"
 ```
 
 ### Otter Shocked
@@ -468,78 +508,32 @@ hint_color = "\u001B[90m"
 
 </div>
 
-This custom script use ansi control codes to print texts to the right of a sixel [shocked otter](https://github.com/kuokuo123/otter-launcher/tree/main/assets/otter_shocked.webp).
-
 ```toml
-# delay startup to wait for sixel execution
 [general]
-delay_startup = 10
+height = 10
 
 [interface]
-header_cmd = """
-
-# The path of the image to be displayed
-image_file="$HOME/.config/otter-launcher/images/images_other/otter_shocked.webp"
-
-# Set the image's width and height, which decide the position of printed texts
-image_width=17
-image_height=6
-
-# pad the image with spaces
-image_padding_top=1
-image_padding_left=2
-
-# The text to be printed should be written between the two "EOF"s
-printed_lines=$(cat << EOF
-\u001B[90m
-░█▀█░▀█▀░▀█▀░█▀▀░█▀█░░░░░ ░ ░
+header = """
+\x1b[90m░█▀█░▀█▀░▀█▀░█▀▀░█▀█░░░░░ ░ ░
 ░█░█░░█░░░█░░█▀▀░█▀▄░▀▀▀░ ░ ░
 ░▀▀▀░░▀░░░▀░░▀▀▀░▀░▀░░░░░ ░ ░
 ░█░░░█▀█░█░█░█▀█░█▀▀░█░█░ ░ ░
 ░█░░░█▀█░█░█░█░█░█░░░█▀█░ ░ ░
 ░▀▀▀░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀░ ░ ░
-EOF
-)
-
-# main function
-function chafa-text() {
-  # pad printed_lines with empty lines to the height of the image
-  line_count=$(echo "$printed_lines" | wc -l)
-  additional_lines=$((image_height - line_count))
-  for (( i=0; i<additional_lines; i++ )); do
-    printed_lines+="\n"
-  done
-  # Render the image with chafa at the padded position
-  if (( $image_padding_top > 0 )); then
-    printf '\n%.0s' $(seq 1 $image_padding_top)
-  fi
-  chafa --size $((image_width))x$((image_height)) "$image_file" | while IFS= read -r line; do
-  printf "\u001B[$((image_padding_left))G"
-    printf '\u001B[%dG%s\n' "$((image_padding_left + 1))" "$line"
-  done
-  # Move cursor to the starting line of the image
-  printf "\u001B[$((image_height + 1))A"
-  # Move each of printed_lines' start position to image_width + 1
-  echo -e "$printed_lines" | while IFS= read -r line; do
-    printf '\u001B[%dG%s\n' "$((image_width))" "$line"
-  done
-}
-
-# run the function
-chafa-text
+\x1b[31;1m󱩊 \x1b[0m$USER@$HOSTNAME      \x1b[31;1m󰘚 \x1b[0m$(free -h | awk 'NR == 2 {print $3}' | sed 's/i//')
 """
-
-header = """
-  \u001B[31;1m \u001B[0m $USER@$(echo $HOSTNAME)            \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')%  \u001B[33m󰍛\u001B[0m $(free -h | awk 'FNR == 2 {print $3}' | sed 's/i//')
-  \u001B[31;1m>>\u001B[0;1m """
-indicator_with_arg_module = "$ "
-indicator_no_arg_module = "^ "
-place_holder = "type something..."
+prompt_sign = " "
+prompt_sign_color = "yellow"
+padding = [1, 2, 1, 0]
 suggestion_mode = "hint"
-prefix_color = "\u001B[33m"
-description_color = "\u001B[39m"
-place_holder_color = "\u001B[30m"
-hint_color = "\u001B[90m"
+suggestion_position = "top"
+prefix_padding = 3
+
+[image]
+format = "kitty"
+path = "$HOME/.config/otter-launcher/images/images_squ/otter_shocked.webp"
+width = 22
+padding = [1, 1, 1, 2]
 ```
 
 ## Sponsorship
