@@ -93,7 +93,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut external_edit_pending = false;
             let mut vim = Vim::new(Mode::Insert);
             let mut tab_original: Option<String> = None;
-            let suggestion_mode = config().interface.suggestion_mode.as_deref().unwrap();
 
             // Initialize suggestions
             let suggestions: Vec<&Module> = cfg.modules.iter().collect();

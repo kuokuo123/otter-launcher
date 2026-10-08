@@ -373,7 +373,6 @@ pub fn draw(
     };
 
     if let Some(image) = image {
-        if image_area.width > 0 && image_area.height > 0 {
             // 1. Define the border block
             let block = Block::default()
                 .borders(Borders::NONE)
@@ -391,15 +390,12 @@ pub fn draw(
             // 3. Draw the border block first
             frame.render_widget(block, image_area);
 
-            // 4. Render the image ONLY within inner_area so it doesn't overwrite the border
-            if inner_area.width > 0 && inner_area.height > 0 {
-                frame.render_stateful_widget(
-                    StatefulImage::default().resize(Resize::Scale(None)),
-                    inner_area,
-                    image,
-                );
-            }
-        }
+            // 4. Render the image within inner_area so it doesn't overwrite the border
+            frame.render_stateful_widget(
+                StatefulImage::default().resize(Resize::Scale(None)),
+                inner_area,
+                image,
+            );
     }
 
     let header_text = header.into_text().expect("failed to parse header ANSI");
@@ -683,6 +679,11 @@ fn draw_inline_hint(
     }
 
     let input = &textarea.lines()[0];
+
+    if input.starts_with(' ') {
+        return;
+    }
+
     let mut words = input.split_whitespace();
 
     let Some(first_word) = words.next() else {
@@ -695,41 +696,52 @@ fn draw_inline_hint(
     }
 
     // Only show the hint while editing at the end of the input.
-    if textarea.cursor() != (0, input.chars().count()) {
+    //if textarea.cursor() != (0, input.chars().count()) {
+    //    return;
+    //}
+
+    let trailing_spaces = input
+        .chars()
+        .rev()
+        .take_while(|c| c.is_whitespace())
+        .count();
+
+    // Hide the hint once a trailing space is typed.
+    if trailing_spaces > 1 {
         return;
     }
-
-    let trailing_space = input
-        .chars()
-        .last()
-        .map(char::is_whitespace)
-        .unwrap_or(false);
 
     let prefix_starts_with_word = module
         .prefix
         .to_lowercase()
         .starts_with(&first_word.to_lowercase());
 
-    let hint = if trailing_space {
-        // "sh " → "run bash command"
-        module.description.clone()
-    } else if prefix_starts_with_word {
-        // "s" → "h run bash command"
-        // "sh" → " run bash command"
-        let suffix: String = module
+    // Complete the prefix even when one trailing space exists.
+    let suffix: String = if prefix_starts_with_word {
+        module
             .prefix
             .chars()
             .skip(first_word.chars().count())
-            .collect();
-
-        if module.description.is_empty() {
-            suffix
-        } else {
-            format!("{suffix} {}", module.description)
-        }
+            .collect()
     } else {
-        // A fuzzy match may have no prefix suffix to append.
-        format!(" {}", module.description)
+        String::new()
+    };
+
+    let cfg = config();
+    let indicator = if module.with_argument.unwrap() {
+        cfg.interface.indicator_args.as_deref().unwrap()
+    } else {
+        cfg.interface.indicator_bare.as_deref().unwrap()
+    };
+
+    let hint = if module.description.is_empty() {
+        suffix
+    } else if trailing_spaces == 1 && suffix.is_empty() {
+        format!("{}{}", indicator, module.description)
+    } else if trailing_spaces == 1 && !suffix.is_empty() {
+        String::new()
+    } else {
+        format!("{suffix} {}{}", indicator, module.description)
     };
 
     // Respect the textarea's block borders/padding.
@@ -820,10 +832,7 @@ pub fn matching_suggestions<'a>(
         suggestions
             .iter()
             .copied()
-            .filter(|module| {
-                query.is_empty()
-                    || module.prefix.to_lowercase().starts_with(&query)
-            })
+            .filter(|module| query.is_empty() || module.prefix.to_lowercase().starts_with(&query))
             .collect()
     }
 }
