@@ -362,11 +362,11 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                 (KeyCode::Down, _) | (KeyCode::Char('j' | 'n'), true) => {
                     match suggestion_mode == "list" {
                         true => {
-                        select_down(
-                            &mut suggestion_state,
-                            visible_suggestions.len(),
-                            suggestion_direction,
-                        );
+                            select_down(
+                                &mut suggestion_state,
+                                visible_suggestions.len(),
+                                suggestion_direction,
+                            );
                         }
                         false => (),
                     }
@@ -738,8 +738,20 @@ pub fn draw(
     }
 
     // List-specific options and styles are only needed in list mode.
-    let selection_prefix = cfg.interface.selection_prefix.as_deref().unwrap();
-    let list_prefix = cfg.interface.list_prefix.as_deref().unwrap();
+    let selection_prefix = cfg
+        .interface
+        .selection_prefix
+        .as_deref()
+        .unwrap()
+        .into_text()
+        .expect("");
+    let list_prefix = cfg
+        .interface
+        .list_prefix
+        .as_deref()
+        .unwrap()
+        .into_text()
+        .expect("");
     let prefix_padding = cfg.interface.prefix_padding.unwrap();
     let prefix_style = Style::default().fg(parse_color(
         cfg.interface.prefix_color.as_deref(),
@@ -766,11 +778,6 @@ pub fn draw(
     // Form the suggestion items
     let items = suggestions.iter().enumerate().map(|(index, module)| {
         let selected = selected_index == Some(index);
-        let marker = if selected {
-            selection_prefix
-        } else {
-            list_prefix
-        };
 
         let indicator = if module.with_argument.unwrap() {
             indicator_with_arg
@@ -778,15 +785,30 @@ pub fn draw(
             indicator_no_arg
         };
 
-        ListItem::new(Line::from(vec![
-            Span::styled(
-                marker,
-                if selected {
-                    selected_marker_style
-                } else {
-                    list_marker_style
-                },
-            ),
+        let marker = if selected {
+            &selection_prefix
+        } else {
+            &list_prefix
+        };
+
+        let marker_style = if selected {
+            selected_marker_style
+        } else {
+            list_marker_style
+        };
+
+        // Make ANSI color code compatible with marker
+        let mut spans: Vec<Span<'_>> = marker
+            .lines
+            .first()
+            .map(|line| line.spans.clone())
+            .unwrap_or_default();
+
+        for span in &mut spans {
+            span.style = marker_style.patch(span.style);
+        }
+
+        spans.extend([
             Span::styled(
                 padded_prefix(module.prefix.as_str(), prefix_padding),
                 prefix_style,
@@ -794,14 +816,19 @@ pub fn draw(
             Span::raw(" "),
             Span::styled(indicator, indicator_style),
             Span::styled(module.description.as_str(), description_style),
-        ]))
+        ]);
+
+        ListItem::new(Line::from(spans))
     });
 
     let inner = suggestions_area;
     let visible_rows = usize::from(inner.height);
 
     // Hide scrollbar if disabled
-    let show_scrollbar = visible_rows > 0 && inner.width > 1 && suggestions.len() > visible_rows && cfg.interface.scrollbar.unwrap();
+    let show_scrollbar = visible_rows > 0
+        && inner.width > 1
+        && suggestions.len() > visible_rows
+        && cfg.interface.scrollbar.unwrap();
 
     let list_area = Rect {
         width: inner.width.saturating_sub(u16::from(show_scrollbar)),
