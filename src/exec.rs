@@ -1,109 +1,151 @@
-use crate::config::*;
-use ratatui::{backend::IntoCrossterm, crossterm::style::SetForegroundColor, style::Color};
+use crate::config::{Module, config};
+use ratatui::{
+    backend::IntoCrossterm, crossterm::style::SetForegroundColor, style::Color, text::Line,
+};
+use regex::Regex;
 use std::{
+    borrow::Cow,
     error::Error,
-    io::Write,
+    io::{self, BufWriter, Write},
     process::{Command, Stdio},
+    sync::OnceLock,
 };
 use terminal_size::{Width, terminal_size};
 use urlencoding::encode;
 
-// Function to remove ascii color code from &str
 pub fn remove_ascii(text: &str) -> String {
-    let re = regex::Regex::new(r"\x1b\[[0-9;]*[A-Za-z]").unwrap();
-    re.replace_all(text, "").to_string()
+    if !text.contains('\x1b') {
+        return text.to_owned();
+    }
+
+    static ANSI_REGEX: OnceLock<Regex> = OnceLock::new();
+    ANSI_REGEX
+        .get_or_init(|| Regex::new(r"\x1b\[[0-9;]*[A-Za-z]").expect("valid ANSI escape pattern"))
+        .replace_all(text, "")
+        .into_owned()
 }
 
-// Function to run empty & default modules
-pub fn run_designated_module(prompt: String, prfx: &str) {
-    // Test if the designated module is set
-    if prfx.is_empty() {
-        println!("{}", prompt)
+// Function to tell what to do with the prompt
+pub fn dispatch_prompt(prompt: String) -> bool {
+    let cfg = config();
+    // Match the first input word with module prefixes
+    let first_word = prompt.split_whitespace().next().unwrap_or("");
+    let matched = cfg.modules.iter().find_map(|module| {
+        let prefix = remove_ascii(&module.prefix);
+        if prefix == first_word {
+            Some((module, prefix))
+        } else {
+            None
+        }
+    });
+
+    match matched {
+        // Condition 1: when the selected module runs with arguement
+        Some((module, _)) if module.with_argument.unwrap_or(false) => {
+            let argument = prompt.trim_start_matches(first_word).trim_start();
+            execute_module(module, Some(argument));
+        }
+        // Condition 2: when user input is exactly the same as the no-arg module
+        Some((module, prefix)) if prefix == prompt.trim_end() => {
+            execute_module(module, None);
+        }
+        // Condition 3: when user input is empty, run the empty module
+        None if prompt.is_empty() => {
+            if let Some(prefix) = cfg.general.empty_module.as_deref() {
+                run_designated_module(prompt, prefix);
+            }
+        }
+        // Condition 4: cheatsheet keyword
+        None if Some(prompt.trim_end()) == cfg.general.cheatsheet_entry.as_deref() => {
+            let _ = cheat_sheet();
+            return true;
+        }
+        // Condition 3: when no module is matched, run the default module
+        _ => {
+            if let Some(prefix) = cfg.general.default_module.as_deref() {
+                run_designated_module(prompt, prefix);
+            }
+        }
+    }
+
+    false
+}
+
+// Function to find module by a given prefix, used for default and empty module
+pub fn run_designated_module(prompt: String, prefix: &str) {
+    if prefix.is_empty() {
+        println!("{prompt}");
+        return;
+    }
+
+    if let Some(module) = config()
+        .modules
+        .iter()
+        .find(|module| remove_ascii(&module.prefix) == prefix)
+    {
+        // Designated modules receive the complete prompt, including its first word.
+        execute_module(module, Some(&prompt));
     } else {
-        // Set a fallback module to prevent panic when no module is found
-        let fallback = Module {
-            description: String::new(),
-            prefix: String::new(),
-            cmd: "printf 'no default_module or empty_module found\n'".to_string(),
-            with_argument: None,
-            url_encode: None,
-            unbind_proc: None,
-        };
-
-        // Find the designated module
-        let target_module = config()
-            .modules
-            .iter()
-            .find(|module| remove_ascii(&module.prefix) == prfx)
-            .unwrap_or(&fallback);
-        // Whether to use url encoding
-        let prompt_wo_prefix = if target_module.url_encode.unwrap_or(false) {
-            encode(&prompt).to_string()
-        } else {
-            prompt
-        };
-
-        // Run the module's command
-        if target_module.unbind_proc.unwrap_or(false) {
-            let _ = run_module_command_unbind_proc(
-                target_module
-                    .cmd
-                    .replace("{}", &prompt_wo_prefix)
-                    .to_string(),
-            );
-        } else {
-            let _ = run_module_command(
-                target_module
-                    .cmd
-                    .replace("{}", &prompt_wo_prefix)
-                    .to_string(),
-            );
+        if let Err(error) = shell_command(
+            config().general.exec_cmd.as_deref(),
+            "printf 'no default_module or empty_module found\n'",
+            false,
+        )
+        .and_then(|mut built_command| built_command.status())
+        {
+            eprintln!("Failed to execute fallback: {error}");
         }
     }
 }
 
-// Function to run module.cmd
-pub fn run_module_command(mod_cmd_arg: String) -> Result<(), Box<dyn std::error::Error>> {
-    // format the shell command by which the module commands are launched
-    let mut exec_cmd = "sh -c".to_string();
-    if let Some(module_name) = config().general.exec_cmd.as_ref() {
-        exec_cmd = module_name.to_string()
+// Function to execute a module's cmd
+fn execute_module(module: &Module, argument: Option<&str>) {
+    let command = match argument {
+        Some(argument) => {
+            let argument: Cow<'_, str> = if module.url_encode.unwrap_or(false) {
+                encode(argument)
+            } else {
+                Cow::Borrowed(argument)
+            };
+            module.cmd.replace("{}", argument.as_ref())
+        }
+        None => module.cmd.to_owned(),
     };
-    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-    let mut shell_cmd = Command::new(cmd_parts[0]);
-    for arg in &cmd_parts[1..] {
-        shell_cmd.arg(arg);
+
+    if let Err(error) = shell_command(
+        config().general.exec_cmd.as_deref(),
+        &command,
+        module.unbind_proc.unwrap_or(false),
+    )
+    .and_then(|mut built_command| built_command.status())
+    {
+        eprintln!("Failed to execute module: {error}");
     }
-    // Run module cmd
-    shell_cmd.arg(mod_cmd_arg);
-    shell_cmd.spawn()?.wait()?;
-    Ok(())
 }
 
-pub fn run_module_command_unbind_proc(
-    mod_cmd_arg: String,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Format the shell command by which the module commands are launched
-    let mut shell_cmd = Command::new("setsid");
-    shell_cmd.arg("-f");
+// Function to build a process command
+fn shell_command(exec_cmd: Option<&str>, script: &str, detached: bool) -> io::Result<Command> {
+    let mut parts = exec_cmd.unwrap_or("sh -c").split_whitespace();
+    let program = parts.next().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "general.exec_cmd must contain a program",
+        )
+    })?;
 
-    let mut exec_cmd = "sh -c".to_string();
-    if let Some(module_name) = config().general.exec_cmd.as_ref() {
-        exec_cmd = module_name.to_string()
+    let mut command = if detached {
+        let mut command = Command::new("setsid");
+        command.args(["-f", program]);
+        command
+    } else {
+        Command::new(program)
     };
-    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-    for arg in &cmd_parts[0..] {
-        shell_cmd.arg(arg);
-    }
-
-    // Run module cmd
-    shell_cmd.arg(mod_cmd_arg).spawn()?.wait()?;
-    Ok(())
+    command.args(parts).arg(script);
+    Ok(command)
 }
 
-// Function to format and show cheat sheet
-pub fn cheat_sheet() -> Result<(), Box<dyn std::error::Error>> {
-    // Setup variables
+// Function to form and pipe cheat sheet to external pager
+pub fn cheat_sheet() -> Result<(), Box<dyn Error>> {
     let cfg = config();
     let header_color = cfg
         .interface
@@ -133,138 +175,145 @@ pub fn cheat_sheet() -> Result<(), Box<dyn std::error::Error>> {
     let indicator_no_arg = cfg.interface.indicator_bare.as_deref().unwrap();
     let cheatsheet_viewer = cfg.general.cheatsheet_viewer.as_deref().unwrap();
 
-    // Run general.cheatsheet.viewer
-    let mut exec_cmd = "sh -c".to_string();
-    if let Some(module_name) = config().general.exec_cmd.as_ref() {
-        exec_cmd = module_name.to_string()
-    };
-    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-    let mut shell_cmd = Command::new(cmd_parts[0]);
-    for arg in &cmd_parts[1..] {
-        shell_cmd.arg(arg);
-    }
-    let mut child = shell_cmd
-        .arg(cheatsheet_viewer)
+    let mut child = shell_command(cfg.general.exec_cmd.as_deref(), cheatsheet_viewer, false)?
         .stdin(Stdio::piped())
-        .spawn();
-    if let Ok(ref mut child) = child {
-        if let Some(stdin) = child.stdin.as_mut() {
-            // Format cheat sheet
-            let mapped_modules = config()
-                .modules
-                .iter()
-                .map(|module| {
-                    let arg_indicator = if module.with_argument == Some(true) {
-                        indicator_with_arg
-                    } else {
-                        indicator_no_arg
-                    };
-                    let width = config()
-                        .modules
-                        .iter()
-                        .map(|line| remove_ascii(&line.prefix).len())
-                        .max()
-                        .unwrap_or(0);
-                    format!(
-                        "    {}{:width$}{} {}{}{}{}{}",
-                        SetForegroundColor(prefix_color.into_crossterm()),
-                        &module.prefix,
-                        "\x1b[0m",
-                        SetForegroundColor(indicator_color.into_crossterm()),
-                        arg_indicator,
-                        SetForegroundColor(description_color.into_crossterm()),
-                        &module.description,
-                        "\x1b[0m"
-                    )
-                })
-                .collect::<Vec<String>>()
-                .join("\n");
-            match stdin.write_all(
-                format!(
-                    "\n  {}{}{}",
-                    SetForegroundColor(header_color.into_crossterm()),
-                    "\x1b[1mCheatsheet\n\n\x1b[0m",
-                    mapped_modules
-                )
-                .as_bytes(),
-            ) {
-                Ok(_) => {}
-                Err(e) => {
-                    eprintln!("Error writing to stdin of child process: {}", e);
-                }
+        .spawn()?;
+
+    let write_result = (|| -> io::Result<()> {
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| io::Error::other("viewer stdin unavailable"))?;
+        let mut output = BufWriter::new(stdin);
+
+        // Strip ANSI codes and measure terminal columns once per module.
+        let prefix_widths: Vec<usize> = cfg
+            .modules
+            .iter()
+            .map(|module| Line::raw(remove_ascii(&module.prefix)).width())
+            .collect();
+        let width = prefix_widths.iter().copied().max().unwrap_or(0);
+
+        write!(
+            output,
+            "\n  {}\x1b[1mCheatsheet\n\n\x1b[0m",
+            SetForegroundColor(header_color.into_crossterm()),
+        )?;
+
+        for (index, (module, prefix_width)) in cfg.modules.iter().zip(prefix_widths).enumerate() {
+            if index > 0 {
+                writeln!(output)?;
             }
+            let indicator = if module.with_argument.unwrap_or(false) {
+                indicator_with_arg
+            } else {
+                indicator_no_arg
+            };
+
+            write!(
+                output,
+                "    {}{}{}\x1b[0m {}{}{}{}\x1b[0m",
+                SetForegroundColor(prefix_color.into_crossterm()),
+                module.prefix,
+                " ".repeat(width.saturating_sub(prefix_width)),
+                SetForegroundColor(indicator_color.into_crossterm()),
+                indicator,
+                SetForegroundColor(description_color.into_crossterm()),
+                module.description,
+            )?;
         }
+
+        // The owned stdin closes when this closure returns, before waiting for the viewer.
+        output.flush()
+    })();
+
+    if let Err(error) = write_result {
+        eprintln!("Error writing to stdin of child process: {error}");
     }
-    child?.wait()?;
+    child.wait()?;
     Ok(())
 }
 
-// function to expand env and variables
 pub fn expand_header(template: &str) -> Result<String, Box<dyn Error>> {
-    // Plain text needs no shell expansion.
-    let needs_shell = template.chars().any(|ch| matches!(ch, '$' | '`' | '\\'));
-    if !needs_shell {
+    if !template.chars().any(|ch| matches!(ch, '$' | '`' | '\\')) {
         return Ok(template.to_owned());
     }
 
-    // Prepare header as shell command
     let mut delimiter = "_**_HDREND_#$_".to_owned();
     while template.lines().any(|line| line == delimiter) {
         delimiter.push('_');
     }
     let script = format!("cat <<{delimiter}\n{template}\n{delimiter}");
 
-    // Run header through shell
-    let mut exec_cmd = "sh -c".to_string();
-    if let Some(module_name) = config().general.exec_cmd.as_ref() {
-        exec_cmd = module_name.to_string()
-    };
-    let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-    let mut shell_cmd = Command::new(cmd_parts[0]);
-    for arg in &cmd_parts[1..] {
-        shell_cmd.arg(arg);
-    }
-
-    // Calculate $COLUMNS
     let cfg = config();
-    let iface_pad_right = cfg.interface.padding.unwrap()[1];
-    let iface_pad_left = cfg.interface.padding.unwrap()[3];
-    let image_pad_right = cfg.image.padding.unwrap()[1];
-    let image_pad_left = cfg.image.padding.unwrap()[3];
+    let mut shell_cmd = shell_command(cfg.general.exec_cmd.as_deref(), &script, false)?;
+    let interface_padding = cfg.interface.padding.unwrap();
+    let image_padding = cfg.image.padding.unwrap();
     let columns = terminal_size()
-        .map(|(Width(w), _)| w)
+        .map(|(Width(width), _)| width)
         .unwrap_or(80)
-        .saturating_sub(iface_pad_right)
-        .saturating_sub(iface_pad_left)
-        .saturating_sub(image_pad_right)
-        .saturating_sub(image_pad_left);
+        .saturating_sub(interface_padding[1])
+        .saturating_sub(interface_padding[3])
+        .saturating_sub(image_padding[1])
+        .saturating_sub(image_padding[3]);
+    let hostname = hostname::get()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .into_owned();
 
-    shell_cmd.env("COLUMNS", columns.to_string());
-    shell_cmd.env(
-        "HOSTNAME",
-        hostname::get()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned(),
-    );
-    shell_cmd.env(
-        "HOST",
-        hostname::get()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned(),
-    );
-    let output = shell_cmd.arg(script).output()?;
+    let output = shell_cmd
+        .env("COLUMNS", columns.to_string())
+        .env("HOSTNAME", &hostname)
+        .env("HOST", &hostname)
+        .output()?;
 
     if !output.status.success() {
-        return Err(std::io::Error::other(format!(
+        return Err(io::Error::other(format!(
             "interface.header expansion failed: {}",
             String::from_utf8_lossy(&output.stderr),
         ))
         .into());
     }
 
-    let header = String::from_utf8(output.stdout)?;
+    Ok(String::from_utf8(output.stdout)?)
+}
 
-    Ok(header)
+#[cfg(test)]
+mod tests {
+    use super::{Line, remove_ascii, shell_command};
+    use std::{ffi::OsStr, io};
+
+    #[test]
+    fn configured_shell_preserves_the_script_as_one_argument() {
+        let script = "printf '%s' 'a b'";
+        let command = shell_command(Some("bash --noprofile -c"), script, false).unwrap();
+        assert_eq!(command.get_program(), OsStr::new("bash"));
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            vec![OsStr::new("--noprofile"), OsStr::new("-c"), OsStr::new(script)],
+        );
+    }
+
+    #[test]
+    fn detached_shell_wraps_the_same_program_and_arguments() {
+        let command = shell_command(None, "echo test", true).unwrap();
+        assert_eq!(command.get_program(), OsStr::new("setsid"));
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            vec![OsStr::new("-f"), OsStr::new("sh"), OsStr::new("-c"), OsStr::new("echo test")],
+        );
+    }
+
+    #[test]
+    fn empty_shell_configuration_returns_an_error() {
+        let error = shell_command(Some(" \t\n"), "echo test", false).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn colored_unicode_prefixes_have_their_visible_width() {
+        let prefix = "\x1b[31m検索\x1b[0m";
+        assert_eq!(remove_ascii(prefix), "検索");
+        assert_eq!(Line::raw(remove_ascii(prefix)).width(), 4);
+    }
 }

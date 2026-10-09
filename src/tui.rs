@@ -1,23 +1,39 @@
 use crate::config::*;
+use crate::vim::{Mode, Transition, Vim, edit_externally};
 
 use ansi_to_tui::IntoText;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
+use image::ImageReader;
 use ratatui::{
-    Frame,
-    crossterm::event::{MouseButton, MouseEvent, MouseEventKind},
+    Frame, TerminalOptions, Viewport,
+    crossterm::{
+        event::{
+            self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+            KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+        },
+        execute,
+    },
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{
-        Block, Borders, List, ListDirection, ListItem, ListState, Padding, Paragraph, Scrollbar,
+        Block, List, ListDirection, ListItem, ListState, Padding, Paragraph, Scrollbar,
         ScrollbarOrientation, ScrollbarState,
     },
 };
-use ratatui_image::{Resize, StatefulImage, protocol::StatefulProtocol};
-use ratatui_textarea::TextArea;
-use std::time::{Duration, Instant};
+use ratatui_image::{
+    Resize, StatefulImage,
+    picker::{Picker, ProtocolType},
+    protocol::StatefulProtocol,
+};
+use ratatui_textarea::{Input, TextArea};
+use std::{
+    borrow::Cow,
+    error::Error,
+    io,
+    time::{Duration, Instant},
+};
 
-/// The event loop maps Activate to its existing Enter handler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SuggestionMouseAction {
     Ignored,
@@ -27,7 +43,6 @@ pub enum SuggestionMouseAction {
     Complete,
 }
 
-/// Keep this outside the event loop; draw() only returns the current geometry.
 #[derive(Debug, Default)]
 pub struct SuggestionMouseState {
     last_click: Option<SuggestionClick>,
@@ -43,7 +58,7 @@ struct SuggestionClick {
 }
 
 impl SuggestionMouseState {
-    /// Cancel a pending double-click when a key or resize changes the interface.
+    // Cancel a pending double-click when a key or resize changes the interface.
     pub fn reset(&mut self) {
         self.last_click = None;
     }
@@ -87,12 +102,10 @@ impl SuggestionMouseState {
     }
 }
 
-/// Mouse interaction for the suggestion list rendered by the most recent draw.
-///
-/// Store the value returned by `draw()` and forward `Event::Mouse` to
-/// `handle_mouse()` along with a persistent `SuggestionMouseState`.
-/// Enable Crossterm mouse capture while the TUI is active.
-/// Each suggestion in this interface occupies one terminal row.
+// Mouse interaction for the suggestion list rendered by the most recent draw.
+// Store the value returned by `draw()` and forward `Event::Mouse` to `handle_mouse()` along with a persistent `SuggestionMouseState`.
+// Enable Crossterm mouse capture while the TUI is active.
+// Each suggestion in this interface occupies one terminal row.
 #[derive(Debug, Clone, Copy)]
 pub struct SuggestionMouse {
     // Includes the scrollbar, allowing wheel scrolling over either area.
@@ -104,7 +117,7 @@ pub struct SuggestionMouse {
 }
 
 impl SuggestionMouse {
-    /// Single-click selects; double-click activates; wheel steps cycle selection.
+    // Single-click selects; double-click activates; wheel steps cycle selection.
     pub fn handle_mouse(
         &self,
         mouse: MouseEvent,
@@ -196,6 +209,271 @@ impl SuggestionMouse {
     }
 }
 
+// Function to launch the TUI interface
+pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>, Box<dyn Error>> {
+    // Prepare config, image, and other variables
+    let cfg = config();
+    let mut image: Option<StatefulProtocol> = match cfg
+        .image
+        .path
+        .as_deref()
+        .filter(|path| !path.trim().is_empty())
+    {
+        Some(image_path) => {
+            let expanded_path = shellexpand::full_with_context_no_errors(
+                image_path,
+                || std::env::var("HOME").ok(),
+                |name| std::env::var(name).ok(),
+            );
+            let source = ImageReader::open(expanded_path.as_ref())?
+                .with_guessed_format()?
+                .decode()?;
+
+            let mut picker = Picker::from_query_stdio().map_err(io::Error::other)?;
+            picker.set_protocol_type(match cfg.image.format.as_deref().unwrap() {
+                "kitty" => ProtocolType::Kitty,
+                "sixel" => ProtocolType::Sixel,
+                "iterm2" => ProtocolType::Iterm2,
+                _ => ProtocolType::Halfblocks,
+            });
+
+            Some(picker.new_resize_protocol(source))
+        }
+        None => None,
+    };
+    let vi_mode = cfg.general.vi_mode.unwrap();
+    let suggestion_mode = cfg.interface.suggestion_mode.as_deref().unwrap();
+
+    // Prepare the editor
+    let mut textarea = TextArea::default();
+    textarea.set_cursor_line_style(Style::default());
+    textarea.set_block(Mode::Insert.block());
+    textarea.set_cursor_style(Mode::Insert.cursor_style());
+
+    // Prepare editor settings
+    let mut vim = Vim::new(Mode::Insert);
+    let mut external_edit_pending = false;
+    let mut tab_original: Option<String> = None;
+    let mut suggestion_state = ListState::default();
+    let mut suggestion_mouse_state = SuggestionMouseState::default();
+    let suggestion_direction = if cfg.interface.suggestion_position.as_deref().unwrap() == "top" {
+        ListDirection::BottomToTop
+    } else {
+        ListDirection::TopToBottom
+    };
+
+    // Prepare viewport
+    let mut terminal = ratatui::try_init_with_options(TerminalOptions {
+        viewport: Viewport::Inline(cfg.general.height.unwrap()),
+    })?;
+    let mut viewport_bottom = 0;
+    let mut matched_input: Vec<String> = Vec::new();
+    let mut visible_suggestions: Vec<&Module> = Vec::new();
+
+    // The main loop
+    let run_result = (|| -> io::Result<Option<String>> {
+        execute!(io::stdout(), EnableMouseCapture)?;
+
+        loop {
+            // Comparing the lines also catches edits made by Vim or an external editor.
+            if textarea.lines() != matched_input.as_slice() {
+                visible_suggestions = matching_suggestions(&textarea, suggestions);
+                matched_input.resize_with(textarea.lines().len(), String::new);
+                for (cached, line) in matched_input.iter_mut().zip(textarea.lines()) {
+                    cached.clone_from(line);
+                }
+            }
+
+            normalize_selection(&mut suggestion_state, visible_suggestions.len());
+            let mut suggestion_mouse: Option<SuggestionMouse> = None;
+
+            // Draw the interface
+            terminal.draw(|frame| {
+                viewport_bottom = frame.area().bottom();
+                suggestion_mouse = draw(
+                    frame,
+                    image.as_mut(),
+                    &textarea,
+                    &visible_suggestions,
+                    &mut suggestion_state,
+                    header,
+                );
+            })?;
+
+            // Keypress loop
+            let key = match event::read()? {
+                Event::Key(key) => {
+                    suggestion_mouse_state.reset();
+                    key
+                }
+                Event::Mouse(mouse) => {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        suggestion_mouse_state.reset();
+                        continue;
+                    };
+
+                    match view.handle_mouse(
+                        mouse,
+                        &mut suggestion_state,
+                        &mut suggestion_mouse_state,
+                    ) {
+                        SuggestionMouseAction::Activate => {
+                            KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)
+                        }
+                        SuggestionMouseAction::Complete => {
+                            KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)
+                        }
+                        SuggestionMouseAction::Selected | SuggestionMouseAction::Scrolled => {
+                            tab_original = None;
+                            continue;
+                        }
+                        SuggestionMouseAction::Ignored => continue,
+                    }
+                }
+                Event::Resize(..) => {
+                    suggestion_mouse_state.reset();
+                    continue;
+                }
+                _ => continue,
+            };
+
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+
+            let control = key.modifiers.contains(KeyModifiers::CONTROL);
+
+            match (key.code, control) {
+                (KeyCode::Esc, _) if !vi_mode => return Ok(None),
+                (KeyCode::Char('c' | 'd'), true) => return Ok(None),
+                (KeyCode::Up, _) | (KeyCode::Char('k' | 'p'), true) => {
+                    match suggestion_mode == "list" {
+                        true => {
+                            select_up(
+                                &mut suggestion_state,
+                                visible_suggestions.len(),
+                                suggestion_direction,
+                            );
+                        }
+                        false => (),
+                    }
+                    continue;
+                }
+                (KeyCode::Down, _) | (KeyCode::Char('j' | 'n'), true) => {
+                    match suggestion_mode == "list" {
+                        true => {
+                        select_down(
+                            &mut suggestion_state,
+                            visible_suggestions.len(),
+                            suggestion_direction,
+                        );
+                        }
+                        false => (),
+                    }
+                    continue;
+                }
+                (KeyCode::Tab, _) => {
+                    if let Some(original) = tab_original.take() {
+                        replace_input(&mut textarea, &original);
+                        suggestion_state.select(None);
+                        continue;
+                    }
+
+                    let module = suggestion_state
+                        .selected()
+                        .and_then(|index| visible_suggestions.get(index))
+                        .or_else(|| visible_suggestions.first())
+                        .copied();
+
+                    if let Some(module) = module {
+                        tab_original = Some(complete_input(&mut textarea, module));
+                        suggestion_state.select(None);
+                    }
+                    continue;
+                }
+                (KeyCode::Enter, _) => {
+                    if key.modifiers.contains(KeyModifiers::ALT) {
+                        let prefix = cfg.general.alternative_module.as_deref().unwrap_or("");
+                        return Ok(Some(format!("{prefix} {}", textarea.lines().join("\n"))));
+                    }
+
+                    let module = suggestion_state
+                        .selected()
+                        .and_then(|index| visible_suggestions.get(index))
+                        .copied();
+
+                    match module {
+                        None => return Ok(Some(textarea.lines().join("\n"))),
+                        Some(module) if module.with_argument.unwrap_or(false) => {
+                            tab_original = Some(complete_input(&mut textarea, module));
+                            suggestion_state.select(None);
+                            continue;
+                        }
+                        Some(module) => return Ok(Some(module.prefix.clone())),
+                    }
+                }
+                _ => {}
+            }
+
+            if control && !vi_mode {
+                let external_editor = std::mem::take(&mut external_edit_pending);
+
+                match key.code {
+                    KeyCode::Char('u') => {
+                        textarea.delete_line_by_head();
+                        continue;
+                    }
+                    KeyCode::Char('e') if external_editor => {
+                        edit_externally(&mut terminal, &mut textarea)?;
+                        continue;
+                    }
+                    KeyCode::Char('x') => {
+                        external_edit_pending = true;
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
+
+            let input: Input = key.into();
+            if !vi_mode {
+                textarea.input(input);
+                continue;
+            }
+
+            vim = match vim.transition(input, &mut textarea) {
+                Transition::Mode(mode) if vim.mode != mode => {
+                    textarea.set_block(mode.block());
+                    textarea.set_cursor_style(mode.cursor_style());
+                    vim.with_mode(mode)
+                }
+                Transition::EditExternally => {
+                    edit_externally(&mut terminal, &mut textarea)?;
+                    vim
+                }
+                Transition::Pending(input) => vim.with_pending(input),
+                Transition::Nop | Transition::Mode(_) => vim,
+                Transition::Quit => return Ok(None),
+            };
+        }
+    })();
+
+    // Attempt all cleanup steps before returning any error.
+    let cursor_result = if viewport_bottom > 0 {
+        terminal.set_cursor_position((0, viewport_bottom))
+    } else {
+        Ok(())
+    };
+    let mouse_result = execute!(io::stdout(), DisableMouseCapture);
+    let restore_result = ratatui::try_restore();
+
+    cursor_result?;
+    mouse_result?;
+    restore_result?;
+    Ok(run_result?)
+}
+
+// Function that draws the interface
 pub fn draw(
     frame: &mut Frame,
     image: Option<&mut StatefulProtocol>,
@@ -204,6 +482,7 @@ pub fn draw(
     suggestion_state: &mut ListState,
     header: &str,
 ) -> Option<SuggestionMouse> {
+    // Prepare variables from config
     let cfg = config();
     let has_image = image.is_some();
     let image_position = cfg.image.position.as_deref().unwrap();
@@ -212,66 +491,20 @@ pub fn draw(
 
     let suggestion_mode = cfg.interface.suggestion_mode.as_deref().unwrap();
     let separator = cfg.interface.separator.unwrap();
-    let separator_label = cfg.interface.separator_label.as_deref().unwrap();
-    let selection_prefix = cfg.interface.selection_prefix.as_deref().unwrap();
-    let list_prefix = cfg.interface.list_prefix.as_deref().unwrap();
-    let prefix_padding = cfg.interface.prefix_padding.unwrap();
     let indicator_with_arg = cfg.interface.indicator_args.as_deref().unwrap();
     let indicator_no_arg = cfg.interface.indicator_bare.as_deref().unwrap();
-    let prompt_sign = config().interface.prompt_sign.as_deref().unwrap();
-    let header_color = cfg
-        .interface
-        .header_color
-        .as_deref()
-        .and_then(|value| value.parse::<Color>().ok())
-        .unwrap_or(Color::Blue);
-    let prompt_sign_color = cfg
-        .interface
-        .prompt_sign_color
-        .as_deref()
-        .and_then(|value| value.parse::<Color>().ok())
-        .unwrap_or(Color::Blue);
-    let prefix_color = cfg
-        .interface
-        .prefix_color
-        .as_deref()
-        .and_then(|value| value.parse::<Color>().ok())
-        .unwrap_or(Color::Yellow);
-    let description_color = cfg
-        .interface
-        .description_color
-        .as_deref()
-        .and_then(|value| value.parse::<Color>().ok())
-        .unwrap_or(Color::Reset);
-    let indicator_color = cfg
-        .interface
-        .indicator_color
-        .as_deref()
-        .and_then(|value| value.parse::<Color>().ok())
-        .unwrap_or(Color::Red);
-    let list_prefix_color = cfg
-        .interface
-        .list_prefix_color
-        .as_deref()
-        .and_then(|value| value.parse::<Color>().ok())
-        .unwrap_or(Color::Reset);
-    let selection_prefix_color = cfg
-        .interface
-        .selection_prefix_color
-        .as_deref()
-        .and_then(|value| value.parse::<Color>().ok())
-        .unwrap_or(Color::Red);
+    let prompt_sign = cfg.interface.prompt_sign.as_deref().unwrap();
+    let header_color = parse_color(cfg.interface.header_color.as_deref(), Color::Blue);
+    let prompt_sign_color = parse_color(cfg.interface.prompt_sign_color.as_deref(), Color::Blue);
 
-    let iface_pad_top = cfg.interface.padding.unwrap()[0];
-    let iface_pad_right = cfg.interface.padding.unwrap()[1];
-    let iface_pad_bottom = cfg.interface.padding.unwrap()[2];
-    let iface_pad_left = cfg.interface.padding.unwrap()[3];
+    let [
+        iface_pad_top,
+        iface_pad_right,
+        iface_pad_bottom,
+        iface_pad_left,
+    ] = cfg.interface.padding.unwrap();
 
-    let image_pad_top = cfg.image.padding.unwrap()[0];
-    let image_pad_right = cfg.image.padding.unwrap()[1];
-    let image_pad_bottom = cfg.image.padding.unwrap()[2];
-    let image_pad_left = cfg.image.padding.unwrap()[3];
-
+    // Ratatui frame setup
     let (image_area, right) = if !has_image {
         // Preserve the existing margins when there is no image.
         let [_margin_left, content_area, _margin_right] = Layout::horizontal([
@@ -327,38 +560,31 @@ pub fn draw(
                 (image_area, content)
             }
 
-            "right" => {
-                let [_margin_left, content_area, _margin_right, image_area] = Layout::horizontal([
-                    Constraint::Length(iface_pad_left),
-                    Constraint::Fill(1),
-                    Constraint::Length(iface_pad_right),
-                    Constraint::Length(image_width),
-                ])
-                .areas(frame.area());
-
-                (image_area, content_area);
-
-                let [_margin_top, content, _margin_bottom] = Layout::vertical([
-                    Constraint::Length(iface_pad_top),
-                    Constraint::Fill(1),
-                    Constraint::Length(iface_pad_bottom),
-                ])
-                .areas(content_area);
-
-                (image_area, content)
-            }
-
-            // "left", or an unrecognized position.
+            // Horizontal images: "left", "right", or an unrecognized position.
             _ => {
-                let [image_area, _margin_left, content_area, _margin_right] = Layout::horizontal([
-                    Constraint::Length(image_width),
-                    Constraint::Length(iface_pad_left),
-                    Constraint::Fill(1),
-                    Constraint::Length(iface_pad_right),
-                ])
-                .areas(frame.area());
-
-                (image_area, content_area);
+                let image_on_right = image_position == "right";
+                let constraints = if image_on_right {
+                    [
+                        Constraint::Length(iface_pad_left),
+                        Constraint::Fill(1),
+                        Constraint::Length(iface_pad_right),
+                        Constraint::Length(image_width),
+                    ]
+                } else {
+                    [
+                        Constraint::Length(image_width),
+                        Constraint::Length(iface_pad_left),
+                        Constraint::Fill(1),
+                        Constraint::Length(iface_pad_right),
+                    ]
+                };
+                let [first, second, third, last] =
+                    Layout::horizontal(constraints).areas(frame.area());
+                let (image_area, content_area) = if image_on_right {
+                    (last, second)
+                } else {
+                    (first, third)
+                };
 
                 let [_margin_top, content, _margin_bottom] = Layout::vertical([
                     Constraint::Length(iface_pad_top),
@@ -372,44 +598,31 @@ pub fn draw(
         }
     };
 
+    // Render image
     if let Some(image) = image {
-            // 1. Define the border block
-            let block = Block::default()
-                .borders(Borders::NONE)
-                //.title(" Image ") // Optional title on the border
-                .padding(Padding::new(
-                    image_pad_left,
-                    image_pad_right,
-                    image_pad_top,
-                    image_pad_bottom,
-                )); // Optional: space between border line and image
+        let [top, right, bottom, left] = cfg.image.padding.unwrap();
+        let inner_area = Block::default()
+            .padding(Padding::new(left, right, top, bottom))
+            .inner(image_area);
 
-            // 2. Calculate the area strictly inside the border line (and padding)
-            let inner_area = block.inner(image_area);
-
-            // 3. Draw the border block first
-            frame.render_widget(block, image_area);
-
-            // 4. Render the image within inner_area so it doesn't overwrite the border
-            frame.render_stateful_widget(
-                StatefulImage::default().resize(Resize::Scale(None)),
-                inner_area,
-                image,
-            );
+        frame.render_stateful_widget(
+            StatefulImage::default().resize(Resize::Scale(None)),
+            inner_area,
+            image,
+        );
     }
 
+    // Prepare header
     let header_text = header.into_text().expect("failed to parse header ANSI");
-
     let header_height = if !header.is_empty() {
         u16::try_from(header_text.lines.len()).unwrap_or(0)
     } else {
         0
     };
-    let content_height = u16::try_from(textarea.lines().len())
-        .unwrap_or(u16::MAX)
-        .saturating_add(0);
 
-    // Reserve the earlier header lines and one suggestion row.
+    // Form input field, separator area, and suggestion menu
+    let content_height = u16::try_from(textarea.lines().len()).unwrap_or(u16::MAX);
+
     let max_input_height = right
         .height
         .saturating_sub(header_height)
@@ -419,16 +632,13 @@ pub fn draw(
     let input_height = content_height.clamp(1, max_input_height);
 
     let suggestions_below_input = suggestion_position == "bottom";
+    let separator_height = u16::from(separator && suggestion_mode == "list");
 
     let (suggestions_area, separator_area, header_area, input_area) = if suggestions_below_input {
         let [header_area, input_area, separator_area, suggestions_area] = Layout::vertical([
             Constraint::Length(header_height),
             Constraint::Length(input_height),
-            Constraint::Length(if separator && suggestion_mode == "list" {
-                1
-            } else {
-                0
-            }),
+            Constraint::Length(separator_height),
             Constraint::Fill(1),
         ])
         .areas(right);
@@ -437,11 +647,7 @@ pub fn draw(
     } else {
         let [suggestions_area, separator_area, header_area, input_area] = Layout::vertical([
             Constraint::Fill(1),
-            Constraint::Length(if separator && suggestion_mode == "list" {
-                1
-            } else {
-                0
-            }),
+            Constraint::Length(separator_height),
             Constraint::Length(header_height),
             Constraint::Length(input_height),
         ])
@@ -450,19 +656,18 @@ pub fn draw(
         (suggestions_area, separator_area, header_area, input_area)
     };
 
-    let separator_width = separator_area.width.saturating_sub(1);
-
-    frame.render_widget(
-        Paragraph::new({
-            let label = separator_label;
-            format!(
+    if !separator_area.is_empty() {
+        let label = cfg.interface.separator_label.as_deref().unwrap();
+        let separator_width = usize::from(separator_area.width.saturating_sub(1));
+        frame.render_widget(
+            Paragraph::new(format!(
                 "{label}{}",
-                "─".repeat(usize::from(separator_width).saturating_sub(label.len()))
-            )
-        })
-        .style(Style::default().fg(Color::DarkGray)),
-        separator_area,
-    );
+                "─".repeat(separator_width.saturating_sub(label.len())),
+            ))
+            .style(Style::default().fg(Color::DarkGray)),
+            separator_area,
+        );
+    }
 
     frame.render_widget(
         Paragraph::new(header_text).style(
@@ -473,13 +678,7 @@ pub fn draw(
         header_area,
     );
 
-    // Input field rendering
-    let input_block = Block::default().borders(Borders::NONE);
-    let input_inner = input_block.inner(input_area);
-
-    frame.render_widget(input_block, input_area);
-
-    // Leave at least one column for editable text.
+    // Parse the prompt once; ANSI escape codes do not contribute to its width.
     let prompt_text = prompt_sign
         .into_text()
         .expect("failed to parse prompt ANSI");
@@ -488,19 +687,10 @@ pub fn draw(
 
     let [prefix_area, textarea_area] =
         Layout::horizontal([Constraint::Length(prompt_sign_width), Constraint::Fill(1)])
-            .areas(input_inner);
+            .areas(input_area);
 
     frame.render_widget(
         Paragraph::new(prompt_text).style(
-            Style::default()
-                .fg(prompt_sign_color)
-                .add_modifier(Modifier::BOLD),
-        ),
-        prefix_area,
-    );
-
-    frame.render_widget(
-        Paragraph::new(prompt_sign.into_text().unwrap()).style(
             Style::default()
                 .fg(prompt_sign_color)
                 .add_modifier(Modifier::BOLD),
@@ -534,70 +724,91 @@ pub fn draw(
         }
     }
 
-    if Some(suggestion_mode) == Some("hint") {
-        draw_inline_hint(frame, textarea, textarea_area, suggestions.first().copied());
+    // Draw suggestion area differently when hint mode is in use
+    if suggestion_mode == "hint" {
+        draw_hint_mode(
+            frame,
+            textarea,
+            textarea_area,
+            suggestions.first().copied(),
+            indicator_with_arg,
+            indicator_no_arg,
+        );
         return None;
     }
 
-    let items: Vec<ListItem<'_>> = suggestions
-        .iter()
-        .enumerate()
-        .map(|(index, module)| {
-            let selected = suggestion_state.selected() == Some(index);
-            let marker = if selected {
-                selection_prefix
-            } else {
-                list_prefix
-            };
+    // List-specific options and styles are only needed in list mode.
+    let selection_prefix = cfg.interface.selection_prefix.as_deref().unwrap();
+    let list_prefix = cfg.interface.list_prefix.as_deref().unwrap();
+    let prefix_padding = cfg.interface.prefix_padding.unwrap();
+    let prefix_style = Style::default().fg(parse_color(
+        cfg.interface.prefix_color.as_deref(),
+        Color::Yellow,
+    ));
+    let description_style = Style::default().fg(parse_color(
+        cfg.interface.description_color.as_deref(),
+        Color::Reset,
+    ));
+    let indicator_style = Style::default().fg(parse_color(
+        cfg.interface.indicator_color.as_deref(),
+        Color::Red,
+    ));
+    let list_marker_style = Style::default().fg(parse_color(
+        cfg.interface.list_prefix_color.as_deref(),
+        Color::Reset,
+    ));
+    let selected_marker_style = Style::default().fg(parse_color(
+        cfg.interface.selection_prefix_color.as_deref(),
+        Color::Red,
+    ));
+    let selected_index = suggestion_state.selected();
 
-            let indicator = if module.with_argument.unwrap() {
-                indicator_with_arg
-            } else {
-                indicator_no_arg
-            };
+    // Form the suggestion items
+    let items = suggestions.iter().enumerate().map(|(index, module)| {
+        let selected = selected_index == Some(index);
+        let marker = if selected {
+            selection_prefix
+        } else {
+            list_prefix
+        };
 
-            ListItem::new(Line::from(vec![
-                Span::styled(
-                    marker,
-                    Style::default().fg(if selected {
-                        selection_prefix_color
-                    } else {
-                        list_prefix_color
-                    }),
-                ),
-                Span::styled(
-                    format!("{:<width$}", module.prefix, width = prefix_padding),
-                    Style::default().fg(prefix_color),
-                ),
-                Span::raw(" "),
-                Span::styled(indicator, Style::default().fg(indicator_color)),
-                Span::styled(
-                    module.description.as_str(),
-                    Style::default().fg(description_color),
-                ),
-            ]))
-        })
-        .collect();
+        let indicator = if module.with_argument.unwrap() {
+            indicator_with_arg
+        } else {
+            indicator_no_arg
+        };
 
-    let suggestion_block = Block::default().border_style(Style::default().fg(Color::DarkGray));
+        ListItem::new(Line::from(vec![
+            Span::styled(
+                marker,
+                if selected {
+                    selected_marker_style
+                } else {
+                    list_marker_style
+                },
+            ),
+            Span::styled(
+                padded_prefix(module.prefix.as_str(), prefix_padding),
+                prefix_style,
+            ),
+            Span::raw(" "),
+            Span::styled(indicator, indicator_style),
+            Span::styled(module.description.as_str(), description_style),
+        ]))
+    });
 
-    let suggestion_block = suggestion_block.borders(Borders::NONE);
-
-    // Exclude the block's border from the available list space.
-    let inner = suggestion_block.inner(suggestions_area);
+    let inner = suggestions_area;
     let visible_rows = usize::from(inner.height);
 
-    let show_scrollbar = visible_rows > 0 && inner.width > 1 && suggestions.len() > visible_rows;
-
-    // Render the block separately so the scrollbar shares its inner area.
-    frame.render_widget(suggestion_block, suggestions_area);
+    // Hide scrollbar if disabled
+    let show_scrollbar = visible_rows > 0 && inner.width > 1 && suggestions.len() > visible_rows && cfg.interface.scrollbar.unwrap();
 
     let list_area = Rect {
         width: inner.width.saturating_sub(u16::from(show_scrollbar)),
         ..inner
     };
 
-    let suggestion_direction = if cfg.interface.suggestion_position.as_deref().unwrap() == "top" {
+    let suggestion_direction = if suggestion_position == "top" {
         ListDirection::BottomToTop
     } else {
         ListDirection::TopToBottom
@@ -649,8 +860,7 @@ pub fn draw(
         frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
     }
 
-    // These are absolute terminal coordinates, including the inline viewport's
-    // origin. Recreate them on every draw so terminal resizes stay accurate.
+    // These are absolute terminal coordinates, including the inline viewport's origin. Recreate them on every draw so terminal resizes stay accurate.
     if list_area.is_empty() || suggestions.is_empty() {
         None
     } else {
@@ -663,180 +873,214 @@ pub fn draw(
     }
 }
 
-fn draw_inline_hint(
+// Function to parse color to the Color object
+fn parse_color(value: Option<&str>, fallback: Color) -> Color {
+    value
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(fallback)
+}
+
+// Function to pad prefix with spaces
+fn padded_prefix(prefix: &str, width: usize) -> Cow<'_, str> {
+    if width == 0 || (prefix.is_ascii() && prefix.len() >= width) {
+        Cow::Borrowed(prefix)
+    } else {
+        Cow::Owned(format!("{prefix:<width$}"))
+    }
+}
+
+// Most command prefixes and descriptions are already lowercase ASCII. Keep the original Unicode conversion for every non-ASCII string.
+fn lowercase(text: &str) -> Cow<'_, str> {
+    if text.is_ascii() && !text.bytes().any(|byte| byte.is_ascii_uppercase()) {
+        Cow::Borrowed(text)
+    } else {
+        Cow::Owned(text.to_lowercase())
+    }
+}
+
+// Function to form hint mode suggestions
+fn hint_text<'a>(
+    input: &str,
+    prefix: &'a str,
+    description: &str,
+    indicator: &str,
+) -> Option<Cow<'a, str>> {
+    if input.starts_with(' ') {
+        return None;
+    }
+
+    let mut words = input.split_whitespace();
+    let first_word = words.next()?;
+    if words.next().is_some() {
+        return None;
+    }
+
+    // Two trailing whitespace characters are enough to hide the hint.
+    let mut tail = input.chars().rev();
+    let trailing_space = tail.next().is_some_and(char::is_whitespace);
+    if trailing_space && tail.next().is_some_and(char::is_whitespace) {
+        return None;
+    }
+
+    let prefix_matches = if prefix.is_ascii() && first_word.is_ascii() {
+        prefix
+            .get(..first_word.len())
+            .is_some_and(|head| head.eq_ignore_ascii_case(first_word))
+    } else {
+        lowercase(prefix).starts_with(lowercase(first_word).as_ref())
+    };
+
+    let suffix = if prefix_matches {
+        let start = prefix
+            .char_indices()
+            .nth(first_word.chars().count())
+            .map_or(prefix.len(), |(index, _)| index);
+        &prefix[start..]
+    } else {
+        ""
+    };
+
+    let hint = if description.is_empty() {
+        Cow::Borrowed(suffix)
+    } else if trailing_space {
+        if !suffix.is_empty() {
+            return None;
+        }
+        Cow::Owned(format!("{indicator}{description}"))
+    } else {
+        Cow::Owned(format!("{suffix} {indicator}{description}"))
+    };
+
+    (!hint.is_empty()).then_some(hint)
+}
+
+// Function to render hint mode input field
+fn draw_hint_mode(
     frame: &mut Frame,
     textarea: &TextArea<'_>,
     textarea_area: Rect,
     closest: Option<&Module>,
+    indicator_with_arg: &str,
+    indicator_no_arg: &str,
 ) {
     let Some(module) = closest else {
         return;
     };
-
-    // Only show hints for single-line input.
-    if textarea.lines().len() != 1 {
-        return;
-    }
-
-    let input = &textarea.lines()[0];
-
-    if input.starts_with(' ') {
-        return;
-    }
-
-    let mut words = input.split_whitespace();
-
-    let Some(first_word) = words.next() else {
+    let [input] = textarea.lines() else {
         return;
     };
 
-    // Hide as soon as a second word exists.
-    if words.next().is_some() {
+    // Reject hidden hints before measuring the input or reading module options.
+    if input.starts_with(' ') || input.split_whitespace().take(2).count() != 1 {
         return;
     }
 
-    // Only show the hint while editing at the end of the input.
-    //if textarea.cursor() != (0, input.chars().count()) {
-    //    return;
-    //}
-
-    let trailing_spaces = input
-        .chars()
-        .rev()
-        .take_while(|c| c.is_whitespace())
-        .count();
-
-    // Hide the hint once a trailing space is typed.
-    if trailing_spaces > 1 {
-        return;
-    }
-
-    let prefix_starts_with_word = module
-        .prefix
-        .to_lowercase()
-        .starts_with(&first_word.to_lowercase());
-
-    // Complete the prefix even when one trailing space exists.
-    let suffix: String = if prefix_starts_with_word {
-        module
-            .prefix
-            .chars()
-            .skip(first_word.chars().count())
-            .collect()
-    } else {
-        String::new()
-    };
-
-    let cfg = config();
-    let indicator = if module.with_argument.unwrap() {
-        cfg.interface.indicator_args.as_deref().unwrap()
-    } else {
-        cfg.interface.indicator_bare.as_deref().unwrap()
-    };
-
-    let hint = if module.description.is_empty() {
-        suffix
-    } else if trailing_spaces == 1 && suffix.is_empty() {
-        format!("{}{}", indicator, module.description)
-    } else if trailing_spaces == 1 && !suffix.is_empty() {
-        String::new()
-    } else {
-        format!("{suffix} {}{}", indicator, module.description)
-    };
-
-    // Respect the textarea's block borders/padding.
     let inner = textarea
         .block()
         .map(|block| block.inner(textarea_area))
         .unwrap_or(textarea_area);
-
-    // Measure terminal columns rather than byte length.
-    let input_width = Line::raw(input.as_str()).width();
-
-    if inner.height == 0 || input_width >= usize::from(inner.width) {
+    let input_width = Span::raw(input.as_str()).width();
+    if inner.is_empty() || input_width >= usize::from(inner.width) {
         return;
     }
 
-    let x = inner.x + input_width as u16;
-    let available_width = usize::from(inner.width) - input_width;
+    let indicator = if module.with_argument.unwrap() {
+        indicator_with_arg
+    } else {
+        indicator_no_arg
+    };
+    let Some(hint) = hint_text(input, &module.prefix, &module.description, indicator) else {
+        return;
+    };
 
     frame.buffer_mut().set_stringn(
-        x,
+        inner.x + input_width as u16,
         inner.y,
-        hint,
-        available_width,
+        hint.as_ref(),
+        usize::from(inner.width) - input_width,
         Style::default().fg(Color::DarkGray),
     );
 }
 
+// Function to match user input with suggestions
 pub fn matching_suggestions<'a>(
     textarea: &TextArea<'_>,
     suggestions: &[&'a Module],
 ) -> Vec<&'a Module> {
-    let input = textarea.lines().join(" ");
+    if suggestions.is_empty() {
+        return Vec::new();
+    }
 
-    // List mode behavior
-    if config().interface.suggestion_mode.as_deref().unwrap() == "list" {
-        let query = input.to_lowercase();
-        let query_prefix = query.split_whitespace().next().unwrap_or("");
+    // A single-line input can be borrowed instead of joined into a new String.
+    let input: Cow<'_, str> = match textarea.lines() {
+        [line] => Cow::Borrowed(line.as_str()),
+        lines => Cow::Owned(lines.join(" ")),
+    };
 
-        let matcher = SkimMatcherV2::default();
+    if config().interface.suggestion_mode.as_deref().unwrap() != "list" {
+        let query = lowercase(input.split_whitespace().next().unwrap_or(""));
+        if query.is_empty() {
+            return suggestions.to_vec();
+        }
 
-        let mut prefix_matches = Vec::new();
-        let mut whole_input_matches: Vec<(i64, &'a Module)> = Vec::new();
-        let mut first_word_matches: Vec<(i64, &'a Module)> = Vec::new();
+        return suggestions
+            .iter()
+            .copied()
+            .filter(|module| lowercase(&module.prefix).starts_with(query.as_ref()))
+            .collect();
+    }
 
-        for module in suggestions.iter().copied() {
-            let prefix = module.prefix.to_lowercase();
+    let query = lowercase(input.as_ref());
+    let query_prefix = query.split_whitespace().next().unwrap_or("");
+    if query_prefix.is_empty() {
+        return suggestions.to_vec();
+    }
 
-            // Group 1: prefix starts with the first word.
-            if prefix.starts_with(query_prefix) {
-                prefix_matches.push(module);
-                continue;
-            }
+    let query_is_first_word = query.as_ref() == query_prefix;
+    let matcher = SkimMatcherV2::default();
+    let mut prefix_matches = Vec::new();
+    let mut whole_input_matches: Vec<(i64, &'a Module)> = Vec::new();
+    let mut first_word_matches: Vec<(i64, &'a Module)> = Vec::new();
 
-            let description = module.description.to_lowercase();
+    for module in suggestions.iter().copied() {
+        let prefix = lowercase(&module.prefix);
 
-            // Group 2: fuzzy match against the entire input.
-            let whole_score = matcher
-                .fuzzy_match(&prefix, &query)
-                .max(matcher.fuzzy_match(&description, &query));
+        // Preserve prefix matches in their original order.
+        if prefix.starts_with(query_prefix) {
+            prefix_matches.push(module);
+            continue;
+        }
 
-            if let Some(score) = whole_score {
-                whole_input_matches.push((score, module));
-                continue;
-            }
+        let description = lowercase(&module.description);
+        let whole_score = matcher
+            .fuzzy_match(prefix.as_ref(), query.as_ref())
+            .max(matcher.fuzzy_match(description.as_ref(), query.as_ref()));
 
-            // Group 3: fuzzy match against only the first word.
+        if let Some(score) = whole_score {
+            whole_input_matches.push((score, module));
+            continue;
+        }
+
+        // A failed single-word query would produce the same failed score again.
+        if !query_is_first_word {
             let first_word_score = matcher
-                .fuzzy_match(&prefix, query_prefix)
-                .max(matcher.fuzzy_match(&description, query_prefix));
-
+                .fuzzy_match(prefix.as_ref(), query_prefix)
+                .max(matcher.fuzzy_match(description.as_ref(), query_prefix));
             if let Some(score) = first_word_score {
                 first_word_matches.push((score, module));
             }
         }
-
-        whole_input_matches.sort_by(|a, b| b.0.cmp(&a.0));
-        first_word_matches.sort_by(|a, b| b.0.cmp(&a.0));
-
-        prefix_matches.extend(whole_input_matches.into_iter().map(|(_, module)| module));
-        prefix_matches.extend(first_word_matches.into_iter().map(|(_, module)| module));
-
-        prefix_matches
-
-    // Hint mode behaviour
-    } else {
-        let query = input.split_whitespace().next().unwrap_or("").to_lowercase();
-
-        suggestions
-            .iter()
-            .copied()
-            .filter(|module| query.is_empty() || module.prefix.to_lowercase().starts_with(&query))
-            .collect()
     }
+
+    // Stable sorting retains the original order when fuzzy scores tie.
+    whole_input_matches.sort_by(|a, b| b.0.cmp(&a.0));
+    first_word_matches.sort_by(|a, b| b.0.cmp(&a.0));
+    prefix_matches.extend(whole_input_matches.into_iter().map(|(_, module)| module));
+    prefix_matches.extend(first_word_matches.into_iter().map(|(_, module)| module));
+    prefix_matches
 }
 
+// Functions for item selection
 pub fn normalize_selection(state: &mut ListState, item_count: usize) {
     if item_count == 0
         || state
@@ -885,6 +1129,83 @@ pub fn select_up(state: &mut ListState, item_count: usize, direction: ListDirect
     match direction {
         ListDirection::TopToBottom => select_previous(state, item_count),
         ListDirection::BottomToTop => select_next(state, item_count),
+    }
+}
+
+// Function for tab completion
+pub fn complete_input(textarea: &mut TextArea<'_>, module: &Module) -> String {
+    let original = textarea.lines().join("\n");
+    let remaining = if module.with_argument.unwrap_or(false) {
+        let input = original.trim_start();
+        let first_word_end = input.find(char::is_whitespace).unwrap_or(input.len());
+        &input[first_word_end..]
+    } else {
+        ""
+    };
+
+    let remaining = if remaining.is_empty() { " " } else { remaining };
+    let completed = format!("{}{remaining}", module.prefix);
+    replace_input(textarea, &completed);
+    original
+}
+
+// Function to replace user input
+pub fn replace_input(textarea: &mut TextArea<'_>, input: &str) {
+    textarea.cancel_selection();
+    textarea.select_all();
+    textarea.cut();
+    textarea.insert_str(input);
+}
+
+#[cfg(test)]
+mod hint_tests {
+    use super::*;
+
+    #[test]
+    fn spaces_and_partial_prefixes_keep_the_existing_hint_behavior() {
+        let cases = [
+            ("s", Some("h >run bash command")),
+            ("sh", Some(" >run bash command")),
+            ("SH", Some(" >run bash command")),
+            ("sh ", Some(">run bash command")),
+            ("s ", None),
+            ("sh  ", None),
+            ("sh   ", None),
+            ("sh argument", None),
+            (" sh", None),
+            ("", None),
+            ("   ", None),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                hint_text(input, "sh", "run bash command", ">").as_deref(),
+                expected,
+                "input: {input:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn empty_descriptions_keep_prefix_only_hints() {
+        assert_eq!(hint_text("s", "sh", "", ">").as_deref(), Some("h"));
+        assert_eq!(hint_text("s ", "sh", "", ">").as_deref(), Some("h"));
+        assert_eq!(hint_text("sh", "sh", "", ">").as_deref(), None);
+        assert_eq!(hint_text(" sh", "sh", "", ">").as_deref(), None);
+    }
+
+    #[test]
+    fn unicode_suffixes_are_cut_at_character_boundaries() {
+        assert_eq!(
+            hint_text("開", "開啟", "browser", "").as_deref(),
+            Some("啟 browser"),
+        );
+        assert_eq!(hint_text("i", "İx", "info", "").as_deref(), Some("x info"),);
+        assert_eq!(
+            hint_text("開啟\u{3000}", "開啟", "browser", "").as_deref(),
+            Some("browser"),
+        );
+        assert_eq!(hint_text("sh\t ", "sh", "run", "").as_deref(), None);
     }
 }
 
@@ -1191,5 +1512,50 @@ mod suggestion_mouse_tests {
         }
         assert_eq!(state.offset(), 0);
         assert_eq!(state.selected(), Some(1));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Module, TextArea, complete_input, replace_input};
+
+    fn module(with_argument: bool) -> Module {
+        Module {
+            description: String::new(),
+            prefix: "sh".to_owned(),
+            cmd: String::new(),
+            with_argument: Some(with_argument),
+            url_encode: None,
+            unbind_proc: None,
+        }
+    }
+
+    #[test]
+    fn completion_preserves_argument_whitespace_and_unicode() {
+        for (input, expected) in [
+            ("s", "sh "),
+            ("", "sh "),
+            ("  s   echo hi", "sh   echo hi"),
+            ("s\tfirst\nsecond", "sh\tfirst\nsecond"),
+            ("検索\u{3000}日本語", "sh\u{3000}日本語"),
+        ] {
+            let mut textarea = TextArea::default();
+            textarea.insert_str(input);
+            let original = complete_input(&mut textarea, &module(true));
+            assert_eq!(original, input);
+            assert_eq!(textarea.lines().join("\n"), expected);
+
+            replace_input(&mut textarea, &original);
+            assert_eq!(textarea.lines().join("\n"), input);
+        }
+    }
+
+    #[test]
+    fn bare_completion_discards_arguments() {
+        let mut textarea = TextArea::default();
+        textarea.insert_str("  s   echo hi\nsecond");
+        let original = complete_input(&mut textarea, &module(false));
+        assert_eq!(original, "  s   echo hi\nsecond");
+        assert_eq!(textarea.lines().join("\n"), "sh ");
     }
 }

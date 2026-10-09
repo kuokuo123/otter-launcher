@@ -4,9 +4,10 @@ use ratatui::{
     DefaultTerminal,
     style::{Color, Modifier, Style},
     widgets::Block,
+    crossterm::terminal::{disable_raw_mode, enable_raw_mode},
 };
 use ratatui_textarea::{CursorMove, Input, Key, Scrolling, TextArea};
-use std::{fmt, io, io::Write};
+use std::{fmt, io, io::Write, process::Command};
 
 // Bound numeric prefixes and the product of operator and motion counts.
 const MAX_COUNT: usize = u16::MAX as usize;
@@ -864,8 +865,7 @@ fn horizontal_target(
     (row, col)
 }
 
-// W/B/E use whitespace-delimited WORDs: punctuation stays in the same WORD.
-// Positions are Unicode character indices, matching TextArea::cursor().
+// W/B/E use whitespace-delimited WORDs: punctuation stays in the same WORD. Positions are Unicode character indices, matching TextArea::cursor().
 fn big_word_target(
     lines: &[String],
     mut pos: Position,
@@ -1003,66 +1003,84 @@ fn replace_key(textarea: &mut TextArea<'_>, input: Input) {
     }
 }
 
+
 pub fn edit_externally(
     terminal: &mut DefaultTerminal,
     textarea: &mut TextArea<'_>,
 ) -> io::Result<()> {
-    let editor = config().general.external_editor.as_deref().unwrap();
-    if !editor.is_empty() {
-        let text = textarea.lines().join("\n");
-        let position = cursor(textarea);
-
-        ratatui::restore();
-        let result = (|| -> std::io::Result<String> {
-            let file = tempfile::NamedTempFile::new()?;
-            std::fs::write(file.path(), &text)?;
-
-            let editor = config().general.external_editor.as_deref().unwrap();
-
-            let mut exec_cmd = "sh -c".to_string();
-            if let Some(module_name) = config().general.exec_cmd.as_ref() {
-                exec_cmd = module_name.to_string()
-            };
-            let cmd_parts: Vec<&str> = exec_cmd.split_whitespace().collect();
-            let mut shell_cmd = std::process::Command::new(cmd_parts[0]);
-            for arg in &cmd_parts[1..] {
-                shell_cmd.arg(arg);
-            }
-
-            let _ = shell_cmd
-                .arg(format!("{} {} 2>/dev/null", editor, file.path().display()))
-                .status();
-
-            std::fs::read_to_string(file.path())
-        })();
-
-        // Move cursor up one line to offset the line created by creating a viewport
-        let mut stdout = io::stdout();
-        write!(stdout, "\x1b[1A")?;
-
-        // Restore the TUI before propagating an editor-launch or file-read error.
-        *terminal = ratatui::try_init_with_options(ratatui::TerminalOptions {
-            viewport: ratatui::Viewport::Inline(config().general.height.unwrap()),
-        })?;
-        terminal.clear()?;
-
-        let edited = result?;
-        textarea.cancel_selection();
-        if edited != text {
-            // Replace the contents without rebuilding the styled textarea.
-            textarea.select_all();
-            textarea.insert_str(&edited.trim_end());
-            textarea.cancel_selection();
-
-            // Retain the old cursor position as far as the edited text permits.
-            let row = position.0.min(textarea.lines().len() - 1);
-            let col = position.1.min(line_len(textarea, row));
-            jump(textarea, row, col);
-        }
-        normal_cursor(textarea);
+    let cfg = config();
+    let editor = cfg.general.external_editor.as_deref().unwrap_or("");
+    if editor.trim().is_empty() {
+        return Ok(());
     }
+
+    let mut parts = cfg
+        .general
+        .exec_cmd
+        .as_deref()
+        .unwrap_or("sh -c")
+        .split_whitespace();
+    let program = parts.next().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "general.exec_cmd must contain a program",
+        )
+    })?;
+
+    // Finish fallible file preparation before suspending terminal input.
+    let text = textarea.lines().join("\n");
+    let position = cursor(textarea);
+    let mut file = tempfile::NamedTempFile::new()?;
+    file.write_all(text.as_bytes())?;
+    file.flush()?;
+
+    let viewport = terminal.get_frame().area();
+    disable_raw_mode()?;
+
+    let result = (|| -> io::Result<String> {
+        // Quote the filename without restricting editor options or shell expansion.
+        let status = Command::new(program)
+            .args(parts)
+            .env("OTTER_EDITOR_FILE", file.path())
+            .arg(format!("{editor} \"$OTTER_EDITOR_FILE\" 2>/dev/null"))
+            .status()?;
+        if !status.success() {
+            return Err(io::Error::other(format!(
+                "external editor exited with {status}"
+            )));
+        }
+
+        std::fs::read_to_string(file.path())
+    })();
+
+    // Reuse the original inline viewport. Constructing another Terminal would anchor it to the cursor left behind by the editor or image renderer. Restore this state even when launching the editor or reading its file failed.
+    enable_raw_mode()?;
+    terminal.hide_cursor()?;
+    let size = terminal.size()?;
+    terminal.set_cursor_position((
+        viewport.x.min(size.width.saturating_sub(1)),
+        viewport.y.min(size.height.saturating_sub(1)),
+    ))?;
+    terminal.autoresize()?;
+    terminal.clear()?;
+
+    let edited = result?;
+    textarea.cancel_selection();
+    if edited != text {
+        // Replace the contents without rebuilding the styled textarea.
+        textarea.select_all();
+        textarea.insert_str(edited.trim_end());
+        textarea.cancel_selection();
+
+        // Retain the old cursor position as far as the edited text permits.
+        let row = position.0.min(textarea.lines().len() - 1);
+        let col = position.1.min(line_len(textarea, row));
+        jump(textarea, row, col);
+    }
+    normal_cursor(textarea);
     Ok(())
 }
+
 
 #[cfg(test)]
 mod tests {

@@ -38,6 +38,7 @@ pub struct Interface {
     pub placeholder: Option<String>,
     pub separator: Option<bool>,
     pub separator_label: Option<String>,
+    pub scrollbar: Option<bool>,
     pub prefix_padding: Option<usize>,
     pub prefix_color: Option<String>,
     pub description_color: Option<String>,
@@ -107,6 +108,7 @@ impl Config {
         self.interface
             .separator_label
             .get_or_insert_with(|| "".to_owned());
+        self.interface.scrollbar.get_or_insert_with(|| true);
         self.interface
             .suggestion_mode
             .get_or_insert_with(|| "list".to_owned());
