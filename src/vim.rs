@@ -2,9 +2,9 @@ use crate::config::config;
 use arboard::Clipboard;
 use ratatui::{
     DefaultTerminal,
+    crossterm::terminal::{disable_raw_mode, enable_raw_mode},
     style::{Color, Modifier, Style},
     widgets::Block,
-    crossterm::terminal::{disable_raw_mode, enable_raw_mode},
 };
 use ratatui_textarea::{CursorMove, Input, Key, Scrolling, TextArea};
 use std::{fmt, io, io::Write, process::Command};
@@ -28,10 +28,8 @@ impl Mode {
 
     pub fn cursor_style(&self) -> Style {
         let color = match self {
-            Self::Normal => Color::Reset,
             Self::Insert => Color::DarkGray,
-            Self::Replace(_) => Color::Reset,
-            Self::Operator(_) => Color::Reset,
+            _ => Color::Reset,
         };
         Style::default().fg(color).add_modifier(Modifier::REVERSED)
     }
@@ -131,11 +129,6 @@ impl Vim {
         self
     }
 
-    //pub fn is_before_line_end(textarea: &TextArea<'_>) -> bool {
-    //    let (row, col) = cursor(textarea);
-    //    col < line_len(textarea, row).saturating_sub(1)
-    //}
-
     fn reset_command(&mut self) {
         self.count = None;
         self.operator_count = None;
@@ -226,10 +219,10 @@ impl Vim {
                     textarea.cancel_selection();
                     return Transition::Mode(Mode::Normal);
                 }
-                insert_key(textarea, input.clone());
                 if self.insert_repeat > 1 {
-                    self.insert_keys.push(input);
+                    self.insert_keys.push(input.clone());
                 }
+                insert_key(textarea, input);
                 return Transition::Mode(Mode::Insert);
             }
             Mode::Replace(true) => {
@@ -256,10 +249,10 @@ impl Vim {
                 return Transition::Mode(Mode::Normal);
             }
             Mode::Replace(false) => {
-                replace_key(textarea, input.clone());
                 if self.insert_repeat > 1 {
-                    self.insert_keys.push(input);
+                    self.insert_keys.push(input.clone());
                 }
+                replace_key(textarea, input);
                 return Transition::Mode(Mode::Replace(false));
             }
             _ => {}
@@ -460,6 +453,25 @@ impl Vim {
                 Transition::Mode(Mode::Normal)
             }
             Input {
+                key: Key::Char('P'),
+                ctrl: false,
+                alt: false,
+                ..
+            } => {
+                // Read once, so counted pastes use the same clipboard contents.
+                self.load_clipboard(textarea);
+
+                for _ in 0..count {
+                    if !textarea.paste() {
+                        break;
+                    }
+                }
+
+                textarea.cancel_selection();
+                normal_cursor(textarea);
+                Transition::Mode(Mode::Normal)
+            }
+            Input {
                 key: Key::Char('p'),
                 ctrl: false,
                 alt: false,
@@ -467,6 +479,8 @@ impl Vim {
             } => {
                 // Read once, so counted pastes use the same clipboard contents.
                 self.load_clipboard(textarea);
+                let (row, col) = cursor(textarea);
+                jump(textarea, row, col + 1);
 
                 for _ in 0..count {
                     if !textarea.paste() {
@@ -865,72 +879,71 @@ fn horizontal_target(
     (row, col)
 }
 
-// W/B/E use whitespace-delimited WORDs: punctuation stays in the same WORD. Positions are Unicode character indices, matching TextArea::cursor().
+// W/B/E use whitespace-delimited WORDs: punctuation stays in the same WORD.
+// Positions are Unicode character indices, matching TextArea::cursor().
 fn big_word_target(
     lines: &[String],
-    mut pos: Position,
+    pos: Position,
     motion: Motion,
     count: usize,
     operator: bool,
 ) -> Position {
-    let lines: Vec<Vec<char>> = lines.iter().map(|line| line.chars().collect()).collect();
+    let mut current = WordCursor::new(lines, pos);
     for step in 0..count {
-        let before = pos;
+        let before = current;
         match motion {
             Motion::BigWordForward => {
-                if lines[pos.0].is_empty() {
-                    if let Some(next) = next_position(&lines, pos) {
-                        pos = next;
-                    }
+                if lines[current.pos.0].is_empty() {
+                    current.forward();
                 } else {
-                    while !blank_at(&lines, pos) {
-                        match next_position(&lines, pos) {
-                            Some(next) => pos = next,
-                            None => break,
+                    while !current.is_blank() {
+                        if !current.forward() {
+                            break;
                         }
                     }
                 }
-                while blank_at(&lines, pos) && !lines[pos.0].is_empty() {
-                    match next_position(&lines, pos) {
-                        Some(next) => pos = next,
-                        None => break,
+                while current.is_blank() && !lines[current.pos.0].is_empty() {
+                    if !current.forward() {
+                        break;
                     }
                 }
             }
             Motion::BigWordBack => {
-                if let Some(previous) = previous_position(&lines, pos) {
-                    pos = previous;
-                }
-                while blank_at(&lines, pos) && !lines[pos.0].is_empty() {
-                    match previous_position(&lines, pos) {
-                        Some(previous) => pos = previous,
-                        None => break,
+                current.backward();
+                while current.is_blank() && !lines[current.pos.0].is_empty() {
+                    if !current.backward() {
+                        break;
                     }
                 }
-                if !blank_at(&lines, pos) {
-                    while let Some(previous) = previous_position(&lines, pos) {
-                        if blank_at(&lines, previous) {
+                if !current.is_blank() {
+                    loop {
+                        let previous = current;
+                        if !current.backward() {
                             break;
                         }
-                        pos = previous;
+                        if current.is_blank() {
+                            current = previous;
+                            break;
+                        }
                     }
                 }
             }
             Motion::BigWordEnd => {
-                if let Some(next) = next_position(&lines, pos) {
-                    pos = next;
-                }
-                while blank_at(&lines, pos) {
-                    match next_position(&lines, pos) {
-                        Some(next) => pos = next,
-                        None => break,
-                    }
-                }
-                while let Some(next) = next_position(&lines, pos) {
-                    if blank_at(&lines, next) {
+                current.forward();
+                while current.is_blank() {
+                    if !current.forward() {
                         break;
                     }
-                    pos = next;
+                }
+                loop {
+                    let previous = current;
+                    if !current.forward() {
+                        break;
+                    }
+                    if current.is_blank() {
+                        current = previous;
+                        break;
+                    }
                 }
             }
             _ => unreachable!("expected a WORD motion"),
@@ -938,39 +951,71 @@ fn big_word_target(
         if operator
             && matches!(motion, Motion::BigWordForward)
             && step + 1 == count
-            && pos.0 > before.0
-            && !blank_at(&lines, before)
+            && current.pos.0 > before.pos.0
+            && !before.is_blank()
         {
-            pos = (before.0, lines[before.0].len());
+            return (before.pos.0, lines[before.pos.0].chars().count());
         }
-        if before == pos {
+        if before.pos == current.pos {
             break;
         }
     }
-    pos
+    current.pos
 }
 
-fn blank_at(lines: &[Vec<char>], (row, col): Position) -> bool {
-    lines[row].get(col).map_or(true, |c| c.is_whitespace())
+// Keep both a character column and a UTF-8 byte offset. This scans only the text
+// traversed by a WORD motion instead of allocating characters for every line.
+// The position just after a line's last character represents whitespace.
+#[derive(Clone, Copy)]
+struct WordCursor<'a> {
+    lines: &'a [String],
+    pos: Position,
+    byte: usize,
 }
 
-fn next_position(lines: &[Vec<char>], (row, col): Position) -> Option<Position> {
-    if col < lines[row].len() {
-        Some((row, col + 1))
-    } else if row + 1 < lines.len() {
-        Some((row + 1, 0))
-    } else {
-        None
+impl<'a> WordCursor<'a> {
+    fn new(lines: &'a [String], pos: Position) -> Self {
+        let line = &lines[pos.0];
+        let byte = line
+            .char_indices()
+            .nth(pos.1)
+            .map_or(line.len(), |(byte, _)| byte);
+        Self { lines, pos, byte }
     }
-}
 
-fn previous_position(lines: &[Vec<char>], (row, col): Position) -> Option<Position> {
-    if col > 0 {
-        Some((row, col - 1))
-    } else if row > 0 {
-        Some((row - 1, lines[row - 1].len()))
-    } else {
-        None
+    fn is_blank(self) -> bool {
+        self.lines[self.pos.0][self.byte..]
+            .chars()
+            .next()
+            .map_or(true, char::is_whitespace)
+    }
+
+    fn forward(&mut self) -> bool {
+        if let Some(ch) = self.lines[self.pos.0][self.byte..].chars().next() {
+            self.byte += ch.len_utf8();
+            self.pos.1 += 1;
+        } else if self.pos.0 + 1 < self.lines.len() {
+            self.pos = (self.pos.0 + 1, 0);
+            self.byte = 0;
+        } else {
+            return false;
+        }
+        true
+    }
+
+    fn backward(&mut self) -> bool {
+        if let Some(ch) = self.lines[self.pos.0][..self.byte].chars().next_back() {
+            self.byte -= ch.len_utf8();
+            self.pos.1 -= 1;
+        } else if self.pos.0 > 0 {
+            let row = self.pos.0 - 1;
+            let line = &self.lines[row];
+            self.pos = (row, line.chars().count());
+            self.byte = line.len();
+        } else {
+            return false;
+        }
+        true
     }
 }
 
@@ -1002,7 +1047,6 @@ fn replace_key(textarea: &mut TextArea<'_>, input: Input) {
         textarea.insert_char(c);
     }
 }
-
 
 pub fn edit_externally(
     terminal: &mut DefaultTerminal,
@@ -1050,10 +1094,13 @@ pub fn edit_externally(
             )));
         }
 
+        // Editors can replace the file atomically; read its path, not the old handle.
         std::fs::read_to_string(file.path())
     })();
 
-    // Reuse the original inline viewport. Constructing another Terminal would anchor it to the cursor left behind by the editor or image renderer. Restore this state even when launching the editor or reading its file failed.
+    // Reuse the original inline viewport. Constructing another Terminal would
+    // anchor it to the cursor left behind by the editor or image renderer.
+    // Restore this state even when launching the editor or reading its file failed.
     enable_raw_mode()?;
     terminal.hide_cursor()?;
     let size = terminal.size()?;
@@ -1080,7 +1127,6 @@ pub fn edit_externally(
     normal_cursor(textarea);
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1259,6 +1305,32 @@ mod tests {
         assert_eq!(textarea.cursor(), (2, 5));
         keys(&mut vim, &mut textarea, "2B");
         assert_eq!(textarea.cursor(), (1, 0));
+    }
+
+    #[test]
+    fn word_targets_preserve_unicode_columns_and_empty_line_boundaries() {
+        let lines = vec![
+            " \t你好🙂-go\u{2003}next".to_owned(),
+            String::new(),
+            "終🙂".to_owned(),
+        ];
+        let cases = [
+            ((0, 2), Motion::BigWordForward, 1, false, (0, 9)),
+            ((0, 2), Motion::BigWordEnd, 1, false, (0, 7)),
+            ((0, 11), Motion::BigWordBack, 2, false, (0, 2)),
+            ((0, 2), Motion::BigWordForward, 2, false, (1, 0)),
+            ((0, 9), Motion::BigWordForward, 1, true, (0, 13)),
+            ((2, 1), Motion::BigWordBack, 2, false, (1, 0)),
+            ((2, 1), Motion::BigWordBack, 3, false, (0, 9)),
+            ((0, 2), Motion::BigWordEnd, MAX_COUNT, false, (2, 2)),
+            ((0, 2), Motion::BigWordForward, 0, false, (0, 2)),
+        ];
+        for (start, motion, count, operator, expected) in cases {
+            assert_eq!(
+                big_word_target(&lines, start, motion, count, operator),
+                expected
+            );
+        }
     }
 
     #[test]
