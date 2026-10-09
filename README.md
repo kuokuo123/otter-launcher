@@ -31,15 +31,19 @@
 
 ## Overview
 
+> Since v0.8.0, otter-launcher has rebased its backend to ratatui, which is a breaking change. Read the [release note]() to know how to migrate the old config files.
+
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols.
 
-The core concept is making these behaviours possible:
+The core concept is making these behaviours possible with a TUI:
 
 - type "gg margaret thatcher" to google the lady in a web browser
 - "sh htop" to run htop in a terminal
 - "dc linux" to search the word linux with an online dictionary
 - "app" to launch application menu
 - etc.
+
+There's also a CLI usage. Running "otter-launcher gg maragaret" in command line will google it without entering the TUI.
 
 It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
@@ -51,10 +55,8 @@ It's recommended to setup a dedicated desktop app launcher as a module, like [fs
 - tab completion; tab again to undo completion
 - edit prompt in an external editor (vim, emacs, etc.)
 - url encoding for web searching
-- supporting ansi codes, chafa, sixel or kitty image protocol, etc.
-- overlay layer to show chafa image
+- show image through sixel or kitty graphics, or chafa symbols
 - cheat sheet
-- callback functions
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - cli mode to launch modules directly (eg. "otter-launcher app" to enter app menu directly)
 - minimalist, blazingly fast, keyboard-centric
@@ -114,7 +116,7 @@ The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/confi
 
 </div>
 
-All the available options are listed below.
+All the available options are listed here.
 
 ``` toml
 [general]
@@ -170,6 +172,7 @@ list_prefix_color = "reset"
 indicator_args = "" # shown for modules taking arguments
 indicator_bare = "" # for those not taking arguments
 indicator_color = "red"
+scrollbar = true
 # options for separator
 separator = true # draw a line between intput field and suggestion list; only affect list mode
 separator_label = "  otter "
@@ -491,6 +494,7 @@ separator = false
 prefix_padding = 3
 list_prefix = "  "
 selection_prefix = "  "
+scrollbar = false
 
 [image]
 padding = [1, 2, 0, 0]

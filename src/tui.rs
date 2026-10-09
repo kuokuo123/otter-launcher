@@ -9,7 +9,8 @@ use ratatui::{
     crossterm::{
         event::{
             self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
-            KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+            KeyModifiers, KeyboardEnhancementFlags, MouseButton, MouseEvent, MouseEventKind,
+            PushKeyboardEnhancementFlags,
         },
         execute,
     },
@@ -272,7 +273,11 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
 
     // The main loop
     let run_result = (|| -> io::Result<Option<String>> {
-        execute!(io::stdout(), EnableMouseCapture)?;
+        execute!(
+            io::stdout(),
+            EnableMouseCapture,
+            PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+        )?;
 
         loop {
             // Comparing the lines also catches edits made by Vim or an external editor.
@@ -395,6 +400,10 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     if key.modifiers.contains(KeyModifiers::ALT) {
                         let prefix = cfg.general.alternative_module.as_deref().unwrap_or("");
                         return Ok(Some(format!("{prefix} {}", textarea.lines().join("\n"))));
+                    }
+                    if key.modifiers.contains(KeyModifiers::SHIFT) {
+                        textarea.insert_newline();
+                        continue;
                     }
 
                     let module = suggestion_state

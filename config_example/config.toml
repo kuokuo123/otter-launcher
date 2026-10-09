@@ -72,6 +72,7 @@ list_prefix_color = "reset"
 indicator_args = "" # shown for modules taking arguments
 indicator_bare = "" # for those not taking arguments
 indicator_color = "red"
+scrollbar = true
 # options for separator
 separator = true # draw a line between intput field and suggestion list; only affect list mode
 separator_label = "  otter "
