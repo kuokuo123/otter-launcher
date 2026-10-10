@@ -28,10 +28,10 @@ impl Mode {
 
     pub fn cursor_style(&self) -> Style {
         let color = match self {
-            Self::Insert => Color::DarkGray,
-            _ => Color::Reset,
+            Self::Insert => Style::default().fg(Color::DarkGray),
+            _ => Style::default().fg(Color::Reset),
         };
-        Style::default().fg(color).add_modifier(Modifier::REVERSED)
+        color.add_modifier(Modifier::REVERSED)
     }
 }
 

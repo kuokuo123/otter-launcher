@@ -250,7 +250,12 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     textarea.set_cursor_line_style(Style::default());
     textarea.set_block(Mode::Insert.block());
     textarea.set_cursor_style(Mode::Insert.cursor_style());
-    textarea.set_selection_style(Style::default().fg(Color::Reset).bg(Color::DarkGray));
+    textarea.set_selection_style(
+        Style::default()
+            .fg(Color::DarkGray)
+            .bg(Color::Reset)
+            .add_modifier(Modifier::REVERSED),
+    );
 
     // Prepare editor settings
     let mut vim = Vim::new(Mode::Insert);
@@ -758,7 +763,10 @@ pub fn draw(
             .unwrap_or(textarea_area);
 
         if !inner.is_empty() {
-            let placeholder_style = Style::default().fg(Color::Black);
+            let placeholder_style = Style::default().fg(Color::Black).bg(Color::Reset);
+            let first_char_style = Style::default()
+                .bg(Color::Reset)
+                .add_modifier(Modifier::REVERSED);
             let buffer = frame.buffer_mut();
 
             buffer.set_stringn(
@@ -770,7 +778,7 @@ pub fn draw(
             );
 
             // Apply the current cursor style to the first character.
-            buffer[(inner.x, inner.y)].set_style(placeholder_style.patch(textarea.cursor_style()));
+            buffer[(inner.x, inner.y)].set_style(textarea.cursor_style().patch(first_char_style));
         }
     }
 
