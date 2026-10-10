@@ -89,7 +89,7 @@ impl Vim {
         }
     }
 
-    fn copy_to_clipboard(&mut self, textarea: &TextArea<'_>) {
+    pub fn copy_to_clipboard(&mut self, textarea: &TextArea<'_>) {
         let Some(clipboard) = self.clipboard.as_mut() else {
             return;
         };
@@ -100,7 +100,7 @@ impl Vim {
             .map(|err| err.to_string());
     }
 
-    fn load_clipboard(&mut self, textarea: &mut TextArea<'_>) {
+    pub fn load_clipboard(&mut self, textarea: &mut TextArea<'_>) {
         let Some(clipboard) = self.clipboard.as_mut() else {
             return;
         };

@@ -351,21 +351,37 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
 
             match (key.code, control) {
                 (KeyCode::Esc, _) if !vi_mode => return Ok(None),
-                (KeyCode::Char('c' | 'd'), true) => return Ok(None),
-                (KeyCode::Up, true) | (KeyCode::Char('k' | 'p'), true) => {
-                    match suggestion_mode == "list" {
-                        true => {
-                            select_up(
-                                &mut suggestion_state,
-                                visible_suggestions.len(),
-                                suggestion_direction,
-                            );
-                            continue;
-                        }
-                        false => (),
-                    }
+                (KeyCode::Char('c' | 'C'), true) => {
+                    textarea.copy();
+                    vim.copy_to_clipboard(&textarea);
+                    continue;
                 }
-                (KeyCode::Down, true) | (KeyCode::Char('j' | 'n'), true) => {
+                (KeyCode::Char('x' | 'X'), true) => {
+                    if !vi_mode {
+                        external_edit_pending = true;
+                    }
+                    textarea.cut();
+                    vim.copy_to_clipboard(&textarea);
+                    continue;
+                }
+                (KeyCode::Char('v' | 'V'), true) => {
+                    vim.load_clipboard(&mut textarea);
+                    textarea.paste();
+                    continue;
+                }
+                (KeyCode::Char('d'), true) => return Ok(None),
+                (KeyCode::Up | KeyCode::Char('k' | 'p'), true) => match suggestion_mode == "list" {
+                    true => {
+                        select_up(
+                            &mut suggestion_state,
+                            visible_suggestions.len(),
+                            suggestion_direction,
+                        );
+                        continue;
+                    }
+                    false => (),
+                },
+                (KeyCode::Down | KeyCode::Char('j' | 'n'), true) => {
                     match suggestion_mode == "list" {
                         true => {
                             select_down(
@@ -378,32 +394,28 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                         false => (),
                     }
                 }
-                (KeyCode::Up, _) => {
-                    match suggestion_mode == "list" && line_len <= 1 {
-                        true => {
-                            select_up(
-                                &mut suggestion_state,
-                                visible_suggestions.len(),
-                                suggestion_direction,
-                            );
-                            continue;
-                        }
-                        false => (),
+                (KeyCode::Up, false) => match suggestion_mode == "list" && line_len <= 1 {
+                    true => {
+                        select_up(
+                            &mut suggestion_state,
+                            visible_suggestions.len(),
+                            suggestion_direction,
+                        );
+                        continue;
                     }
-                }
-                (KeyCode::Down, _) => {
-                    match suggestion_mode == "list" && line_len <= 1 {
-                        true => {
-                            select_down(
-                                &mut suggestion_state,
-                                visible_suggestions.len(),
-                                suggestion_direction,
-                            );
-                            continue;
-                        }
-                        false => (),
+                    false => (),
+                },
+                (KeyCode::Down, false) => match suggestion_mode == "list" && line_len <= 1 {
+                    true => {
+                        select_down(
+                            &mut suggestion_state,
+                            visible_suggestions.len(),
+                            suggestion_direction,
+                        );
+                        continue;
                     }
-                }
+                    false => (),
+                },
                 (KeyCode::Tab, _) => {
                     if let Some(original) = tab_original.take() {
                         replace_input(&mut textarea, &original);
@@ -467,13 +479,10 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                         edit_externally(&mut terminal, &mut textarea)?;
                         continue;
                     }
-                    KeyCode::Char('x') => {
-                        external_edit_pending = true;
-                        continue;
-                    }
                     _ => {}
                 }
             }
+            external_edit_pending = false;
 
             let input: Input = key.into();
             if !vi_mode {
