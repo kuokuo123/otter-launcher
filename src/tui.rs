@@ -347,11 +347,12 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
             }
 
             let control = key.modifiers.contains(KeyModifiers::CONTROL);
+            let line_len = textarea.lines().len();
 
             match (key.code, control) {
                 (KeyCode::Esc, _) if !vi_mode => return Ok(None),
                 (KeyCode::Char('c' | 'd'), true) => return Ok(None),
-                (KeyCode::Up, _) | (KeyCode::Char('k' | 'p'), true) => {
+                (KeyCode::Up, true) | (KeyCode::Char('k' | 'p'), true) => {
                     match suggestion_mode == "list" {
                         true => {
                             select_up(
@@ -359,12 +360,12 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                                 visible_suggestions.len(),
                                 suggestion_direction,
                             );
+                            continue;
                         }
                         false => (),
                     }
-                    continue;
                 }
-                (KeyCode::Down, _) | (KeyCode::Char('j' | 'n'), true) => {
+                (KeyCode::Down, true) | (KeyCode::Char('j' | 'n'), true) => {
                     match suggestion_mode == "list" {
                         true => {
                             select_down(
@@ -372,10 +373,36 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                                 visible_suggestions.len(),
                                 suggestion_direction,
                             );
+                            continue;
                         }
                         false => (),
                     }
-                    continue;
+                }
+                (KeyCode::Up, _) => {
+                    match suggestion_mode == "list" && line_len <= 1 {
+                        true => {
+                            select_up(
+                                &mut suggestion_state,
+                                visible_suggestions.len(),
+                                suggestion_direction,
+                            );
+                            continue;
+                        }
+                        false => (),
+                    }
+                }
+                (KeyCode::Down, _) => {
+                    match suggestion_mode == "list" && line_len <= 1 {
+                        true => {
+                            select_down(
+                                &mut suggestion_state,
+                                visible_suggestions.len(),
+                                suggestion_direction,
+                            );
+                            continue;
+                        }
+                        false => (),
+                    }
                 }
                 (KeyCode::Tab, _) => {
                     if let Some(original) = tab_original.take() {
