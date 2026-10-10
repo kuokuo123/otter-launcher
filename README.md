@@ -23,8 +23,6 @@
 
 <div align="center">
 
-![fastfetch](./assets/fastfetch.png)
-
 ![cover_pic](./assets/cover.png)
 
 </div>
@@ -60,12 +58,6 @@ It's recommended to setup a dedicated desktop app launcher as a module, like [fs
 - customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
 - cli mode to launch modules directly (eg. "otter-launcher app" to enter app menu directly)
 - minimalist, blazingly fast, keyboard-centric
-
-<div align="center">
-
-![cover2](./assets/cover2.png)
-
-</div>
 
 ## Demo
 
