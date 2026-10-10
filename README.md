@@ -31,7 +31,7 @@
 
 ## Overview
 
-> Since v0.8.0, otter-launcher has rebased its backend to ratatui, which is a breaking change. Read the [release note]() to know how to migrate the old config files.
+> Since v0.8.0, otter-launcher has rebased its backend to ratatui, which is a breaking change. Read the [release note](https://github.com/kuokuo123/otter-launcher/releases/tag/v0.8.0) to know how to migrate the old config files.
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols.
 
@@ -314,6 +314,8 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
 ## Styling
 
 ### Banner
+
+<div align="center">
 
 ![Foot Config](./assets/foot.png)
 
