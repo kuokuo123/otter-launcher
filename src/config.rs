@@ -18,9 +18,10 @@ pub struct Config {
 #[derive(Deserialize, Default)]
 pub struct General {
     pub height: Option<u16>,
+    pub empty_module: Option<String>,
     pub default_module: Option<String>,
     pub alternative_module: Option<String>,
-    pub empty_module: Option<String>,
+    pub control_module: Option<String>,
     pub exec_cmd: Option<String>,
     pub vi_mode: Option<bool>,
     pub cheatsheet_entry: Option<String>,

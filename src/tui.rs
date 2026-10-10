@@ -401,6 +401,10 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                         let prefix = cfg.general.alternative_module.as_deref().unwrap_or("");
                         return Ok(Some(format!("{prefix} {}", textarea.lines().join("\n"))));
                     }
+                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                        let prefix = cfg.general.control_module.as_deref().unwrap_or("");
+                        return Ok(Some(format!("{prefix} {}", textarea.lines().join("\n"))));
+                    }
                     if key.modifiers.contains(KeyModifiers::SHIFT) {
                         textarea.insert_newline();
                         continue;
