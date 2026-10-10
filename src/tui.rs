@@ -250,6 +250,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     textarea.set_cursor_line_style(Style::default());
     textarea.set_block(Mode::Insert.block());
     textarea.set_cursor_style(Mode::Insert.cursor_style());
+    textarea.set_selection_style(Style::default().fg(Color::Reset).bg(Color::DarkGray));
 
     // Prepare editor settings
     let mut vim = Vim::new(Mode::Insert);
