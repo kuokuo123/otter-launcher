@@ -245,18 +245,6 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     let vi_mode = cfg.general.vi_mode.unwrap();
     let suggestion_mode = cfg.interface.suggestion_mode.as_deref().unwrap();
 
-    // Prepare the editor
-    let mut textarea = TextArea::default();
-    textarea.set_cursor_line_style(Style::default());
-    textarea.set_block(Mode::Insert.block());
-    textarea.set_cursor_style(Mode::Insert.cursor_style());
-    textarea.set_selection_style(
-        Style::default()
-            .fg(Color::DarkGray)
-            .bg(Color::Reset)
-            .add_modifier(Modifier::REVERSED),
-    );
-
     // Prepare editor settings
     let mut vim = Vim::new(Mode::Insert);
     let mut external_edit_pending = false;
@@ -268,6 +256,13 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     } else {
         ListDirection::TopToBottom
     };
+
+    // Prepare the editor
+    let mut textarea = TextArea::default();
+    textarea.set_cursor_line_style(Style::default());
+    textarea.set_block(Mode::Insert.block());
+    textarea.set_cursor_style(Mode::Insert.cursor_style());
+    textarea.set_selection_style(Mode::Insert.cursor_style());
 
     // Prepare viewport
     let mut terminal = ratatui::try_init_with_options(TerminalOptions {

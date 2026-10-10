@@ -27,11 +27,16 @@ impl Mode {
     }
 
     pub fn cursor_style(&self) -> Style {
+        let vi_mode = config().general.vi_mode.unwrap();
+        if vi_mode {
         let color = match self {
             Self::Insert => Style::default().fg(Color::DarkGray),
             _ => Style::default().fg(Color::Reset),
         };
         color.add_modifier(Modifier::REVERSED)
+        } else {
+            Style::default().fg(Color::Reset).bg(Color::Reset).add_modifier(Modifier::REVERSED)
+        }
     }
 }
 
