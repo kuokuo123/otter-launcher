@@ -10,26 +10,9 @@
 
 </div>
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Demo](#demo)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Integration](#integration)
-- [Styling](#styling)
-- [Sponsorship](#sponsorship)
-
-<div align="center">
-
-![cover_pic](./assets/cover.png)
-
-</div>
+> Since v0.8.0, otter-launcher has rebased its backend to ratatui, which is a breaking change. Read the [release note](https://github.com/kuokuo123/otter-launcher/releases/tag/v0.8.0) to know how to migrate the old config files.
 
 ## Overview
-
-> Since v0.8.0, otter-launcher has rebased its backend to ratatui, which is a breaking change. Read the [release note](https://github.com/kuokuo123/otter-launcher/releases/tag/v0.8.0) to know how to migrate the old config files.
 
 A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols.
 
@@ -44,6 +27,23 @@ The core concept is making these behaviours possible with a TUI:
 There's also a CLI usage. Running "otter-launcher gg maragaret" in command line will google it without entering the TUI.
 
 It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
+
+<div align="center">
+
+![cover_pic](./assets/cover.png)
+
+</div>
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Demo](#demo)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Integration](#integration)
+- [Styling](#styling)
+- [Sponsorship](#sponsorship)
 
 ## Features
 
