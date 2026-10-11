@@ -54,7 +54,7 @@ header_color = "blue"
 # options for input field
 prompt_sign = "> "
 prompt_sign_color = "blue"
-place_holder = "type & search"
+placeholder = "type & search"
 # options for selectable suggestions
 suggestion_mode = "list" # available options: list, hint
 suggestion_position = "bottom" # to the input field; options: top, bottom
