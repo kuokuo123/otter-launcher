@@ -24,7 +24,7 @@ The core concept is making these behaviours possible with a TUI:
 - "app" to launch application menu
 - etc.
 
-There's also a CLI usage. Running "otter-launcher gg maragaret" in command line will google it without entering the TUI.
+There's also a CLI usage. Running "otter-launcher gg maragaret thatcher" in command line will google without entering the TUI. With one otter config, you get a cli toolbox/scriptbox across different machines.
 
 It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
@@ -387,7 +387,7 @@ suggestion_mode = "hint"
 
 </div>
 
-Images should be rendered by otter-launcher, and "--pipe false" should be attached to fastfetch itself.
+Images should be rendered by otter-launcher as ratatui does not allow graphics passed through. Also, "--pipe false" should be attached to fastfetch to prevent colors being stripped in the pipeline.
 
 ``` toml
 [general]
