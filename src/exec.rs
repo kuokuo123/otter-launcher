@@ -261,10 +261,9 @@ fn header_script(template: &str, exec_cmd: Option<&str>) -> io::Result<String> {
             Ok(format!("printf '%s' \"{template}\""))
         }
 
-        _ => Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("header expansion is not implemented for shell: {shell}"),
-        )),
+        _ => {
+            Ok(format!("printf '%s' \"{template}\""))
+        }
     }
 }
 
