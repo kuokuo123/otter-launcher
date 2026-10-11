@@ -71,7 +71,7 @@ pub fn dispatch_prompt(prompt: String) -> bool {
     false
 }
 
-// Function to find module by a given prefix, used for default and empty module
+// Function to find module by a given prefix, used for default/empty/alternative/control module
 pub fn run_designated_module(prompt: String, prefix: &str) {
     if prefix.is_empty() {
         println!("{prompt}");
@@ -234,19 +234,58 @@ pub fn cheat_sheet() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+// Function to parse header based on the selected shell
+fn header_script(template: &str, exec_cmd: Option<&str>) -> io::Result<String> {
+    let program = exec_cmd
+        .unwrap_or("sh -c")
+        .split_whitespace()
+        .next()
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "general.exec_cmd must contain a program",
+            )
+        })?;
+
+    let shell = std::path::Path::new(program)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(program);
+
+    match shell {
+        "nu" | "nu.exe" => {
+            Ok(format!("print --no-newline $\"{template}\""))
+        }
+
+        "sh" | "bash" | "dash" | "ash" | "ksh" | "zsh" => {
+            Ok(format!("printf '%s' \"{template}\""))
+        }
+
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("header expansion is not implemented for shell: {shell}"),
+        )),
+    }
+}
+
+
+// Function to expand header
 pub fn expand_header(template: &str) -> Result<String, Box<dyn Error>> {
-    if !template.chars().any(|ch| matches!(ch, '$' | '`' | '\\')) {
+    // Include parentheses so Nu expressions trigger expansion too.
+    if !template
+        .chars()
+        .any(|ch| matches!(ch, '$' | '`' | '\\' | '(' | ')' | '{' | '}'))
+    {
         return Ok(template.to_owned());
     }
 
-    let mut delimiter = "_**_HDREND_#$_".to_owned();
-    while template.lines().any(|line| line == delimiter) {
-        delimiter.push('_');
-    }
-    let script = format!("cat <<{delimiter}\n{template}\n{delimiter}");
-
     let cfg = config();
-    let mut shell_cmd = shell_command(cfg.general.exec_cmd.as_deref(), &script, false)?;
+    let script = header_script(template, cfg.general.exec_cmd.as_deref())?;
+
+    let mut shell_cmd =
+        shell_command(cfg.general.exec_cmd.as_deref(), &script, false)?;
+
+    // Prepare some shell vars and envs.
     let interface_padding = cfg.interface.padding.unwrap();
     let image_padding = cfg.image.padding.unwrap();
     let columns = terminal_size()
@@ -290,7 +329,11 @@ mod tests {
         assert_eq!(command.get_program(), OsStr::new("bash"));
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),
-            vec![OsStr::new("--noprofile"), OsStr::new("-c"), OsStr::new(script)],
+            vec![
+                OsStr::new("--noprofile"),
+                OsStr::new("-c"),
+                OsStr::new(script)
+            ],
         );
     }
 
@@ -300,7 +343,12 @@ mod tests {
         assert_eq!(command.get_program(), OsStr::new("setsid"));
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),
-            vec![OsStr::new("-f"), OsStr::new("sh"), OsStr::new("-c"), OsStr::new("echo test")],
+            vec![
+                OsStr::new("-f"),
+                OsStr::new("sh"),
+                OsStr::new("-c"),
+                OsStr::new("echo test")
+            ],
         );
     }
 
