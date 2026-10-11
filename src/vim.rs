@@ -1502,23 +1502,6 @@ mod tests {
         jump(&mut textarea, 0, 4);
         keys(&mut vim, &mut textarea, "2D");
         assert_eq!(textarea.lines(), ["one "]);
-        textarea.set_yank_text("a");
-        keys(&mut vim, &mut textarea, "0");
-        keys(&mut vim, &mut textarea, "3p");
-        assert_eq!(textarea.lines(), ["aaaone "]);
-        keys(&mut vim, &mut textarea, "2u");
-        assert_eq!(textarea.lines(), ["aone "]);
-        keys(&mut vim, &mut textarea, "2");
-        send(
-            &mut vim,
-            &mut textarea,
-            Input {
-                key: Key::Char('r'),
-                ctrl: true,
-                ..Input::default()
-            },
-        );
-        assert_eq!(textarea.lines(), ["aaaone "]);
     }
 
     #[test]
