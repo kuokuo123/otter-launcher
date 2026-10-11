@@ -11,8 +11,8 @@ use std::{
     process::{Command, Stdio},
     sync::OnceLock,
 };
-use urlencoding::encode;
 use terminal_size::{Width, terminal_size};
+use urlencoding::encode;
 
 pub fn remove_ascii(text: &str) -> String {
     if !text.contains('\x1b') {
@@ -277,9 +277,7 @@ fn header_script(template: &str, exec_cmd: Option<&str>) -> io::Result<String> {
 
     match shell {
         "nu" | "nu.exe" => Ok(format!("print --no-newline $\"{template}\"")),
-
         "sh" | "bash" | "dash" | "ash" | "ksh" | "zsh" => Ok(format!("printf '%s' \"{template}\"")),
-
         _ => Ok(format!("printf '%s' \"{template}\"")),
     }
 }
@@ -357,10 +355,7 @@ mod tests {
         assert_eq!(command.get_program(), OsStr::new("sh"));
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),
-            vec![
-                OsStr::new("-c"),
-                OsStr::new("echo test")
-            ],
+            vec![OsStr::new("-c"), OsStr::new("echo test")],
         );
     }
 

@@ -12,12 +12,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     config::init_config(cli.config_path.as_deref())?;
     let cfg = config::config();
 
+    // Expand header
+    let expanded_header =
+        match exec::expand_header(cfg.interface.header.as_deref().unwrap_or_default()) {
+            Ok(expanded_header) => expanded_header,
+            Err(err) => {
+                // If failed, print error before initializing the TUI.
+                eprintln!("Header expansion failed; using literal header: {err}");
+                cfg.interface
+                    .header
+                    .as_deref()
+                    .unwrap_or_default()
+                    .to_owned()
+            }
+        };
+
     // Prepare header and suggested itmes accordingly
     let (suggestions, header): (Vec<&config::Module>, String) = if cli_arguments.is_none() {
-        (
-            cfg.modules.iter().collect(),
-            exec::expand_header(cfg.interface.header.as_deref().unwrap())?,
-        )
+        (cfg.modules.iter().collect(), expanded_header)
     } else {
         (Vec::new(), String::new())
     };
