@@ -7,11 +7,12 @@ use std::{
     borrow::Cow,
     error::Error,
     io::{self, BufWriter, Write},
+    os::unix::process::CommandExt,
     process::{Command, Stdio},
     sync::OnceLock,
 };
-use terminal_size::{Width, terminal_size};
 use urlencoding::encode;
+use terminal_size::{Width, terminal_size};
 
 pub fn remove_ascii(text: &str) -> String {
     if !text.contains('\x1b') {
@@ -112,13 +113,30 @@ fn execute_module(module: &Module, argument: Option<&str>) {
         None => module.cmd.to_owned(),
     };
 
-    if let Err(error) = shell_command(
-        config().general.exec_cmd.as_deref(),
-        &command,
-        module.unbind_proc.unwrap_or(false),
-    )
-    .and_then(|mut built_command| built_command.status())
-    {
+    let detached = module.unbind_proc.unwrap_or(false);
+    let result = (|| -> io::Result<()> {
+        let mut command = shell_command(config().general.exec_cmd.as_deref(), &command, detached)?;
+
+        if detached {
+            command
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+
+            let mut child = command.spawn()?;
+            std::thread::spawn(move || {
+                let _ = child.wait(); // Reap it if otter stays open in loop mode.
+            });
+        } else {
+            let status = command.status()?;
+            if !status.success() {
+                return Err(io::Error::other(format!("module exited with {status}")));
+            }
+        }
+        Ok(())
+    })();
+
+    if let Err(error) = result {
         eprintln!("Failed to execute module: {error}");
     }
 }
@@ -133,14 +151,19 @@ fn shell_command(exec_cmd: Option<&str>, script: &str, detached: bool) -> io::Re
         )
     })?;
 
-    let mut command = if detached {
-        let mut command = Command::new("setsid");
-        command.args(["-f", program]);
-        command
-    } else {
-        Command::new(program)
-    };
+    let mut command = Command::new(program);
     command.args(parts).arg(script);
+
+    if detached {
+        // SAFETY: The Linux raw backend performs the setsid syscall here
+        unsafe {
+            command.pre_exec(|| {
+                rustix::process::setsid()
+                    .map(|_| ())
+                    .map_err(|err| io::Error::from_raw_os_error(err.raw_os_error()))
+            });
+        }
+    }
     Ok(command)
 }
 
@@ -253,20 +276,13 @@ fn header_script(template: &str, exec_cmd: Option<&str>) -> io::Result<String> {
         .unwrap_or(program);
 
     match shell {
-        "nu" | "nu.exe" => {
-            Ok(format!("print --no-newline $\"{template}\""))
-        }
+        "nu" | "nu.exe" => Ok(format!("print --no-newline $\"{template}\"")),
 
-        "sh" | "bash" | "dash" | "ash" | "ksh" | "zsh" => {
-            Ok(format!("printf '%s' \"{template}\""))
-        }
+        "sh" | "bash" | "dash" | "ash" | "ksh" | "zsh" => Ok(format!("printf '%s' \"{template}\"")),
 
-        _ => {
-            Ok(format!("printf '%s' \"{template}\""))
-        }
+        _ => Ok(format!("printf '%s' \"{template}\"")),
     }
 }
-
 
 // Function to expand header
 pub fn expand_header(template: &str) -> Result<String, Box<dyn Error>> {
@@ -281,8 +297,7 @@ pub fn expand_header(template: &str) -> Result<String, Box<dyn Error>> {
     let cfg = config();
     let script = header_script(template, cfg.general.exec_cmd.as_deref())?;
 
-    let mut shell_cmd =
-        shell_command(cfg.general.exec_cmd.as_deref(), &script, false)?;
+    let mut shell_cmd = shell_command(cfg.general.exec_cmd.as_deref(), &script, false)?;
 
     // Prepare some shell vars and envs.
     let interface_padding = cfg.interface.padding.unwrap();
@@ -339,12 +354,10 @@ mod tests {
     #[test]
     fn detached_shell_wraps_the_same_program_and_arguments() {
         let command = shell_command(None, "echo test", true).unwrap();
-        assert_eq!(command.get_program(), OsStr::new("setsid"));
+        assert_eq!(command.get_program(), OsStr::new("sh"));
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),
             vec![
-                OsStr::new("-f"),
-                OsStr::new("sh"),
                 OsStr::new("-c"),
                 OsStr::new("echo test")
             ],

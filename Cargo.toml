@@ -21,3 +21,4 @@ arboard = { version = "3.6.1", default-features = false, features = ["wayland-da
 tempfile = "3.27.0"
 terminal_size = "0.4.4"
 unicode-width = "0.2.2"
+rustix = { version = "1.1", features = ["process"] }
