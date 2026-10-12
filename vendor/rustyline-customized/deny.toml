@@ -1,8 +1,0 @@
-[licenses]
-unused-allowed-license = "allow" # don't warn for unused licenses in this list
-allow = [
-    "BSL-1.0",
-    "MIT",
-    "Unicode-3.0",
-    "Zlib",
-]
