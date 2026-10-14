@@ -306,6 +306,8 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                 );
             })?;
 
+            let external_editor = std::mem::take(&mut external_edit_pending);
+
             // Keypress loop
             let key = match event::read()? {
                 Event::Key(key) => {
@@ -348,14 +350,34 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
             }
 
             let control = key.modifiers.contains(KeyModifiers::CONTROL);
+            let alt = key.modifiers.contains(KeyModifiers::ALT);
             let line_len = textarea.lines().len();
 
             match (key.code, control) {
-                (KeyCode::Esc, _) if !vi_mode => return Ok(None),
-                (KeyCode::Char('c' | 'C'), true) => {
-                    textarea.copy();
-                    vim.copy_to_clipboard(&textarea);
+                (KeyCode::Char('u'), true) if !vi_mode => {
+                    textarea.delete_line_by_head();
                     continue;
+                }
+                (KeyCode::Char('e'), true) if !vi_mode && external_editor => {
+                    edit_externally(&mut terminal, &mut textarea)?;
+                    continue;
+                }
+                (KeyCode::Esc, _) if !vi_mode => return Ok(None),
+                (KeyCode::Char('d'), true) => {
+                    if !vi_mode {
+                        return Ok(None);
+                    } else {
+                        continue;
+                    }
+                }
+                (KeyCode::Char('c'), true) => {
+                    if !vi_mode {
+                        textarea.copy();
+                        vim.copy_to_clipboard(&textarea);
+                        continue;
+                    } else {
+                        return Ok(None);
+                    }
                 }
                 (KeyCode::Char('x' | 'X'), true) => {
                     if !vi_mode {
@@ -365,12 +387,6 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     vim.copy_to_clipboard(&textarea);
                     continue;
                 }
-                (KeyCode::Char('v' | 'V'), true) => {
-                    vim.load_clipboard(&mut textarea);
-                    textarea.paste();
-                    continue;
-                }
-                (KeyCode::Char('d'), true) => return Ok(None),
                 (KeyCode::Up | KeyCode::Char('k' | 'p'), true) => match suggestion_mode == "list" {
                     true => {
                         select_up(
@@ -417,6 +433,99 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     }
                     false => (),
                 },
+                (KeyCode::Char('v'), _)
+                    if suggestion_mode == "list" && !vi_mode && line_len <= 1 =>
+                {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        continue;
+                    };
+
+                    let page = usize::from(view.list_area.height).max(1);
+                    let last = view.item_count.saturating_sub(1);
+                    let max_offset = view.item_count.saturating_sub(page);
+                    let offset = suggestion_state.offset().min(max_offset);
+
+                    let forward = matches!(
+                        (key.code, view.direction, alt, control),
+                        (KeyCode::Char('v'), ListDirection::TopToBottom, false, true)
+                            | (KeyCode::Char('v'), ListDirection::BottomToTop, true, _)
+                    );
+                    let edge = if forward { last } else { 0 };
+
+                    let (selected, offset) = match suggestion_state.selected() {
+                        None => {
+                            let page_start = if forward {
+                                offset.saturating_add(page).min(max_offset)
+                            } else {
+                                max_offset
+                            };
+
+                            (Some(page_start), page_start)
+                        }
+                        Some(index) if index == edge => (None, 0),
+                        Some(index) if forward => (
+                            Some(index.saturating_add(page).min(last)),
+                            offset.saturating_add(page).min(max_offset),
+                        ),
+                        Some(index) => (
+                            Some(index.min(last).saturating_sub(page)),
+                            offset.saturating_sub(page),
+                        ),
+                    };
+
+                    suggestion_state.select(selected);
+                    *suggestion_state.offset_mut() = offset;
+                    tab_original = None;
+                    external_edit_pending = false;
+                    continue;
+                }
+                (KeyCode::PageUp | KeyCode::PageDown, _)
+                    if suggestion_mode == "list" && line_len <= 1 =>
+                {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        continue;
+                    };
+
+                    let page = usize::from(view.list_area.height).max(1);
+                    let last = view.item_count.saturating_sub(1);
+                    let max_offset = view.item_count.saturating_sub(page);
+                    let offset = suggestion_state.offset().min(max_offset);
+
+                    let forward = matches!(
+                        (key.code, view.direction),
+                        (KeyCode::PageDown, ListDirection::TopToBottom)
+                            | (KeyCode::PageUp, ListDirection::BottomToTop)
+                    );
+                    let edge = if forward { last } else { 0 };
+
+                    let (selected, offset) = match suggestion_state.selected() {
+                        None => {
+                            let page_start = if forward {
+                                offset.saturating_add(page).min(max_offset)
+                            } else {
+                                max_offset
+                            };
+
+                            (Some(page_start), page_start)
+                        }
+                        Some(index) if index == edge => (None, 0),
+                        Some(index) if forward => (
+                            Some(index.saturating_add(page).min(last)),
+                            offset.saturating_add(page).min(max_offset),
+                        ),
+                        Some(index) => (
+                            Some(index.min(last).saturating_sub(page)),
+                            offset.saturating_sub(page),
+                        ),
+                    };
+
+                    suggestion_state.select(selected);
+                    *suggestion_state.offset_mut() = offset;
+                    tab_original = None;
+                    external_edit_pending = false;
+                    continue;
+                }
+
                 (KeyCode::Tab, _) => {
                     if let Some(original) = tab_original.take() {
                         replace_input(&mut textarea, &original);
@@ -467,23 +576,6 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                 }
                 _ => {}
             }
-
-            if control && !vi_mode {
-                let external_editor = std::mem::take(&mut external_edit_pending);
-
-                match key.code {
-                    KeyCode::Char('u') => {
-                        textarea.delete_line_by_head();
-                        continue;
-                    }
-                    KeyCode::Char('e') if external_editor => {
-                        edit_externally(&mut terminal, &mut textarea)?;
-                        continue;
-                    }
-                    _ => {}
-                }
-            }
-            external_edit_pending = false;
 
             let input: Input = key.into();
             if !vi_mode {
