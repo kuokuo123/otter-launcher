@@ -134,7 +134,7 @@ impl Vim {
         self
     }
 
-    fn reset_command(&mut self) {
+    pub fn reset_command(&mut self) {
         self.count = None;
         self.operator_count = None;
         self.operator_start = None;

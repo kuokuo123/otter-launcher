@@ -27,9 +27,10 @@ use ratatui_image::{
     picker::{Picker, ProtocolType},
     protocol::StatefulProtocol,
 };
-use ratatui_textarea::{Input, TextArea};
+use ratatui_textarea::{Input, Key, TextArea};
 use std::{
     borrow::Cow,
+    collections::HashMap,
     error::Error,
     io,
     time::{Duration, Instant},
@@ -103,10 +104,7 @@ impl SuggestionMouseState {
     }
 }
 
-// Mouse interaction for the suggestion list rendered by the most recent draw.
-// Store the value returned by `draw()` and forward `Event::Mouse` to `handle_mouse()` along with a persistent `SuggestionMouseState`.
-// Enable Crossterm mouse capture while the TUI is active.
-// Each suggestion in this interface occupies one terminal row.
+// Mouse interaction for the suggestion list rendered by the most recent draw. Store the value returned by `draw()` and forward `Event::Mouse` to `handle_mouse()` along with a persistent `SuggestionMouseState`. Enable Crossterm mouse capture while the TUI is active. Each suggestion in this interface occupies one terminal row.
 #[derive(Debug, Clone, Copy)]
 pub struct SuggestionMouse {
     // Includes the scrollbar, allowing wheel scrolling over either area.
@@ -118,6 +116,80 @@ pub struct SuggestionMouse {
 }
 
 impl SuggestionMouse {
+    // Keep keyboard paging and Emacs-style paging on the same state transition.
+    fn page(&self, state: &mut ListState, forward: bool) {
+        if self.item_count == 0 || self.list_area.is_empty() {
+            return;
+        }
+
+        let page = usize::from(self.list_area.height);
+        let last = self.item_count - 1;
+        let max_offset = self.item_count.saturating_sub(page);
+        let offset = state.offset().min(max_offset);
+        let edge = if forward { last } else { 0 };
+
+        let (selected, offset) = match state.selected() {
+            None => {
+                let start = if forward {
+                    offset.saturating_add(page).min(max_offset)
+                } else {
+                    max_offset
+                };
+                (Some(start), start)
+            }
+            Some(index) if index == edge => (None, 0),
+            Some(index) if forward => (
+                Some(index.saturating_add(page).min(last)),
+                offset.saturating_add(page).min(max_offset),
+            ),
+            Some(index) => (
+                Some(index.min(last).saturating_sub(page)),
+                offset.saturating_sub(page),
+            ),
+        };
+
+        state.select(selected);
+        *state.offset_mut() = offset;
+    }
+
+    fn halfpage(&self, state: &mut ListState, forward: bool) {
+        if self.item_count == 0 || self.list_area.is_empty() {
+            return;
+        }
+
+        let visible_rows = usize::from(self.list_area.height);
+        let step = (visible_rows / 2).max(2);
+        let last = self.item_count - 1;
+
+        // Keep the final page filled whenever enough items exist.
+        let max_offset = self.item_count.saturating_sub(visible_rows);
+        let offset = state.offset().min(max_offset);
+        let edge = if forward { last } else { 0 };
+
+        let (selected, offset) = match state.selected() {
+            None if forward => {
+                let index = offset.saturating_add(step).min(last);
+                (Some(index), index.min(max_offset))
+            }
+            None => (Some(last), max_offset),
+
+            Some(index) if index == edge => (None, 0),
+
+            Some(index) if forward => (
+                Some(index.saturating_add(step).min(last)),
+                offset.saturating_add(step).min(max_offset),
+            ),
+
+            Some(index) => (
+                Some(index.min(last).saturating_sub(step)),
+                offset.saturating_sub(step),
+            ),
+        };
+
+        state.select(selected);
+        *state.offset_mut() = offset;
+    }
+
     // Single-click selects; double-click activates; wheel steps cycle selection.
     pub fn handle_mouse(
         &self,
@@ -244,6 +316,9 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     };
     let vi_mode = cfg.general.vi_mode.unwrap();
     let suggestion_mode = cfg.interface.suggestion_mode.as_deref().unwrap();
+    let list_mode = suggestion_mode == "list";
+    let mut render_cache = RenderCache::new(header, suggestions);
+    let mut suggestion_matcher = SuggestionMatcher::new(suggestions, list_mode);
 
     // Prepare editor settings
     let mut vim = Vim::new(Mode::Insert);
@@ -270,7 +345,9 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     })?;
     let mut viewport_bottom = 0;
     let mut matched_input: Vec<String> = Vec::new();
-    let mut visible_suggestions: Vec<&Module> = Vec::new();
+    let mut visible_suggestions = Vec::with_capacity(suggestions.len());
+    let mut suggestion_mouse = None;
+    let mut redraw = true;
 
     // The main loop
     let run_result = (|| -> io::Result<Option<String>> {
@@ -283,7 +360,8 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
         loop {
             // Comparing the lines also catches edits made by Vim or an external editor.
             if textarea.lines() != matched_input.as_slice() {
-                visible_suggestions = matching_suggestions(&textarea, suggestions);
+                suggestion_matcher.update(&textarea, &mut visible_suggestions);
+                redraw = true;
                 matched_input.resize_with(textarea.lines().len(), String::new);
                 for (cached, line) in matched_input.iter_mut().zip(textarea.lines()) {
                     cached.clone_from(line);
@@ -291,20 +369,21 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
             }
 
             normalize_selection(&mut suggestion_state, visible_suggestions.len());
-            let mut suggestion_mouse: Option<SuggestionMouse> = None;
-
-            // Draw the interface
-            terminal.draw(|frame| {
-                viewport_bottom = frame.area().bottom();
-                suggestion_mouse = draw(
-                    frame,
-                    image.as_mut(),
-                    &textarea,
-                    &visible_suggestions,
-                    &mut suggestion_state,
-                    header,
-                );
-            })?;
+            // Ignore releases and pointer movement without rebuilding the frame.
+            if redraw {
+                terminal.draw(|frame| {
+                    viewport_bottom = frame.area().bottom();
+                    suggestion_mouse = draw_cached(
+                        frame,
+                        image.as_mut(),
+                        &textarea,
+                        &visible_suggestions,
+                        &mut suggestion_state,
+                        &mut render_cache,
+                    );
+                })?;
+            }
+            redraw = true;
 
             let external_editor = std::mem::take(&mut external_edit_pending);
 
@@ -317,6 +396,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                 Event::Mouse(mouse) => {
                     let Some(view) = suggestion_mouse.as_ref() else {
                         suggestion_mouse_state.reset();
+                        redraw = false;
                         continue;
                     };
 
@@ -335,25 +415,117 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                             tab_original = None;
                             continue;
                         }
-                        SuggestionMouseAction::Ignored => continue,
+                        SuggestionMouseAction::Ignored => {
+                            redraw = false;
+                            continue;
+                        }
                     }
                 }
                 Event::Resize(..) => {
                     suggestion_mouse_state.reset();
                     continue;
                 }
-                _ => continue,
+                Event::FocusGained => continue,
+                _ => {
+                    redraw = false;
+                    continue;
+                }
             };
 
             if key.kind != KeyEventKind::Press {
+                redraw = false;
                 continue;
             }
 
             let control = key.modifiers.contains(KeyModifiers::CONTROL);
             let alt = key.modifiers.contains(KeyModifiers::ALT);
             let line_len = textarea.lines().len();
+            let menu_normal =
+                vi_mode && vim.mode == Mode::Normal && line_len <= 1 && list_mode && !alt;
 
             match (key.code, control) {
+                (KeyCode::Char('f' | 'b' | 'd' | 'u'), true) if menu_normal => {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        continue;
+                    };
+
+                    match key.code {
+                        KeyCode::Char('f') => {
+                            let forward = match view.direction {
+                                ListDirection::TopToBottom => true,
+                                _ => false,
+                            };
+                            view.page(&mut suggestion_state, forward);
+                            continue;
+                        }
+                        KeyCode::Char('b') => {
+                            let forward = match view.direction {
+                                ListDirection::TopToBottom => false,
+                                _ => true,
+                            };
+                            view.page(&mut suggestion_state, forward);
+                            continue;
+                        }
+                        KeyCode::Char('d') => {
+                            let forward = match view.direction {
+                                ListDirection::TopToBottom => true,
+                                _ => false,
+                            };
+                            view.halfpage(&mut suggestion_state, forward);
+                            continue;
+                        }
+                        KeyCode::Char('u') => {
+                            let forward = match view.direction {
+                                ListDirection::TopToBottom => false,
+                                _ => true,
+                            };
+                            view.halfpage(&mut suggestion_state, forward);
+                            continue;
+                        }
+                        _ => {}
+                    }
+
+                    vim.reset_command();
+                    tab_original = None;
+                    external_edit_pending = false;
+                    continue;
+                }
+                (KeyCode::Char('j' | 'k' | 'g' | 'G'), false)
+                    if menu_normal
+                        && (key.code != KeyCode::Char('g')
+                            || vim.pending.key == Key::Char('g')) =>
+                {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        continue;
+                    };
+                    match key.code {
+                        KeyCode::Char('j') => select_down(
+                            &mut suggestion_state,
+                            visible_suggestions.len(),
+                            suggestion_direction,
+                        ),
+                        KeyCode::Char('k') => select_up(
+                            &mut suggestion_state,
+                            visible_suggestions.len(),
+                            suggestion_direction,
+                        ),
+                        KeyCode::Char('g' | 'G') => {
+                            let last = (key.code == KeyCode::Char('G'))
+                                == (view.direction == ListDirection::TopToBottom);
+                            suggestion_state.select(if last {
+                                visible_suggestions.len().checked_sub(1)
+                            } else {
+                                None
+                            });
+                        }
+                        _ => {}
+                    }
+
+                    vim.reset_command();
+                    tab_original = None;
+                    external_edit_pending = false;
+                    continue;
+                }
                 (KeyCode::Char('u'), true) if !vi_mode => {
                     textarea.delete_line_by_head();
                     continue;
@@ -387,140 +559,52 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     vim.copy_to_clipboard(&textarea);
                     continue;
                 }
-                (KeyCode::Up | KeyCode::Char('k' | 'p'), true) => match suggestion_mode == "list" {
-                    true => {
-                        select_up(
-                            &mut suggestion_state,
-                            visible_suggestions.len(),
-                            suggestion_direction,
-                        );
-                        continue;
-                    }
-                    false => (),
-                },
-                (KeyCode::Down | KeyCode::Char('j' | 'n'), true) => {
-                    match suggestion_mode == "list" {
-                        true => {
-                            select_down(
-                                &mut suggestion_state,
-                                visible_suggestions.len(),
-                                suggestion_direction,
-                            );
-                            continue;
-                        }
-                        false => (),
-                    }
-                }
-                (KeyCode::Up, false) => match suggestion_mode == "list" && line_len <= 1 {
-                    true => {
-                        select_up(
-                            &mut suggestion_state,
-                            visible_suggestions.len(),
-                            suggestion_direction,
-                        );
-                        continue;
-                    }
-                    false => (),
-                },
-                (KeyCode::Down, false) => match suggestion_mode == "list" && line_len <= 1 {
-                    true => {
-                        select_down(
-                            &mut suggestion_state,
-                            visible_suggestions.len(),
-                            suggestion_direction,
-                        );
-                        continue;
-                    }
-                    false => (),
-                },
-                (KeyCode::Char('v'), _)
-                    if suggestion_mode == "list" && !vi_mode && line_len <= 1 =>
+                (KeyCode::Up | KeyCode::Char('k' | 'p'), true) | (KeyCode::Up, false)
+                    if list_mode && (control || line_len <= 1) =>
                 {
+                    select_up(
+                        &mut suggestion_state,
+                        visible_suggestions.len(),
+                        suggestion_direction,
+                    );
+                    continue;
+                }
+                (KeyCode::Down | KeyCode::Char('j' | 'n'), true) | (KeyCode::Down, false)
+                    if list_mode && (control || line_len <= 1) =>
+                {
+                    select_down(
+                        &mut suggestion_state,
+                        visible_suggestions.len(),
+                        suggestion_direction,
+                    );
+                    continue;
+                }
+                (KeyCode::Char('v'), _) if list_mode && !vi_mode && line_len <= 1 => {
                     let Some(view) = suggestion_mouse.as_ref() else {
                         continue;
                     };
-
-                    let page = usize::from(view.list_area.height).max(1);
-                    let last = view.item_count.saturating_sub(1);
-                    let max_offset = view.item_count.saturating_sub(page);
-                    let offset = suggestion_state.offset().min(max_offset);
 
                     let forward = matches!(
                         (key.code, view.direction, alt, control),
                         (KeyCode::Char('v'), ListDirection::TopToBottom, false, true)
                             | (KeyCode::Char('v'), ListDirection::BottomToTop, true, _)
                     );
-                    let edge = if forward { last } else { 0 };
-
-                    let (selected, offset) = match suggestion_state.selected() {
-                        None => {
-                            let page_start = if forward {
-                                offset.saturating_add(page).min(max_offset)
-                            } else {
-                                max_offset
-                            };
-
-                            (Some(page_start), page_start)
-                        }
-                        Some(index) if index == edge => (None, 0),
-                        Some(index) if forward => (
-                            Some(index.saturating_add(page).min(last)),
-                            offset.saturating_add(page).min(max_offset),
-                        ),
-                        Some(index) => (
-                            Some(index.min(last).saturating_sub(page)),
-                            offset.saturating_sub(page),
-                        ),
-                    };
-
-                    suggestion_state.select(selected);
-                    *suggestion_state.offset_mut() = offset;
+                    view.page(&mut suggestion_state, forward);
                     tab_original = None;
                     external_edit_pending = false;
                     continue;
                 }
-                (KeyCode::PageUp | KeyCode::PageDown, _)
-                    if suggestion_mode == "list" && line_len <= 1 =>
-                {
+                (KeyCode::PageUp | KeyCode::PageDown, _) if list_mode && line_len <= 1 => {
                     let Some(view) = suggestion_mouse.as_ref() else {
                         continue;
                     };
-
-                    let page = usize::from(view.list_area.height).max(1);
-                    let last = view.item_count.saturating_sub(1);
-                    let max_offset = view.item_count.saturating_sub(page);
-                    let offset = suggestion_state.offset().min(max_offset);
 
                     let forward = matches!(
                         (key.code, view.direction),
                         (KeyCode::PageDown, ListDirection::TopToBottom)
                             | (KeyCode::PageUp, ListDirection::BottomToTop)
                     );
-                    let edge = if forward { last } else { 0 };
-
-                    let (selected, offset) = match suggestion_state.selected() {
-                        None => {
-                            let page_start = if forward {
-                                offset.saturating_add(page).min(max_offset)
-                            } else {
-                                max_offset
-                            };
-
-                            (Some(page_start), page_start)
-                        }
-                        Some(index) if index == edge => (None, 0),
-                        Some(index) if forward => (
-                            Some(index.saturating_add(page).min(last)),
-                            offset.saturating_add(page).min(max_offset),
-                        ),
-                        Some(index) => (
-                            Some(index.min(last).saturating_sub(page)),
-                            offset.saturating_sub(page),
-                        ),
-                    };
-
-                    suggestion_state.select(selected);
-                    *suggestion_state.offset_mut() = offset;
+                    view.page(&mut suggestion_state, forward);
                     tab_original = None;
                     external_edit_pending = false;
                     continue;
@@ -615,14 +699,162 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     Ok(run_result?)
 }
 
-// Function that draws the interface
-pub fn draw(
+// Configured text and styles stay fixed for one TUI session. Keep owned ANSI text here and borrow its spans while building each frame's list items.
+struct RenderCache<'a> {
+    header: Paragraph<'static>,
+    header_height: u16,
+    prompt: Paragraph<'static>,
+    prompt_width: u16,
+    list: Option<ListRenderCache<'a>>,
+    separator: Option<(u16, Paragraph<'static>)>,
+}
+
+struct ListRenderCache<'a> {
+    selection_prefix: Vec<Span<'static>>,
+    list_prefix: Vec<Span<'static>>,
+    padded_prefixes: HashMap<&'a str, String>,
+    prefix_padding: usize,
+    prefix_style: Style,
+    description_style: Style,
+    indicator_style: Style,
+    highlight_style: Style,
+}
+
+impl<'a> RenderCache<'a> {
+    fn new(header: &str, suggestions: &[&'a Module]) -> Self {
+        let cfg = config();
+        let header_text = header.into_text().expect("failed to parse header ANSI");
+        let header_height = if header.is_empty() {
+            0
+        } else {
+            u16::try_from(header_text.lines.len()).unwrap_or(0)
+        };
+        let prompt_text = cfg
+            .interface
+            .prompt_sign
+            .as_deref()
+            .unwrap()
+            .into_text()
+            .expect("failed to parse prompt ANSI");
+        let prompt_width = u16::try_from(prompt_text.width()).unwrap_or(u16::MAX);
+
+        let list = (cfg.interface.suggestion_mode.as_deref() != Some("hint")).then(|| {
+            let prefix_padding = cfg.interface.prefix_padding.unwrap();
+            ListRenderCache {
+                selection_prefix: marker_spans(
+                    cfg.interface.selection_prefix.as_deref().unwrap(),
+                    Style::default().fg(parse_color(
+                        cfg.interface.selection_prefix_color.as_deref(),
+                        Color::Red,
+                    )),
+                ),
+                list_prefix: marker_spans(
+                    cfg.interface.list_prefix.as_deref().unwrap(),
+                    Style::default().fg(parse_color(
+                        cfg.interface.list_prefix_color.as_deref(),
+                        Color::Reset,
+                    )),
+                ),
+                padded_prefixes: suggestions
+                    .iter()
+                    .copied()
+                    .filter_map(|module| {
+                        let prefix = module.prefix.as_str();
+                        match padded_prefix(prefix, prefix_padding) {
+                            Cow::Owned(padded) => Some((prefix, padded)),
+                            Cow::Borrowed(_) => None,
+                        }
+                    })
+                    .collect(),
+                prefix_padding,
+                prefix_style: Style::default().fg(parse_color(
+                    cfg.interface.prefix_color.as_deref(),
+                    Color::Yellow,
+                )),
+                description_style: Style::default().fg(parse_color(
+                    cfg.interface.description_color.as_deref(),
+                    Color::Reset,
+                )),
+                indicator_style: Style::default().fg(parse_color(
+                    cfg.interface.indicator_color.as_deref(),
+                    Color::Red,
+                )),
+                highlight_style: if cfg.interface.inverse_selection.unwrap() {
+                    Style::default()
+                        .bg(Color::Black)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().add_modifier(Modifier::BOLD)
+                },
+            }
+        });
+
+        Self {
+            header: Paragraph::new(header_text).style(
+                Style::default()
+                    .fg(parse_color(
+                        cfg.interface.header_color.as_deref(),
+                        Color::Blue,
+                    ))
+                    .add_modifier(Modifier::BOLD),
+            ),
+            header_height,
+            prompt: Paragraph::new(prompt_text).style(
+                Style::default()
+                    .fg(parse_color(
+                        cfg.interface.prompt_sign_color.as_deref(),
+                        Color::Blue,
+                    ))
+                    .add_modifier(Modifier::BOLD),
+            ),
+            prompt_width,
+            list,
+            separator: None,
+        }
+    }
+
+    fn draw_separator(&mut self, frame: &mut Frame, area: Rect) {
+        if self.separator.as_ref().map(|(width, _)| *width) != Some(area.width) {
+            let cfg = config();
+            let label = cfg.interface.separator_label.as_deref().unwrap();
+            let width = usize::from(area.width.saturating_sub(1));
+            self.separator = Some((
+                area.width,
+                Paragraph::new(format!(
+                    "{label}{}",
+                    "─".repeat(width.saturating_sub(label.len())),
+                ))
+                .style(Style::default().fg(Color::DarkGray)),
+            ));
+        }
+        if let Some((_, separator)) = &self.separator {
+            frame.render_widget(separator, area);
+        }
+    }
+}
+
+fn marker_spans(marker: &str, style: Style) -> Vec<Span<'static>> {
+    let mut spans = marker
+        .into_text()
+        .expect("failed to parse marker ANSI")
+        .lines
+        .into_iter()
+        .next()
+        .map(|line| line.spans)
+        .unwrap_or_default();
+    for span in &mut spans {
+        span.style = style.patch(span.style);
+    }
+    spans
+}
+
+fn draw_cached(
     frame: &mut Frame,
     image: Option<&mut StatefulProtocol>,
     textarea: &TextArea<'_>,
     suggestions: &[&Module],
     suggestion_state: &mut ListState,
-    header: &str,
+    cache: &mut RenderCache<'_>,
 ) -> Option<SuggestionMouse> {
     // Prepare variables from config
     let cfg = config();
@@ -635,9 +867,6 @@ pub fn draw(
     let separator = cfg.interface.separator.unwrap();
     let indicator_with_arg = cfg.interface.indicator_args.as_deref().unwrap();
     let indicator_no_arg = cfg.interface.indicator_bare.as_deref().unwrap();
-    let prompt_sign = cfg.interface.prompt_sign.as_deref().unwrap();
-    let header_color = parse_color(cfg.interface.header_color.as_deref(), Color::Blue);
-    let prompt_sign_color = parse_color(cfg.interface.prompt_sign_color.as_deref(), Color::Blue);
 
     let [
         iface_pad_top,
@@ -754,13 +983,7 @@ pub fn draw(
         );
     }
 
-    // Prepare header
-    let header_text = header.into_text().expect("failed to parse header ANSI");
-    let header_height = if !header.is_empty() {
-        u16::try_from(header_text.lines.len()).unwrap_or(0)
-    } else {
-        0
-    };
+    let header_height = cache.header_height;
 
     // Form input field, separator area, and suggestion menu
     let content_height = u16::try_from(textarea.lines().len()).unwrap_or(u16::MAX);
@@ -799,46 +1022,16 @@ pub fn draw(
     };
 
     if !separator_area.is_empty() {
-        let label = cfg.interface.separator_label.as_deref().unwrap();
-        let separator_width = usize::from(separator_area.width.saturating_sub(1));
-        frame.render_widget(
-            Paragraph::new(format!(
-                "{label}{}",
-                "─".repeat(separator_width.saturating_sub(label.len())),
-            ))
-            .style(Style::default().fg(Color::DarkGray)),
-            separator_area,
-        );
+        cache.draw_separator(frame, separator_area);
     }
 
-    frame.render_widget(
-        Paragraph::new(header_text).style(
-            Style::default()
-                .fg(header_color)
-                .add_modifier(Modifier::BOLD),
-        ),
-        header_area,
-    );
-
-    // Parse the prompt once; ANSI escape codes do not contribute to its width.
-    let prompt_text = prompt_sign
-        .into_text()
-        .expect("failed to parse prompt ANSI");
-
-    let prompt_sign_width = u16::try_from(prompt_text.width()).unwrap_or(u16::MAX);
+    frame.render_widget(&cache.header, header_area);
 
     let [prefix_area, textarea_area] =
-        Layout::horizontal([Constraint::Length(prompt_sign_width), Constraint::Fill(1)])
+        Layout::horizontal([Constraint::Length(cache.prompt_width), Constraint::Fill(1)])
             .areas(input_area);
 
-    frame.render_widget(
-        Paragraph::new(prompt_text).style(
-            Style::default()
-                .fg(prompt_sign_color)
-                .add_modifier(Modifier::BOLD),
-        ),
-        prefix_area,
-    );
+    frame.render_widget(&cache.prompt, prefix_area);
 
     frame.render_widget(textarea, textarea_area);
 
@@ -882,42 +1075,9 @@ pub fn draw(
         return None;
     }
 
-    // List-specific options and styles are only needed in list mode.
-    let selection_prefix = cfg
-        .interface
-        .selection_prefix
-        .as_deref()
-        .unwrap()
-        .into_text()
-        .expect("");
-    let list_prefix = cfg
-        .interface
-        .list_prefix
-        .as_deref()
-        .unwrap()
-        .into_text()
-        .expect("");
-    let prefix_padding = cfg.interface.prefix_padding.unwrap();
-    let prefix_style = Style::default().fg(parse_color(
-        cfg.interface.prefix_color.as_deref(),
-        Color::Yellow,
-    ));
-    let description_style = Style::default().fg(parse_color(
-        cfg.interface.description_color.as_deref(),
-        Color::Reset,
-    ));
-    let indicator_style = Style::default().fg(parse_color(
-        cfg.interface.indicator_color.as_deref(),
-        Color::Red,
-    ));
-    let list_marker_style = Style::default().fg(parse_color(
-        cfg.interface.list_prefix_color.as_deref(),
-        Color::Reset,
-    ));
-    let selected_marker_style = Style::default().fg(parse_color(
-        cfg.interface.selection_prefix_color.as_deref(),
-        Color::Red,
-    ));
+    let Some(list) = cache.list.as_ref() else {
+        return None;
+    };
     let selected_index = suggestion_state.selected();
 
     // Form the suggestion items
@@ -931,36 +1091,35 @@ pub fn draw(
         };
 
         let marker = if selected {
-            &selection_prefix
+            &list.selection_prefix
         } else {
-            &list_prefix
+            &list.list_prefix
         };
 
-        let marker_style = if selected {
-            selected_marker_style
+        // Borrow cached ANSI text instead of cloning its owned strings per row.
+        let mut spans = Vec::with_capacity(marker.len() + 4);
+        spans.extend(
+            marker
+                .iter()
+                .map(|span| Span::styled(span.content.as_ref(), span.style)),
+        );
+        let raw_prefix = module.prefix.as_str();
+        let prefix = if list.prefix_padding == 0
+            || (raw_prefix.is_ascii() && raw_prefix.len() >= list.prefix_padding)
+        {
+            Cow::Borrowed(raw_prefix)
         } else {
-            list_marker_style
+            list.padded_prefixes
+                .get(raw_prefix)
+                .map(|prefix| Cow::Borrowed(prefix.as_str()))
+                .unwrap_or_else(|| padded_prefix(raw_prefix, list.prefix_padding))
         };
-
-        // Make ANSI color code compatible with marker
-        let mut spans: Vec<Span<'_>> = marker
-            .lines
-            .first()
-            .map(|line| line.spans.clone())
-            .unwrap_or_default();
-
-        for span in &mut spans {
-            span.style = marker_style.patch(span.style);
-        }
 
         spans.extend([
-            Span::styled(
-                padded_prefix(module.prefix.as_str(), prefix_padding),
-                prefix_style,
-            ),
+            Span::styled(prefix, list.prefix_style),
             Span::raw(" "),
-            Span::styled(indicator, indicator_style),
-            Span::styled(module.description.as_str(), description_style),
+            Span::styled(indicator, list.indicator_style),
+            Span::styled(module.description.as_str(), list.description_style),
         ]);
 
         ListItem::new(Line::from(spans))
@@ -985,16 +1144,9 @@ pub fn draw(
     } else {
         ListDirection::TopToBottom
     };
-    let inverse_selection = if cfg.interface.inverse_selection.unwrap() {
-        Style::default()
-            .bg(Color::Black)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().add_modifier(Modifier::BOLD)
-    };
     let suggestion_list = List::new(items)
         .direction(suggestion_direction)
-        .highlight_style(inverse_selection);
+        .highlight_style(list.highlight_style);
 
     frame.render_stateful_widget(suggestion_list, list_area, suggestion_state);
 
@@ -1054,14 +1206,22 @@ fn parse_color(value: Option<&str>, fallback: Color) -> Color {
 
 // Function to pad prefix with spaces
 fn padded_prefix(prefix: &str, width: usize) -> Cow<'_, str> {
-    if width == 0 || (prefix.is_ascii() && prefix.len() >= width) {
+    if width == 0 {
+        return Cow::Borrowed(prefix);
+    }
+    let length = if prefix.is_ascii() {
+        prefix.len()
+    } else {
+        prefix.chars().count()
+    };
+    if length >= width {
         Cow::Borrowed(prefix)
     } else {
         Cow::Owned(format!("{prefix:<width$}"))
     }
 }
 
-// Most command prefixes and descriptions are already lowercase ASCII. Keep the original Unicode conversion for every non-ASCII string.
+// Function turn texts to lowercase; keep unicode conversion for every non-ASCII string.
 fn lowercase(text: &str) -> Cow<'_, str> {
     if text.is_ascii() && !text.bytes().any(|byte| byte.is_ascii_uppercase()) {
         Cow::Borrowed(text)
@@ -1174,82 +1334,116 @@ fn draw_hint_mode(
     );
 }
 
-// Function to match user input with suggestions
-pub fn matching_suggestions<'a>(
-    textarea: &TextArea<'_>,
-    suggestions: &[&'a Module],
-) -> Vec<&'a Module> {
-    if suggestions.is_empty() {
-        return Vec::new();
+// Normalize immutable module text once and reuse fuzzy scoring buffers between input changes. The public matching helper below remains a one-shot wrapper.
+struct SearchModule<'a> {
+    module: &'a Module,
+    prefix: Cow<'a, str>,
+    description: Cow<'a, str>,
+}
+
+struct SuggestionMatcher<'a> {
+    modules: Vec<SearchModule<'a>>,
+    list_mode: bool,
+    matcher: SkimMatcherV2,
+    whole_input_matches: Vec<(i64, &'a Module)>,
+    first_word_matches: Vec<(i64, &'a Module)>,
+}
+
+impl<'a> SuggestionMatcher<'a> {
+    fn new(suggestions: &[&'a Module], list_mode: bool) -> Self {
+        Self {
+            modules: suggestions
+                .iter()
+                .copied()
+                .map(|module| SearchModule {
+                    module,
+                    prefix: lowercase(&module.prefix),
+                    description: if list_mode {
+                        lowercase(&module.description)
+                    } else {
+                        Cow::Borrowed(module.description.as_str())
+                    },
+                })
+                .collect(),
+            list_mode,
+            matcher: SkimMatcherV2::default(),
+            whole_input_matches: Vec::new(),
+            first_word_matches: Vec::new(),
+        }
     }
 
-    // A single-line input can be borrowed instead of joined into a new String.
-    let input: Cow<'_, str> = match textarea.lines() {
-        [line] => Cow::Borrowed(line.as_str()),
-        lines => Cow::Owned(lines.join(" ")),
-    };
-
-    if config().interface.suggestion_mode.as_deref().unwrap() != "list" {
-        let query = lowercase(input.split_whitespace().next().unwrap_or(""));
-        if query.is_empty() {
-            return suggestions.to_vec();
+    fn update(&mut self, textarea: &TextArea<'_>, matches: &mut Vec<&'a Module>) {
+        matches.clear();
+        self.whole_input_matches.clear();
+        self.first_word_matches.clear();
+        if self.modules.is_empty() {
+            return;
         }
 
-        return suggestions
-            .iter()
-            .copied()
-            .filter(|module| lowercase(&module.prefix).starts_with(query.as_ref()))
-            .collect();
-    }
-
-    let query = lowercase(input.as_ref());
-    let query_prefix = query.split_whitespace().next().unwrap_or("");
-    if query_prefix.is_empty() {
-        return suggestions.to_vec();
-    }
-
-    let query_is_first_word = query.as_ref() == query_prefix;
-    let matcher = SkimMatcherV2::default();
-    let mut prefix_matches = Vec::new();
-    let mut whole_input_matches: Vec<(i64, &'a Module)> = Vec::new();
-    let mut first_word_matches: Vec<(i64, &'a Module)> = Vec::new();
-
-    for module in suggestions.iter().copied() {
-        let prefix = lowercase(&module.prefix);
-
-        // Preserve prefix matches in their original order.
-        if prefix.starts_with(query_prefix) {
-            prefix_matches.push(module);
-            continue;
+        let input: Cow<'_, str> = match textarea.lines() {
+            [line] => Cow::Borrowed(line.as_str()),
+            lines => Cow::Owned(lines.join(" ")),
+        };
+        let query = if self.list_mode {
+            lowercase(input.as_ref())
+        } else {
+            lowercase(input.split_whitespace().next().unwrap_or(""))
+        };
+        let query_prefix = query.split_whitespace().next().unwrap_or("");
+        if query_prefix.is_empty() {
+            matches.extend(self.modules.iter().map(|entry| entry.module));
+            return;
         }
 
-        let description = lowercase(&module.description);
-        let whole_score = matcher
-            .fuzzy_match(prefix.as_ref(), query.as_ref())
-            .max(matcher.fuzzy_match(description.as_ref(), query.as_ref()));
-
-        if let Some(score) = whole_score {
-            whole_input_matches.push((score, module));
-            continue;
+        if !self.list_mode {
+            matches.extend(
+                self.modules
+                    .iter()
+                    .filter(|entry| entry.prefix.starts_with(query.as_ref()))
+                    .map(|entry| entry.module),
+            );
+            return;
         }
 
-        // A failed single-word query would produce the same failed score again.
-        if !query_is_first_word {
-            let first_word_score = matcher
-                .fuzzy_match(prefix.as_ref(), query_prefix)
-                .max(matcher.fuzzy_match(description.as_ref(), query_prefix));
-            if let Some(score) = first_word_score {
-                first_word_matches.push((score, module));
+        let query_is_first_word = query.as_ref() == query_prefix;
+        for entry in &self.modules {
+            if entry.prefix.starts_with(query_prefix) {
+                matches.push(entry.module);
+                continue;
+            }
+
+            let whole_score = self
+                .matcher
+                .fuzzy_match(entry.prefix.as_ref(), query.as_ref())
+                .max(
+                    self.matcher
+                        .fuzzy_match(entry.description.as_ref(), query.as_ref()),
+                );
+            if let Some(score) = whole_score {
+                self.whole_input_matches.push((score, entry.module));
+                continue;
+            }
+
+            if !query_is_first_word {
+                let first_word_score = self
+                    .matcher
+                    .fuzzy_match(entry.prefix.as_ref(), query_prefix)
+                    .max(
+                        self.matcher
+                            .fuzzy_match(entry.description.as_ref(), query_prefix),
+                    );
+                if let Some(score) = first_word_score {
+                    self.first_word_matches.push((score, entry.module));
+                }
             }
         }
-    }
 
-    // Stable sorting retains the original order when fuzzy scores tie.
-    whole_input_matches.sort_by(|a, b| b.0.cmp(&a.0));
-    first_word_matches.sort_by(|a, b| b.0.cmp(&a.0));
-    prefix_matches.extend(whole_input_matches.into_iter().map(|(_, module)| module));
-    prefix_matches.extend(first_word_matches.into_iter().map(|(_, module)| module));
-    prefix_matches
+        // Stable sorting retains configured order when fuzzy scores tie.
+        self.whole_input_matches.sort_by(|a, b| b.0.cmp(&a.0));
+        self.first_word_matches.sort_by(|a, b| b.0.cmp(&a.0));
+        matches.extend(self.whole_input_matches.iter().map(|&(_, module)| module));
+        matches.extend(self.first_word_matches.iter().map(|&(_, module)| module));
+    }
 }
 
 // Functions for item selection
@@ -1418,6 +1612,39 @@ mod suggestion_mouse_tests {
         } else {
             (MouseEventKind::ScrollUp, MouseEventKind::ScrollDown)
         }
+    }
+
+    #[test]
+    fn paging_keeps_endpoint_deselection_and_none_to_page_navigation() {
+        for direction in [ListDirection::TopToBottom, ListDirection::BottomToTop] {
+            let view = view(direction, 12);
+            let mut state = ListState::default();
+            for (forward, selected, offset) in [
+                (true, Some(4), 4),
+                (true, Some(8), 8),
+                (true, Some(11), 8),
+                (true, None, 0),
+                (false, Some(8), 8),
+                (false, Some(4), 4),
+                (false, Some(0), 0),
+                (false, None, 0),
+            ] {
+                view.page(&mut state, forward);
+                render(&view, &mut state);
+                assert_eq!(state.selected(), selected);
+                assert_eq!(state.offset(), offset);
+            }
+        }
+    }
+
+    #[test]
+    fn paging_to_a_partial_last_page_selects_its_first_item() {
+        let view = view(ListDirection::TopToBottom, 10);
+        let mut state = ListState::default();
+        view.page(&mut state, false);
+        render(&view, &mut state);
+        assert_eq!(state.selected(), Some(6));
+        assert_eq!(state.offset(), 6);
     }
 
     #[test]
@@ -1684,6 +1911,85 @@ mod suggestion_mouse_tests {
         }
         assert_eq!(state.offset(), 0);
         assert_eq!(state.selected(), Some(1));
+    }
+}
+
+#[cfg(test)]
+mod matching_cache_tests {
+    use super::*;
+
+    fn module(prefix: &str, description: &str) -> Module {
+        Module {
+            prefix: prefix.to_owned(),
+            description: description.to_owned(),
+            cmd: String::new(),
+            with_argument: Some(false),
+            url_encode: None,
+            unbind_proc: None,
+        }
+    }
+
+    #[test]
+    fn cached_matching_preserves_prefix_priority_ties_and_query_changes() {
+        let modules = [
+            module("y", "git"),
+            module("gizmo", "tools"),
+            module("git", "version control"),
+            module("x", "git"),
+        ];
+        let suggestions: Vec<_> = modules.iter().collect();
+        let mut matcher = SuggestionMatcher::new(&suggestions, true);
+        let mut matches = Vec::new();
+
+        for (input, expected) in [
+            ("gi", vec!["gizmo", "git", "y", "x"]),
+            ("git ignored", vec!["git", "y", "x"]),
+            ("zzzz", vec![]),
+            ("", vec!["y", "gizmo", "git", "x"]),
+        ] {
+            let textarea = TextArea::from([input]);
+            matcher.update(&textarea, &mut matches);
+            let prefixes: Vec<_> = matches
+                .iter()
+                .map(|module| module.prefix.as_str())
+                .collect();
+            assert_eq!(prefixes, expected, "input: {input:?}");
+        }
+    }
+
+    #[test]
+    fn cached_hint_matching_preserves_unicode_and_first_word_behavior() {
+        let modules = [module("SH", ""), module("開啟", ""), module("İx", "")];
+        let suggestions: Vec<_> = modules.iter().collect();
+        let mut matcher = SuggestionMatcher::new(&suggestions, false);
+        let mut matches = Vec::new();
+
+        for (input, expected) in [
+            ("SH argument", vec!["SH"]),
+            ("開", vec!["開啟"]),
+            ("I", vec!["İx"]),
+            ("", vec!["SH", "開啟", "İx"]),
+        ] {
+            let textarea = TextArea::from([input]);
+            matcher.update(&textarea, &mut matches);
+            let prefixes: Vec<_> = matches
+                .iter()
+                .map(|module| module.prefix.as_str())
+                .collect();
+            assert_eq!(prefixes, expected, "input: {input:?}");
+        }
+    }
+
+    #[test]
+    fn cached_markers_preserve_ansi_colors_and_first_line_only() {
+        let spans = marker_spans(
+            "\x1b[32m▌\x1b[0m \nignored",
+            Style::default().fg(Color::Red),
+        );
+        assert_eq!(spans[0].content.as_ref(), "▌");
+        assert_eq!(spans[0].style.fg, Some(Color::Green));
+        let text: String = spans.iter().map(|span| span.content.as_ref()).collect();
+        assert_eq!(text, "▌ ");
     }
 }
 
