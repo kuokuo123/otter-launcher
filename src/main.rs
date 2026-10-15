@@ -1,6 +1,7 @@
 mod config;
 mod exec;
 mod tui;
+mod list;
 mod vim;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
