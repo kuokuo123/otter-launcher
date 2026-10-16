@@ -238,7 +238,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
         )?;
 
         loop {
-            // Comparing the lines also catches edits made by Vim or an external editor.
+            // Compare the lines and catches edits made by Vim or an external editor.
             if textarea.lines() != matched_input.as_slice() {
                 suggestion_matcher.update(&textarea, &mut visible_suggestions);
                 matched_input.resize_with(textarea.lines().len(), String::new);
@@ -249,6 +249,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
 
             normalize_selection(&mut suggestion_state, visible_suggestions.len());
 
+            // (Re)Draw the interface.
             terminal.draw(|frame| {
                 viewport_bottom = frame.area().bottom();
                 suggestion_mouse = draw_cached(
@@ -261,11 +262,11 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                 );
             })?;
 
-            let external_editor = std::mem::take(&mut external_edit_pending);
-
-            // Keypress loop
+            // Read key events.
             let key = match event::read()? {
+                // Keyboard events
                 Event::Key(key) => key,
+                // Mouse events
                 Event::Mouse(mouse) => {
                     let Some(view) = suggestion_mouse.as_ref() else {
                         suggestion_mouse_state.reset();
@@ -302,6 +303,8 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                 }
             };
 
+            // Set up function keys.
+            let external_editor = std::mem::take(&mut external_edit_pending);
             let control = key.modifiers.contains(KeyModifiers::CONTROL);
             let alt = key.modifiers.contains(KeyModifiers::ALT);
             let line_len = textarea.lines().len();
