@@ -1,5 +1,5 @@
-use crate::list::*;
 use crate::config::*;
+use crate::list::*;
 use crate::vim::{Mode, Transition, Vim, edit_externally};
 
 use ansi_to_tui::IntoText;
@@ -9,8 +9,7 @@ use ratatui::{
     crossterm::{
         event::{
             self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
-            KeyModifiers, KeyboardEnhancementFlags,
-            PushKeyboardEnhancementFlags,
+            KeyModifiers, KeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
         },
         execute,
     },
@@ -27,13 +26,8 @@ use ratatui_image::{
     picker::{Picker, ProtocolType},
     protocol::StatefulProtocol,
 };
-use ratatui_textarea::{Input, Key, TextArea};
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    error::Error,
-    io,
-};
+use ratatui_textarea::{Input, Key, TextArea, CursorMove};
+use std::{borrow::Cow, collections::HashMap, error::Error, io};
 
 // Cache texts to save resources while building each frame's list item
 struct RenderCache<'a> {
@@ -168,7 +162,6 @@ impl<'a> RenderCache<'a> {
         }
     }
 }
-
 
 // Function to launch the TUI interface
 pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>, Box<dyn Error>> {
@@ -329,11 +322,11 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
             let control = key.modifiers.contains(KeyModifiers::CONTROL);
             let alt = key.modifiers.contains(KeyModifiers::ALT);
             let line_len = textarea.lines().len();
-            let menu_normal =
-                vi_mode && vim.mode == Mode::Normal && line_len <= 1 && list_mode && !alt;
+            let normal_mode =
+                vim.mode == Mode::Normal && line_len <= 1 && !alt;
 
             match (key.code, control) {
-                (KeyCode::Char('f' | 'b' | 'd' | 'u'), true) if menu_normal => {
+                (KeyCode::Char('f' | 'b' | 'd' | 'u'), true) if normal_mode => {
                     let Some(view) = suggestion_mouse.as_ref() else {
                         continue;
                     };
@@ -380,7 +373,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     continue;
                 }
                 (KeyCode::Char('j' | 'k' | 'g' | 'G'), false)
-                    if menu_normal
+                    if normal_mode
                         && (key.code != KeyCode::Char('g')
                             || vim.pending.key == Key::Char('g')) =>
                 {
@@ -527,24 +520,27 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                         let prefix = cfg.general.control_module.as_deref().unwrap_or("");
                         return Ok(Some(format!("{prefix} {}", textarea.lines().join("\n"))));
                     }
-                    if key.modifiers.contains(KeyModifiers::SHIFT) {
+                    if key.modifiers.contains(KeyModifiers::SHIFT) && vim.mode != Mode::Normal {
                         textarea.insert_newline();
                         continue;
                     }
 
-                    let module = suggestion_state
-                        .selected()
-                        .and_then(|index| visible_suggestions.get(index))
-                        .copied();
-
-                    match module {
-                        None => return Ok(Some(textarea.lines().join("\n"))),
-                        Some(module) if module.with_argument.unwrap_or(false) => {
-                            tab_original = Some(complete_input(&mut textarea, module));
-                            suggestion_state.select(None);
-                            continue;
+                    if vim.mode == Mode::Normal && suggestion_state.selected() == None {
+                        textarea.move_cursor(CursorMove::Down)
+                    } else {
+                        let module = suggestion_state
+                            .selected()
+                            .and_then(|index| visible_suggestions.get(index))
+                            .copied();
+                        match module {
+                            None => return Ok(Some(textarea.lines().join("\n"))),
+                            Some(module) if module.with_argument.unwrap_or(false) => {
+                                tab_original = Some(complete_input(&mut textarea, module));
+                                suggestion_state.select(None);
+                                continue;
+                            }
+                            Some(module) => return Ok(Some(module.prefix.clone())),
                         }
-                        Some(module) => return Ok(Some(module.prefix.clone())),
                     }
                 }
                 _ => {}

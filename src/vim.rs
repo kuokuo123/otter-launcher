@@ -693,7 +693,7 @@ impl Motion {
 }
 
 // Works with tuple cursors and newer TextArea versions' DataCursor type.
-fn cursor(textarea: &TextArea<'_>) -> Position {
+pub fn cursor(textarea: &TextArea<'_>) -> Position {
     let position = textarea.cursor();
     (position.0, position.1)
 }
@@ -724,7 +724,7 @@ fn at_word_end(textarea: &TextArea<'_>, big: bool) -> bool {
                 != (next.is_alphanumeric() || next == '_'))
 }
 
-fn jump(textarea: &mut TextArea<'_>, row: usize, col: usize) {
+pub fn jump(textarea: &mut TextArea<'_>, row: usize, col: usize) {
     textarea.move_cursor(CursorMove::Jump(
         u16::try_from(row).unwrap_or(u16::MAX),
         u16::try_from(col).unwrap_or(u16::MAX),
