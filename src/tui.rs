@@ -307,11 +307,12 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
             let external_editor = std::mem::take(&mut external_edit_pending);
             let control = key.modifiers.contains(KeyModifiers::CONTROL);
             let alt = key.modifiers.contains(KeyModifiers::ALT);
+            let shift = key.modifiers.contains(KeyModifiers::SHIFT);
             let line_len = textarea.lines().len();
-            let normal_mode = vim.mode == Mode::Normal && line_len <= 1 && !alt;
+            let vi_normal_mode = vim.mode == Mode::Normal && line_len <= 1;
 
             match (key.code, control) {
-                (KeyCode::Char('f' | 'b' | 'd' | 'u'), true) if normal_mode => {
+                (KeyCode::Char('f' | 'b' | 'd' | 'u'), true) if vi_normal_mode => {
                     let Some(view) = suggestion_mouse.as_ref() else {
                         continue;
                     };
@@ -358,7 +359,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     continue;
                 }
                 (KeyCode::Char('j' | 'k' | 'g' | 'G'), false)
-                    if normal_mode
+                    if vi_normal_mode
                         && (key.code != KeyCode::Char('g')
                             || vim.pending.key == Key::Char('g')) =>
                 {
@@ -392,6 +393,28 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     tab_original = None;
                     external_edit_pending = false;
                     continue;
+                }
+                (KeyCode::Char('.'), _) if !vi_mode && alt && shift && line_len <= 1 => {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        continue;
+                    };
+                    let last = view.direction == ListDirection::TopToBottom;
+                    suggestion_state.select(if last {
+                        visible_suggestions.len().checked_sub(1)
+                    } else {
+                        None
+                    });
+                }
+                (KeyCode::Char(','), _) if !vi_mode && alt && shift && line_len <= 1 => {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        continue;
+                    };
+                    let last = view.direction == ListDirection::BottomToTop;
+                    suggestion_state.select(if last {
+                        visible_suggestions.len().checked_sub(1)
+                    } else {
+                        None
+                    });
                 }
                 (KeyCode::Char('u'), true) if !vi_mode => {
                     textarea.delete_line_by_head();
