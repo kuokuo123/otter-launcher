@@ -8,8 +8,8 @@ use ratatui::{
     Frame, TerminalOptions, Viewport,
     crossterm::{
         event::{
-            self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
-            KeyModifiers, KeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+            self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers,
+            KeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
         },
         execute,
     },
@@ -26,7 +26,7 @@ use ratatui_image::{
     picker::{Picker, ProtocolType},
     protocol::StatefulProtocol,
 };
-use ratatui_textarea::{Input, Key, TextArea, CursorMove};
+use ratatui_textarea::{CursorMove, Input, Key, TextArea};
 use std::{borrow::Cow, collections::HashMap, error::Error, io};
 
 // Cache texts to save resources while building each frame's list item
@@ -228,7 +228,6 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     let mut matched_input: Vec<String> = Vec::new();
     let mut visible_suggestions = Vec::with_capacity(suggestions.len());
     let mut suggestion_mouse = None;
-    let mut redraw = true;
 
     // The main loop
     let run_result = (|| -> io::Result<Option<String>> {
@@ -242,7 +241,6 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
             // Comparing the lines also catches edits made by Vim or an external editor.
             if textarea.lines() != matched_input.as_slice() {
                 suggestion_matcher.update(&textarea, &mut visible_suggestions);
-                redraw = true;
                 matched_input.resize_with(textarea.lines().len(), String::new);
                 for (cached, line) in matched_input.iter_mut().zip(textarea.lines()) {
                     cached.clone_from(line);
@@ -251,34 +249,26 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
 
             normalize_selection(&mut suggestion_state, visible_suggestions.len());
 
-            // Ignore releases and pointer movement without rebuilding the frame.
-            if redraw {
-                terminal.draw(|frame| {
-                    viewport_bottom = frame.area().bottom();
-                    suggestion_mouse = draw_cached(
-                        frame,
-                        image.as_mut(),
-                        &textarea,
-                        &visible_suggestions,
-                        &mut suggestion_state,
-                        &mut render_cache,
-                    );
-                })?;
-            }
-            redraw = true;
+            terminal.draw(|frame| {
+                viewport_bottom = frame.area().bottom();
+                suggestion_mouse = draw_cached(
+                    frame,
+                    image.as_mut(),
+                    &textarea,
+                    &visible_suggestions,
+                    &mut suggestion_state,
+                    &mut render_cache,
+                );
+            })?;
 
             let external_editor = std::mem::take(&mut external_edit_pending);
 
             // Keypress loop
             let key = match event::read()? {
-                Event::Key(key) => {
-                    suggestion_mouse_state.reset();
-                    key
-                }
+                Event::Key(key) => key,
                 Event::Mouse(mouse) => {
                     let Some(view) = suggestion_mouse.as_ref() else {
                         suggestion_mouse_state.reset();
-                        redraw = false;
                         continue;
                     };
 
@@ -298,7 +288,6 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                             continue;
                         }
                         SuggestionMouseAction::Ignored => {
-                            redraw = false;
                             continue;
                         }
                     }
@@ -309,21 +298,14 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                 }
                 Event::FocusGained => continue,
                 _ => {
-                    redraw = false;
                     continue;
                 }
             };
 
-            if key.kind != KeyEventKind::Press {
-                redraw = false;
-                continue;
-            }
-
             let control = key.modifiers.contains(KeyModifiers::CONTROL);
             let alt = key.modifiers.contains(KeyModifiers::ALT);
             let line_len = textarea.lines().len();
-            let normal_mode =
-                vim.mode == Mode::Normal && line_len <= 1 && !alt;
+            let normal_mode = vim.mode == Mode::Normal && line_len <= 1 && !alt;
 
             match (key.code, control) {
                 (KeyCode::Char('f' | 'b' | 'd' | 'u'), true) if normal_mode => {
