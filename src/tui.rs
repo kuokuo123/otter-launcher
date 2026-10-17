@@ -310,82 +310,50 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                 }
             };
 
-            // Set up function keys.
             let external_editor = std::mem::take(&mut external_edit_pending);
             let control = key.modifiers.contains(KeyModifiers::CONTROL);
             let alt = key.modifiers.contains(KeyModifiers::ALT);
             let shift = key.modifiers.contains(KeyModifiers::SHIFT);
-            let line_len = textarea.lines().len();
-            let vi_normal_mode = vim.mode == Mode::Normal && line_len <= 1;
+            let single_line = textarea.lines().len() <= 1;
+            let vi_normal_mode =
+                vi_mode && list_mode && single_line && vim.mode == Mode::Normal;
 
-            match (key.code, control) {
-                (KeyCode::Char('f' | 'b' | 'd' | 'u'), true) if vi_normal_mode => {
+            // Suggestion navigation
+            let navigated = match (key.code, control) {
+                (KeyCode::Char(ch @ ('f' | 'b' | 'd' | 'u')), true) if vi_normal_mode => {
                     let Some(view) = suggestion_mouse.as_ref() else {
                         continue;
                     };
+                    let down = matches!(ch, 'f' | 'd');
+                    let forward = down == (view.direction == ListDirection::TopToBottom);
 
-                    match key.code {
-                        KeyCode::Char('f') => {
-                            let forward = match view.direction {
-                                ListDirection::TopToBottom => true,
-                                _ => false,
-                            };
-                            view.page(&mut suggestion_state, forward);
-                            continue;
-                        }
-                        KeyCode::Char('b') => {
-                            let forward = match view.direction {
-                                ListDirection::TopToBottom => false,
-                                _ => true,
-                            };
-                            view.page(&mut suggestion_state, forward);
-                            continue;
-                        }
-                        KeyCode::Char('d') => {
-                            let forward = match view.direction {
-                                ListDirection::TopToBottom => true,
-                                _ => false,
-                            };
-                            view.halfpage(&mut suggestion_state, forward);
-                            continue;
-                        }
-                        KeyCode::Char('u') => {
-                            let forward = match view.direction {
-                                ListDirection::TopToBottom => false,
-                                _ => true,
-                            };
-                            view.halfpage(&mut suggestion_state, forward);
-                            continue;
-                        }
-                        _ => {}
+                    if matches!(ch, 'd' | 'u') {
+                        view.halfpage(&mut suggestion_state, forward);
+                    } else {
+                        view.page(&mut suggestion_state, forward);
                     }
-
-                    vim.reset_command();
-                    tab_original = None;
-                    external_edit_pending = false;
-                    continue;
+                    true
                 }
-                (KeyCode::Char('j' | 'k' | 'g' | 'G'), false)
-                    if vi_normal_mode
-                        && (key.code != KeyCode::Char('g')
-                            || vim.pending.key == Key::Char('g')) =>
+                (KeyCode::Char(ch @ ('j' | 'k' | 'g' | 'G')), false)
+                    if vi_normal_mode && (ch != 'g' || vim.pending.key == Key::Char('g')) =>
                 {
                     let Some(view) = suggestion_mouse.as_ref() else {
                         continue;
                     };
-                    match key.code {
-                        KeyCode::Char('j') => select_down(
+
+                    match ch {
+                        'j' => select_down(
                             &mut suggestion_state,
                             visible_suggestions.len(),
                             suggestion_direction,
                         ),
-                        KeyCode::Char('k') => select_up(
+                        'k' => select_up(
                             &mut suggestion_state,
                             visible_suggestions.len(),
                             suggestion_direction,
                         ),
-                        KeyCode::Char('g' | 'G') => {
-                            let last = (key.code == KeyCode::Char('G'))
+                        _ => {
+                            let last = (ch == 'G')
                                 == (view.direction == ListDirection::TopToBottom);
                             suggestion_state.select(if last {
                                 visible_suggestions.len().checked_sub(1)
@@ -393,36 +361,76 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                                 None
                             });
                         }
-                        _ => {}
                     }
+                    true
+                }
+                (KeyCode::Char(ch @ ('.' | ',')), _)
+                    if list_mode && !vi_mode && alt && shift && single_line =>
+                {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        continue;
+                    };
+                    let last = (ch == '.')
+                        == (view.direction == ListDirection::TopToBottom);
+                    suggestion_state.select(if last {
+                        visible_suggestions.len().checked_sub(1)
+                    } else {
+                        None
+                    });
+                    true
+                }
+                (KeyCode::Up | KeyCode::Char('k' | 'p'), true) | (KeyCode::Up, false)
+                    if list_mode && (control || single_line) =>
+                {
+                    select_up(
+                        &mut suggestion_state,
+                        visible_suggestions.len(),
+                        suggestion_direction,
+                    );
+                    true
+                }
+                (KeyCode::Down | KeyCode::Char('j' | 'n'), true) | (KeyCode::Down, false)
+                    if list_mode && (control || single_line) =>
+                {
+                    select_down(
+                        &mut suggestion_state,
+                        visible_suggestions.len(),
+                        suggestion_direction,
+                    );
+                    true
+                }
+                (KeyCode::Char('v'), _)
+                    if list_mode && !vi_mode && single_line && (control || alt) =>
+                {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        continue;
+                    };
+                    let down = !alt;
+                    let forward = down == (view.direction == ListDirection::TopToBottom);
+                    view.page(&mut suggestion_state, forward);
+                    true
+                }
+                (KeyCode::PageUp | KeyCode::PageDown, _) if list_mode && single_line => {
+                    let Some(view) = suggestion_mouse.as_ref() else {
+                        continue;
+                    };
+                    let down = key.code == KeyCode::PageDown;
+                    let forward = down == (view.direction == ListDirection::TopToBottom);
+                    view.page(&mut suggestion_state, forward);
+                    true
+                }
+                _ => false,
+            };
 
-                    vim.reset_command();
-                    tab_original = None;
-                    external_edit_pending = false;
-                    continue;
-                }
-                (KeyCode::Char('.'), _) if !vi_mode && alt && shift && line_len <= 1 => {
-                    let Some(view) = suggestion_mouse.as_ref() else {
-                        continue;
-                    };
-                    let last = view.direction == ListDirection::TopToBottom;
-                    suggestion_state.select(if last {
-                        visible_suggestions.len().checked_sub(1)
-                    } else {
-                        None
-                    });
-                }
-                (KeyCode::Char(','), _) if !vi_mode && alt && shift && line_len <= 1 => {
-                    let Some(view) = suggestion_mouse.as_ref() else {
-                        continue;
-                    };
-                    let last = view.direction == ListDirection::BottomToTop;
-                    suggestion_state.select(if last {
-                        visible_suggestions.len().checked_sub(1)
-                    } else {
-                        None
-                    });
-                }
+            // Clean-up for suggestion navigation
+            if navigated {
+                vim.reset_command();
+                tab_original = None;
+                external_edit_pending = false;
+                continue;
+            }
+
+            match (key.code, control) {
                 (KeyCode::Char('u'), true) if !vi_mode => {
                     textarea.delete_line_by_head();
                     continue;
@@ -431,14 +439,10 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     edit_externally(&mut terminal, &mut textarea)?;
                     continue;
                 }
-                (KeyCode::Esc, _) if !vi_mode => return Ok(None),
-                (KeyCode::Char('d'), true) => {
-                    if !vi_mode {
-                        return Ok(None);
-                    } else {
-                        continue;
-                    }
+                (KeyCode::Esc, _) | (KeyCode::Char('d'), true) if !vi_mode => {
+                    return Ok(None);
                 }
+                (KeyCode::Char('d'), true) => continue,
                 (KeyCode::Char('c'), true) => {
                     if !vi_mode {
                         textarea.copy();
@@ -456,57 +460,6 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     vim.copy_to_clipboard(&textarea);
                     continue;
                 }
-                (KeyCode::Up | KeyCode::Char('k' | 'p'), true) | (KeyCode::Up, false)
-                    if list_mode && (control || line_len <= 1) =>
-                {
-                    select_up(
-                        &mut suggestion_state,
-                        visible_suggestions.len(),
-                        suggestion_direction,
-                    );
-                    continue;
-                }
-                (KeyCode::Down | KeyCode::Char('j' | 'n'), true) | (KeyCode::Down, false)
-                    if list_mode && (control || line_len <= 1) =>
-                {
-                    select_down(
-                        &mut suggestion_state,
-                        visible_suggestions.len(),
-                        suggestion_direction,
-                    );
-                    continue;
-                }
-                (KeyCode::Char('v'), _) if list_mode && !vi_mode && line_len <= 1 => {
-                    let Some(view) = suggestion_mouse.as_ref() else {
-                        continue;
-                    };
-
-                    let forward = matches!(
-                        (key.code, view.direction, alt, control),
-                        (KeyCode::Char('v'), ListDirection::TopToBottom, false, true)
-                            | (KeyCode::Char('v'), ListDirection::BottomToTop, true, _)
-                    );
-                    view.page(&mut suggestion_state, forward);
-                    tab_original = None;
-                    external_edit_pending = false;
-                    continue;
-                }
-                (KeyCode::PageUp | KeyCode::PageDown, _) if list_mode && line_len <= 1 => {
-                    let Some(view) = suggestion_mouse.as_ref() else {
-                        continue;
-                    };
-
-                    let forward = matches!(
-                        (key.code, view.direction),
-                        (KeyCode::PageDown, ListDirection::TopToBottom)
-                            | (KeyCode::PageUp, ListDirection::BottomToTop)
-                    );
-                    view.page(&mut suggestion_state, forward);
-                    tab_original = None;
-                    external_edit_pending = false;
-                    continue;
-                }
-
                 (KeyCode::Tab, _) => {
                     if let Some(original) = tab_original.take() {
                         replace_input(&mut textarea, &original);
@@ -527,20 +480,20 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     continue;
                 }
                 (KeyCode::Enter, _) => {
-                    if key.modifiers.contains(KeyModifiers::ALT) {
+                    if alt {
                         let prefix = cfg.general.alternative_module.as_deref().unwrap_or("");
                         return Ok(Some(format!("{prefix} {}", textarea.lines().join("\n"))));
                     }
-                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                    if control {
                         let prefix = cfg.general.control_module.as_deref().unwrap_or("");
                         return Ok(Some(format!("{prefix} {}", textarea.lines().join("\n"))));
                     }
-                    if key.modifiers.contains(KeyModifiers::SHIFT) && vim.mode != Mode::Normal {
+                    if shift && vim.mode != Mode::Normal {
                         textarea.insert_newline();
                         continue;
                     }
 
-                    if vim.mode == Mode::Normal && suggestion_state.selected() == None {
+                    if vim.mode == Mode::Normal && suggestion_state.selected().is_none() {
                         textarea.move_cursor(CursorMove::Down)
                     } else {
                         let module = suggestion_state
