@@ -39,30 +39,30 @@ let
             ''
             [interface]
             # use three quotes to write longer codes
+            padding = [0, 1, 0, 1]
             header = """
-              \u001B[34;1m$USER@$(printf $HOSTNAME)\u001B[0m     \u001B[31m\u001B[0m $(mpstat | awk 'FNR ==4 {print $4}')
+              \u001B[34;1m$USER@$(printf $HOSTNAME)\u001B[0m
               """
-            header_cmd = ""
-            header_cmd_trimmed_lines = 0
-            place_holder = "otterly awesome"
+            header_color = "blue"
+            prompt_sign = "> "
+            prompt_sign_color = "blue"
+            placeholder = "type & search"
             suggestion_mode = "list"
-            separator = "                  \u001B[90mmodules ────────────────"
-            footer = ""
-            suggestion_lines = 3
-            list_prefix = "  "
-            selection_prefix = "\u001B[31;1m▌ "
+            suggestion_position = "bottom"
+            prefix_color = "yellow"
             prefix_padding = 3
-            default_module_message = "  \u001B[33msearch\u001B[0m the internet"
-            empty_module_message = ""
-            customized_list_order = false
-            indicator_with_arg_module = ""
-            indicator_no_arg_module = ""
-            prefix_color = "\u001B[33m"
-            description_color = "\u001B[39m"
-            place_holder_color = "\u001B[30m"
-            hint_color = "\u001B[30m"
-            move_interface_right = 16
-            move_interface_down = 1
+            description_color = "reset"
+            selection_prefix = "▌ "
+            selection_prefix_color = "red"
+            inverse_selection = true
+            list_prefix = "  "
+            list_prefix_color = "reset"
+            indicator_args = ""
+            indicator_bare = ""
+            indicator_color = "red"
+            scrollbar = true
+            separator = true
+            separator_label = "  otter "
             '';
         };
       };
