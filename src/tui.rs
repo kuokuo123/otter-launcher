@@ -196,6 +196,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
         None => None,
     };
     let vi_mode = cfg.general.vi_mode.unwrap();
+    let general_height = cfg.general.height.unwrap();
     let suggestion_mode = cfg.interface.suggestion_mode.as_deref().unwrap();
     let list_mode = suggestion_mode == "list";
     let mut render_cache = RenderCache::new(header, suggestions);
@@ -221,9 +222,15 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     textarea.set_selection_style(Mode::Insert.cursor_style());
 
     // Prepare viewport
-    let mut terminal = ratatui::try_init_with_options(TerminalOptions {
-        viewport: Viewport::Inline(cfg.general.height.unwrap()),
-    })?;
+    let mut terminal = if general_height > 0 {
+        ratatui::try_init_with_options(TerminalOptions {
+            viewport: Viewport::Inline(general_height),
+        })?
+    } else {
+        // fullscreen if height is zero
+        ratatui::try_init()?
+    };
+
     let mut viewport_bottom = 0;
     let mut matched_input: Vec<String> = Vec::new();
     let mut visible_suggestions = Vec::with_capacity(suggestions.len());

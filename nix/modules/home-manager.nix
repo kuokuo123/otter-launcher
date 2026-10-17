@@ -41,8 +41,7 @@ let
             # use three quotes to write longer codes
             padding = [0, 1, 0, 1]
             header = """
-              \u001B[34;1m$USER@$(printf $HOSTNAME)\u001B[0m
-              """
+              \u001B[34;1m$USER@$(printf $HOSTNAME)\u001B[0m"""
             header_color = "blue"
             prompt_sign = "> "
             prompt_sign_color = "blue"

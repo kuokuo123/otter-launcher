@@ -10,7 +10,7 @@
 
 </div>
 
-> Since v0.8.0, otter-launcher has rebased its backend to ratatui, which is a breaking change. Read the [release note](https://github.com/kuokuo123/otter-launcher/releases/tag/v0.8.0) to know how to migrate the old config files.
+> Since v0.8.0, otter-launcher has been rebased to ratatui, which is a breaking change. Read the [release note](https://github.com/kuokuo123/otter-launcher/releases/tag/v0.8.0) to know how to migrate the old config files.
 
 ## Overview
 
@@ -112,7 +112,7 @@ All the available options are listed here.
 
 ``` toml
 [general]
-height = 7 # the total lines that otter-launcher should occupy
+height = 7 # the total lines that otter-launcher should occupy; 0 to be fullscreen
 empty_module = "app" # module to run with an empty prompt
 default_module = "gg" # module to run when no module is matched
 alternative_module = "" # module to run with alt+enter
