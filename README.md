@@ -14,7 +14,7 @@
 
 ## Overview
 
-A very hackable app launcher, designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols.
+A hackable app launcher designed for keyboard-centric wm users. It is blazingly fast, supports vi and emacs keybinds, and can be decorated with ansi color codes, sixel or kitty image protocols.
 
 The core concept is making these behaviours possible with a TUI:
 
@@ -24,7 +24,7 @@ The core concept is making these behaviours possible with a TUI:
 - "app" to launch application menu
 - etc.
 
-There's also a CLI usage. Running "otter-launcher gg maragaret thatcher" in command line will google without entering the TUI. With one otter config, you get a CLI toolbox/scriptbox across different machines.
+There's also a CLI usage. Running "ot gg maragaret thatcher" will google the lady without entering the TUI. With one otter config, you get a CLI toolbox across different machines.
 
 It's recommended to setup a dedicated desktop app launcher as a module, like [fsel](https://github.com/Mjoyufull/fsel) or [sway-launcher-desktop](https://github.com/Biont/sway-launcher-desktop). Some helper scripts can be found in the [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib) folder, modules in [wiki](https://github.com/kuokuo123/otter-launcher/wiki).
 
@@ -47,17 +47,16 @@ It's recommended to setup a dedicated desktop app launcher as a module, like [fs
 
 ## Features
 
-- modularized to run different commands
-- vi and emacs keybinds
-- two suggestion modes: list & hint
-- tab completion; tab again to undo completion
-- edit prompt in an external editor (vim, emacs, etc.)
-- url encoding for web searching
-- show image through sixel or kitty graphics, or chafa symbols
-- cheat sheet
-- customizable shell by which programs are launched (sh -c, zsh -c, hyprctl dispatch exec, etc)
-- cli mode to launch modules directly (eg. "otter-launcher app" to enter app menu directly)
-- minimalist, blazingly fast, keyboard-centric
+- Modularized to run different commands.
+- Vi and emacs keybinds.
+- Two suggestion modes: list & hint.
+- Tab completion; tab again to undo completion.
+- Edit prompt in an external editor (vim, emacs, etc.).
+- Url encoding for web searching.
+- Show image through sixel or kitty graphics, or chafa symbols.
+- Cheat sheet.
+- Customizable shell by which programs are launched (sh -c, zsh -c, etc).
+- Cli mode to launch modules without Tui.
 
 ## Demo
 
@@ -98,7 +97,7 @@ sudo cp /tmp/otter-launcher/target/release/otter-launcher /usr/bin/
 
 ## Configuration
 
-Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml, which is included in the AUR installation. Use the '--config' or '-c' flag to specify your preferred path otherwise.
+Otter reads from $HOME/.config/otter-launcher/config.toml. If missing, it looks into /etc/otter-launcher/config.toml. Use the '--config' or '-c' flag to specify your preferred path otherwise.
 
 The [default config](https://github.com/kuokuo123/otter-launcher/tree/main/config_example/config.toml) comes only with a minimal setup. Check [more examples](https://github.com/kuokuo123/otter-launcher/wiki) for module setup, [styling](#styling) for image integration.
 
@@ -278,11 +277,11 @@ find $HOME -type d -not -path '*/.cache/*' 2>/dev/null | fzf --cycle --gutter ' 
 
 ## Integration
 
-Otter-launcher works well with tui programs and bash pipelines. Some tricktips:
+Otter works well with TUI programs and bash pipelines. Some tricktips:
 
-1. Use your wm's window rules to control window size; make it large enough to prevent a skewed layout.
+1. Use your WM's window rules to control window size.
 
-2. [[modules]].cmd can be scripted to adjust window sizes. For example:
+2. modules.cmd can be scripted to adjust window sizes. For example:
 
 ``` toml
 [[modules]]
@@ -301,7 +300,7 @@ cmd = "swaymsg [app_id=otter-launcher] resize set width 600 px height 300 px; pu
     - Mouse control: [wl-kbptr](https://github.com/moverest/wl-kbptr)
     - More on [Awesome TUIs](https://github.com/rothgar/awesome-tuis) or [Awesome Command Line(CLI/TUI) Programs](https://github.com/toolleeo/awesome-cli-apps-in-a-csv).
 
-4. To change external editor's window size , call a wrapper script at general.external_editor. Examples of such a wrapper are in [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib).
+4. To change external editor's window size , call a wrapper script at general.external_editor. Examples are in [contrib](https://github.com/kuokuo123/otter-launcher/tree/main/contrib).
 
 ## Styling
 
@@ -387,7 +386,7 @@ suggestion_mode = "hint"
 
 </div>
 
-Images should be rendered by otter-launcher as ratatui does not allow graphics passed through. Also, "--pipe false" should be attached to fastfetch to prevent colors being stripped in the pipeline.
+Images should be rendered by otter-launcher as ratatui does not allow graphics passed through. Also, "--pipe false" should be attached to fastfetch to prevent colors being stripped.
 
 ``` toml
 [general]
