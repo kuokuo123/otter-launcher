@@ -53,6 +53,7 @@ pub struct Interface {
     pub indicator_bare: Option<String>,
     pub indicator_args: Option<String>,
     pub indicator_color: Option<String>,
+    pub merge_default_module_suggestions: Option<bool>,
 }
 
 #[derive(Deserialize, Default)]
@@ -72,6 +73,10 @@ pub struct Module {
     pub with_argument: Option<bool>,
     pub url_encode: Option<bool>,
     pub unbind_proc: Option<bool>,
+    pub suggestions_cmd: Option<String>,
+    // Set on entries generated from the default module's suggestions_cmd
+    #[serde(skip)]
+    pub suggestion_target: Option<String>,
 }
 
 // Config related functions
@@ -144,6 +149,9 @@ impl Config {
         self.interface
             .selection_prefix_color
             .get_or_insert_with(|| "red".to_owned());
+        self.interface
+            .merge_default_module_suggestions
+            .get_or_insert(false);
 
         // Image defaults.
         self.image.format.get_or_insert_with(|| "symbol".to_owned());
