@@ -748,7 +748,10 @@ fn draw_cached(
             .unwrap_or(textarea_area);
 
         if !inner.is_empty() {
-            let placeholder_style = Style::default().fg(Color::Black).bg(Color::Reset);
+            let placeholder_style = Style::default().fg(parse_color(
+                    cfg.interface.placeholder_color.as_deref(),
+                    Color::Black,
+                )).bg(Color::Reset);
             let first_char_style = Style::default()
                 .bg(Color::Reset)
                 .add_modifier(Modifier::REVERSED);

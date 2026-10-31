@@ -37,6 +37,7 @@ pub struct Interface {
     pub prompt_sign_color: Option<String>,
     pub prompt_sign: Option<String>,
     pub placeholder: Option<String>,
+    pub placeholder_color: Option<String>,
     pub separator: Option<bool>,
     pub separator_label: Option<String>,
     pub scrollbar: Option<bool>,
@@ -104,6 +105,9 @@ impl Config {
             .prompt_sign_color
             .get_or_insert_with(|| "blue".to_owned());
         self.interface.placeholder.get_or_insert_with(|| "type and search".to_owned());
+        self.interface
+            .placeholder_color
+            .get_or_insert_with(|| "black".to_owned());
         self.interface.inverse_selection.get_or_insert_with(|| true);
         self.interface.separator.get_or_insert_with(|| true);
         self.interface
