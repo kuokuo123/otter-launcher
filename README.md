@@ -162,6 +162,7 @@ indicator_args = "" # shown for modules taking arguments
 indicator_bare = "" # for those not taking arguments
 indicator_color = "red"
 scrollbar = true
+merge_default_module_suggestions = false # list the output of suggestions_cmd from general.default_module
 # options for separator
 separator = true # draw a line between intput field and suggestion list; only affect list mode
 separator_label = "  otter "
@@ -186,6 +187,8 @@ with_argument = true
 url_encode = true
 # run cmd in a forked shell as opposed to as a child process (simply by prepending setsid -f to the configured cmd); useful for launching gui programs; taken as false if not explicitly set
 unbind_proc = true
+# only for general.default_module, when interface.merge_default_module_suggestions is true: a command printing one item per line, as "target" or "label<TAB>target"; the target of the chosen item is passed to {} in cmd
+# suggestions_cmd = "my-launch-targets"
 
 # fzf is needed to run below functions
 [[modules]]

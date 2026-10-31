@@ -235,6 +235,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
     let mut matched_input: Vec<String> = Vec::new();
     let mut visible_suggestions = Vec::with_capacity(suggestions.len());
     let mut suggestion_mouse = None;
+    let mut preselected = false;
 
     // The main loop
     let run_result = (|| -> io::Result<Option<String>> {
@@ -251,6 +252,18 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                 matched_input.resize_with(textarea.lines().len(), String::new);
                 for (cached, line) in matched_input.iter_mut().zip(textarea.lines()) {
                     cached.clone_from(line);
+                }
+
+                // Preselect the closest default module suggestion so that enter launches it
+                let suggestion_first = !textarea.is_empty()
+                    && visible_suggestions
+                        .first()
+                        .is_some_and(|module| module.suggestion_target.is_some());
+                if suggestion_first {
+                    suggestion_state.select(Some(0));
+                    preselected = true;
+                } else if std::mem::take(&mut preselected) {
+                    suggestion_state.select(None);
                 }
             }
 
@@ -293,6 +306,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                         }
                         SuggestionMouseAction::Selected | SuggestionMouseAction::Scrolled => {
                             tab_original = None;
+                            preselected = false;
                             continue;
                         }
                         SuggestionMouseAction::Ignored => {
@@ -426,6 +440,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
             if navigated {
                 vim.reset_command();
                 tab_original = None;
+                preselected = false;
                 external_edit_pending = false;
                 continue;
             }
@@ -1033,6 +1048,8 @@ mod matching_cache_tests {
             with_argument: Some(false),
             url_encode: None,
             unbind_proc: None,
+            suggestions_cmd: None,
+            suggestion_target: None,
         }
     }
 
@@ -1112,6 +1129,8 @@ mod tests {
             with_argument: Some(with_argument),
             url_encode: None,
             unbind_proc: None,
+            suggestions_cmd: None,
+            suggestion_target: None,
         }
     }
 
