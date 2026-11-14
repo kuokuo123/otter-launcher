@@ -697,7 +697,6 @@ fn draw_cached(
     let max_input_height = right
         .height
         .saturating_sub(header_height)
-        .saturating_sub(1)
         .max(3);
 
     let input_height = content_height.clamp(1, max_input_height);
