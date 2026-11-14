@@ -1,5 +1,4 @@
 use crate::config::*;
-use crate::exec;
 use crate::list::*;
 use crate::vim::{Mode, Transition, Vim, edit_externally};
 
@@ -147,25 +146,13 @@ impl<'a> RenderCache<'a> {
     fn draw_separator(&mut self, frame: &mut Frame, area: Rect) {
         if self.separator.as_ref().map(|(width, _)| *width) != Some(area.width) {
             let cfg = config();
-            let label = match exec::expand_header(
-                cfg.interface.separator_label.as_deref().unwrap_or_default(),
-            ) {
-                Ok(expanded_separator) => expanded_separator,
-                Err(err) => {
-                    eprintln!("Separator label expansion failed; using literal header: {err}");
-                    cfg.interface
-                        .separator_label
-                        .as_deref()
-                        .unwrap_or_default()
-                        .to_owned()
-                }
-            };
+            let label = cfg.interface.separator_label.as_deref().unwrap_or_default();
             let width = usize::from(area.width.saturating_sub(1));
             self.separator = Some((
                 area.width,
                 Paragraph::new(format!(
                     "{label}{}",
-                    "─".repeat(width.saturating_sub(label.len())),
+                    "─".repeat(width.saturating_sub(Line::from(label).width())),
                 ))
                 .style(Style::default().fg(parse_color(
                     cfg.interface.separator_color.as_deref(),
