@@ -25,6 +25,7 @@ use ratatui_image::{
     Resize, StatefulImage,
     picker::{Picker, ProtocolType},
     protocol::StatefulProtocol,
+    FilterType,
 };
 use ratatui_textarea::{CursorMove, Input, Key, TextArea};
 use std::{borrow::Cow, collections::HashMap, error::Error, io};
@@ -682,7 +683,7 @@ fn draw_cached(
             .inner(image_area);
 
         frame.render_stateful_widget(
-            StatefulImage::default().resize(Resize::Scale(None)),
+            StatefulImage::default().resize(Resize::Scale(Some(FilterType::Lanczos3))),
             inner_area,
             image,
         );
