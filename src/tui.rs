@@ -683,7 +683,7 @@ fn draw_cached(
             .inner(image_area);
 
         frame.render_stateful_widget(
-            StatefulImage::default().resize(Resize::Scale(Some(FilterType::Lanczos3))),
+            StatefulImage::default().resize(Resize::Scale(Some(FilterType::Triangle))),
             inner_area,
             image,
         );
