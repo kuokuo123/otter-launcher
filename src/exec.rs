@@ -27,7 +27,7 @@ pub fn remove_ascii(text: &str) -> String {
 }
 
 // Function to tell what to do with the prompt
-pub fn dispatch_prompt(prompt: String) -> bool {
+pub fn dispatch_prompt(prompt: String, default_suggestions: &[Module]) -> bool {
     let cfg = config();
     // Match the first input word with module prefixes
     let first_word = prompt.split_whitespace().next().unwrap_or("");
@@ -64,12 +64,106 @@ pub fn dispatch_prompt(prompt: String) -> bool {
         // Condition 3: when no module is matched, run the default module
         _ => {
             if let Some(prefix) = cfg.general.default_module.as_deref() {
+                // Pass the target of a matched default module suggestion instead of its label
+                let prompt = resolve_suggestion(&prompt, default_suggestions)
+                    .map(str::to_owned)
+                    .unwrap_or(prompt);
                 run_designated_module(prompt, prefix);
             }
         }
     }
 
     false
+}
+
+// Function to run the default module's suggestions_cmd and turn its output into list entries
+pub fn default_module_suggestions() -> Result<Vec<Module>, Box<dyn Error>> {
+    let cfg = config();
+    if !cfg.interface.merge_default_module_suggestions.unwrap() {
+        return Ok(Vec::new());
+    }
+
+    let default_module = cfg.general.default_module.as_deref().unwrap_or("");
+    let module = cfg
+        .modules
+        .iter()
+        .find(|module| remove_ascii(&module.prefix) == default_module)
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("general.default_module '{default_module}' matches no module prefix"),
+            )
+        })?;
+    let suggestions_cmd = module.suggestions_cmd.as_deref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("the default module '{default_module}' has no suggestions_cmd"),
+        )
+    })?;
+
+    let output =
+        shell_command(cfg.general.exec_cmd.as_deref(), suggestions_cmd, false)?.output()?;
+    if !output.status.success() {
+        return Err(io::Error::other(format!(
+            "suggestions_cmd exited with {}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr),
+        ))
+        .into());
+    }
+
+    Ok(parse_suggestions(&String::from_utf8_lossy(&output.stdout)))
+}
+
+// Each line is either a target, or a label and a target separated by a tab
+fn parse_suggestions(output: &str) -> Vec<Module> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            let (label, target) = line.split_once('\t').unwrap_or((line, line));
+            let label = remove_ascii(label.trim());
+            let target = target.trim();
+            if label.is_empty() || target.is_empty() {
+                return None;
+            }
+
+            Some(Module {
+                description: String::new(),
+                prefix: label,
+                cmd: String::new(),
+                with_argument: Some(false),
+                url_encode: Some(false),
+                unbind_proc: Some(false),
+                suggestions_cmd: None,
+                suggestion_target: Some(target.to_owned()),
+            })
+        })
+        .collect()
+}
+
+// Function to find the suggestion target named by a prompt, through its label or a unique part of it
+fn resolve_suggestion<'a>(prompt: &str, suggestions: &'a [Module]) -> Option<&'a str> {
+    let query = remove_ascii(prompt.trim()).to_lowercase();
+    if query.is_empty() {
+        return None;
+    }
+
+    let labels = || {
+        suggestions.iter().filter_map(|module| {
+            Some((
+                module.prefix.to_lowercase(),
+                module.suggestion_target.as_deref()?,
+            ))
+        })
+    };
+    if let Some((_, target)) = labels().find(|(label, _)| *label == query) {
+        return Some(target);
+    }
+
+    let mut partial = labels().filter(|(label, _)| label.contains(&query));
+    let (_, target) = partial.next()?;
+    partial.next().is_none().then_some(target)
 }
 
 // Function to find module by a given prefix, used for default/empty/alternative/control module
@@ -331,7 +425,7 @@ pub fn expand_header(template: &str) -> Result<String, Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Line, remove_ascii, shell_command};
+    use super::{Line, parse_suggestions, remove_ascii, resolve_suggestion, shell_command};
     use std::{ffi::OsStr, io};
 
     #[test]
@@ -370,5 +464,42 @@ mod tests {
         let prefix = "\x1b[31m検索\x1b[0m";
         assert_eq!(remove_ascii(prefix), "検索");
         assert_eq!(Line::raw(remove_ascii(prefix)).width(), 4);
+    }
+
+    #[test]
+    fn suggestions_accept_plain_and_tab_separated_lines() {
+        let suggestions = parse_suggestions(
+            "firefox\n\x1b[31mText Editor\x1b[0m\torg.gnome.TextEditor.desktop\n\n\t\n",
+        );
+        let parsed: Vec<_> = suggestions
+            .iter()
+            .map(|module| (module.prefix.as_str(), module.suggestion_target.as_deref()))
+            .collect();
+        assert_eq!(
+            parsed,
+            vec![
+                ("firefox", Some("firefox")),
+                ("Text Editor", Some("org.gnome.TextEditor.desktop")),
+            ],
+        );
+    }
+
+    #[test]
+    fn suggestions_resolve_by_label_or_unique_partial_match() {
+        let suggestions = parse_suggestions(
+            "Firefox\tfirefox.desktop\nFiles\tnautilus.desktop\nText Editor\tgedit.desktop\n",
+        );
+        assert_eq!(
+            resolve_suggestion("firefox ", &suggestions),
+            Some("firefox.desktop")
+        );
+        assert_eq!(
+            resolve_suggestion("edit", &suggestions),
+            Some("gedit.desktop")
+        );
+        // Ambiguous or unmatched prompts are passed to the default module unchanged.
+        assert_eq!(resolve_suggestion("fi", &suggestions), None);
+        assert_eq!(resolve_suggestion("weather", &suggestions), None);
+        assert_eq!(resolve_suggestion("  ", &suggestions), None);
     }
 }

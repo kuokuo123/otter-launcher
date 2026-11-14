@@ -28,9 +28,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
+    // Load suggestions from the default module, if enabled
+    let default_suggestions = exec::default_module_suggestions().unwrap_or_else(|err| {
+        eprintln!("Loading default module suggestions failed: {err}");
+        Vec::new()
+    });
+
     // Prepare header and suggested itmes accordingly
     let (suggestions, header): (Vec<&config::Module>, String) = if cli_arguments.is_none() {
-        (cfg.modules.iter().collect(), expanded_header)
+        (
+            cfg.modules.iter().chain(&default_suggestions).collect(),
+            expanded_header,
+        )
     } else {
         (Vec::new(), String::new())
     };
@@ -50,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         // Run modules by what is prompted
-        if !exec::dispatch_prompt(prompt) {
+        if !exec::dispatch_prompt(prompt, &default_suggestions) {
             return Ok(());
         }
     }
