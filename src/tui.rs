@@ -167,7 +167,10 @@ impl<'a> RenderCache<'a> {
                     "{label}{}",
                     "─".repeat(width.saturating_sub(label.len())),
                 ))
-                .style(Style::default().fg(Color::DarkGray)),
+                .style(Style::default().fg(parse_color(
+                    cfg.interface.separator_color.as_deref(),
+                    Color::DarkGray,
+                ))),
             ));
         }
         if let Some((_, separator)) = &self.separator {
