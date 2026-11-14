@@ -311,9 +311,11 @@ pub fn expand_header(template: &str) -> Result<String, Box<dyn Error>> {
         .unwrap_or_default()
         .to_string_lossy()
         .into_owned();
+    let module_num = cfg.modules.len();
 
     let output = shell_cmd
         .env("COLUMNS", columns.to_string())
+        .env("MODULES", module_num.to_string())
         .env("HOSTNAME", &hostname)
         .env("HOST", &hostname)
         .output()?;
