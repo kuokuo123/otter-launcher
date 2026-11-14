@@ -1,4 +1,5 @@
 use crate::config::*;
+use crate::exec;
 use crate::list::*;
 use crate::vim::{Mode, Transition, Vim, edit_externally};
 
@@ -22,10 +23,9 @@ use ratatui::{
     },
 };
 use ratatui_image::{
-    Resize, StatefulImage,
+    FilterType, Resize, StatefulImage,
     picker::{Picker, ProtocolType},
     protocol::StatefulProtocol,
-    FilterType,
 };
 use ratatui_textarea::{CursorMove, Input, Key, TextArea};
 use std::{borrow::Cow, collections::HashMap, error::Error, io};
@@ -147,7 +147,19 @@ impl<'a> RenderCache<'a> {
     fn draw_separator(&mut self, frame: &mut Frame, area: Rect) {
         if self.separator.as_ref().map(|(width, _)| *width) != Some(area.width) {
             let cfg = config();
-            let label = cfg.interface.separator_label.as_deref().unwrap();
+            let label = match exec::expand_header(
+                cfg.interface.separator_label.as_deref().unwrap_or_default(),
+            ) {
+                Ok(expanded_separator) => expanded_separator,
+                Err(err) => {
+                    eprintln!("Separator label expansion failed; using literal header: {err}");
+                    cfg.interface
+                        .separator_label
+                        .as_deref()
+                        .unwrap_or_default()
+                        .to_owned()
+                }
+            };
             let width = usize::from(area.width.saturating_sub(1));
             self.separator = Some((
                 area.width,
@@ -316,8 +328,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
             let alt = key.modifiers.contains(KeyModifiers::ALT);
             let shift = key.modifiers.contains(KeyModifiers::SHIFT);
             let single_line = textarea.lines().len() <= 1;
-            let vi_normal_mode =
-                vi_mode && list_mode && single_line && vim.mode == Mode::Normal;
+            let vi_normal_mode = vi_mode && list_mode && single_line && vim.mode == Mode::Normal;
 
             // Suggestion navigation
             let navigated = match (key.code, control) {
@@ -354,8 +365,8 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                             suggestion_direction,
                         ),
                         _ => {
-                            let last = (ch == 'G')
-                                == (view.direction == ListDirection::TopToBottom);
+                            let last =
+                                (ch == 'G') == (view.direction == ListDirection::TopToBottom);
                             suggestion_state.select(if last {
                                 visible_suggestions.len().checked_sub(1)
                             } else {
@@ -371,8 +382,7 @@ pub fn tui_loop(suggestions: &[&Module], header: &str) -> Result<Option<String>,
                     let Some(view) = suggestion_mouse.as_ref() else {
                         continue;
                     };
-                    let last = (ch == '.')
-                        == (view.direction == ListDirection::TopToBottom);
+                    let last = (ch == '.') == (view.direction == ListDirection::TopToBottom);
                     suggestion_state.select(if last {
                         visible_suggestions.len().checked_sub(1)
                     } else {
@@ -694,10 +704,7 @@ fn draw_cached(
     // Form input field, separator area, and suggestion menu
     let content_height = u16::try_from(textarea.lines().len()).unwrap_or(u16::MAX);
 
-    let max_input_height = right
-        .height
-        .saturating_sub(header_height)
-        .max(3);
+    let max_input_height = right.height.saturating_sub(header_height).max(3);
 
     let input_height = content_height.clamp(1, max_input_height);
 
@@ -748,10 +755,12 @@ fn draw_cached(
             .unwrap_or(textarea_area);
 
         if !inner.is_empty() {
-            let placeholder_style = Style::default().fg(parse_color(
+            let placeholder_style = Style::default()
+                .fg(parse_color(
                     cfg.interface.placeholder_color.as_deref(),
                     Color::Black,
-                )).bg(Color::Reset);
+                ))
+                .bg(Color::Reset);
             let first_char_style = Style::default()
                 .bg(Color::Reset)
                 .add_modifier(Modifier::REVERSED);
