@@ -49,7 +49,7 @@ gap=$(( COLUMNS - ${#left} - ${#right} ))
 (( gap < 0 )) && gap=0
 
 printf '\x1b[34;1m> \x1b[0m%s@%s%*s\x1b[31;1m> \x1b[0m%s  \x1b[33;1m> \x1b[0m%s' "$USER" "$HOSTNAME" "$gap" '' "$load" "$mem")"""
-# available [color options](https://docs.rs/ratatui/latest/ratatui/prelude/enum.Color.html)
+# available colors: https://docs.rs/ratatui/latest/ratatui/prelude/enum.Color.html
 header_color = "blue"
 # options for input field
 prompt_sign = "> "
@@ -74,6 +74,7 @@ scrollbar = true
 # options for separator
 separator = true # draw a line between intput field and suggestion list; only affect list mode
 separator_label = "  otter "
+separator_color = "darkgray"
 
 
 [image]
